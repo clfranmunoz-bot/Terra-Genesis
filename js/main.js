@@ -167,22 +167,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ========================================================
-    // BARRA DE TIEMPO GEOLÓGICO Y DERIVA TECTÓNICA (-250 A +250 Ma)
+    // ========================================================
+    // ESCALA DE TIEMPO GEOLÓGICO LATERAL DESPLEGABLE (-250 A +250 Ma)
     // ========================================================
     const sliderGeoTime = document.getElementById('slider-geological-time');
     const dispGeoTime = document.getElementById('disp-geological-time');
+    const dispSideTimePreview = document.getElementById('disp-side-time-preview');
     const btnPlayTimeline = document.getElementById('btn-play-timeline');
     const btnResetTimeline = document.getElementById('btn-reset-timeline');
     const epochChips = document.querySelectorAll('.epoch-chip');
+    const geologicalSideDrawer = document.getElementById('geological-side-drawer');
+    const btnToggleTimeDrawer = document.getElementById('btn-toggle-time-drawer');
+    const btnCloseTimeDrawer = document.getElementById('btn-close-time-drawer');
 
     let isTimelinePlaying = false;
     let timelinePlayDirection = 1;
 
+    // Desplegar / Plegar cajón de tiempo lateral
+    if (btnToggleTimeDrawer && geologicalSideDrawer) {
+        btnToggleTimeDrawer.addEventListener('click', () => {
+            geologicalSideDrawer.classList.remove('collapsed');
+        });
+    }
+    if (btnCloseTimeDrawer && geologicalSideDrawer) {
+        btnCloseTimeDrawer.addEventListener('click', () => {
+            geologicalSideDrawer.classList.add('collapsed');
+        });
+    }
+
     function applyGeologicalTimeline(ma) {
         const state = tectonics.setTimeMa(ma);
+        const sign = state.ma > 0 ? '+' : '';
         if (dispGeoTime) {
-            const sign = state.ma > 0 ? '+' : '';
             dispGeoTime.textContent = `${state.period} (${sign}${state.ma} Ma)`;
+        }
+        if (dispSideTimePreview) {
+            dispSideTimePreview.textContent = `${sign}${state.ma} Ma`;
         }
         displayEpoch.textContent = state.period;
         chronicleText.textContent = state.chronicle;
@@ -493,22 +513,57 @@ document.addEventListener('DOMContentLoaded', () => {
     // ========================================================
     toggleClouds.addEventListener('change', (e) => {
         viewer.setCloudsVisible(e.target.checked);
+        if (quickClouds) quickClouds.checked = e.target.checked;
     });
 
     toggleAtmosphere.addEventListener('change', (e) => {
         viewer.setAtmosphereVisible(e.target.checked);
+        if (quickAtmo) quickAtmo.checked = e.target.checked;
     });
 
     const toggleAuroras = document.getElementById('toggle-auroras');
     if (toggleAuroras) {
         toggleAuroras.addEventListener('change', (e) => {
             viewer.setAurorasVisible(e.target.checked);
+            if (quickAuroras) quickAuroras.checked = e.target.checked;
+        });
+    }
+
+    // Sincronización con barra rápida de capas
+    const quickClouds = document.getElementById('quick-toggle-clouds');
+    const quickAtmo = document.getElementById('quick-toggle-atmo');
+    const quickAuroras = document.getElementById('quick-toggle-auroras');
+    const quickLight = document.getElementById('quick-toggle-light');
+
+    if (quickClouds) {
+        quickClouds.addEventListener('change', (e) => {
+            toggleClouds.checked = e.target.checked;
+            viewer.setCloudsVisible(e.target.checked);
+        });
+    }
+    if (quickAtmo) {
+        quickAtmo.addEventListener('change', (e) => {
+            toggleAtmosphere.checked = e.target.checked;
+            viewer.setAtmosphereVisible(e.target.checked);
+        });
+    }
+    if (quickAuroras) {
+        quickAuroras.addEventListener('change', (e) => {
+            if (toggleAuroras) toggleAuroras.checked = e.target.checked;
+            viewer.setAurorasVisible(e.target.checked);
+        });
+    }
+    if (quickLight) {
+        quickLight.addEventListener('change', (e) => {
+            setGlobalLightMode(e.target.checked);
         });
     }
 
     btnNakedEarth.addEventListener('click', () => {
         toggleClouds.checked = false;
         toggleAtmosphere.checked = false;
+        if (quickClouds) quickClouds.checked = false;
+        if (quickAtmo) quickAtmo.checked = false;
         viewer.setCloudsVisible(false);
         viewer.setAtmosphereVisible(false);
         simulation.setParam('seaLevelOffset', -130);
@@ -519,8 +574,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnRestoreDefaults = document.getElementById('btn-restore-defaults');
     if (btnRestoreDefaults) {
         btnRestoreDefaults.addEventListener('click', () => {
-            const realPill = document.querySelector('.scenario-pill[data-scenario="real"]');
-            if (realPill) realPill.click();
+            resetAllParametersToDefault();
         });
     }
 
@@ -813,10 +867,314 @@ document.addEventListener('DOMContentLoaded', () => {
         simulation.applyScenario(newId);
     });
 
+    // ========================================================
+    // RESTABLECIMIENTO TOTAL DE TODOS LOS PARÁMETROS
+    // ========================================================
+    function resetAllParametersToDefault() {
+        // 1. Detener animaciones y eventos temporales
+        isTimelinePlaying = false;
+        if (btnPlayTimeline) {
+            btnPlayTimeline.textContent = '▶ ANIMAR DERIVA';
+            btnPlayTimeline.classList.remove('active-btn');
+        }
+        timelinePlayDirection = 1;
+
+        // 2. Escenario real en simulación
+        simulation.applyScenario('real');
+        simulation.manualSeaLevel = false;
+        simulation.craters = [];
+        simulation.meteorEvent.active = false;
+
+        // 3. Motores científicos
+        astrophysics.setObliquity(23.44);
+        astrophysics.setMoon(true);
+        astrophysics.setStarType('sun_g2v');
+        astrophysics.setTidalLock(false);
+        astrophysics.setMagneticField(1.0);
+        if (window.astrophysicsEngine) {
+            window.astrophysicsEngine.params.obliquityDeg = 23.44;
+            window.astrophysicsEngine.params.hasMoon = true;
+            window.astrophysicsEngine.params.starType = 'sun_g2v';
+            window.astrophysicsEngine.params.isTidallyLocked = false;
+            window.astrophysicsEngine.params.magneticField = 1.0;
+        }
+
+        geology.setThermostat(true);
+        geology.setOrogeny(1.0);
+        geology.setContinentalEpoch('modern');
+
+        astrobiology.setPigment('green');
+
+        // 4. Visor 3D y Capas
+        viewer.rotationSpeed = 1.0;
+        viewer.isRotationPaused = false;
+        viewer.setCloudsVisible(true);
+        viewer.setAtmosphereVisible(true);
+        viewer.setAurorasVisible(true);
+        setGlobalLightMode(false);
+        if (viewer.earthUniforms) {
+            viewer.earthUniforms.uGlobalLight.value = 0.0;
+            viewer.earthUniforms.uGeologicalMa.value = 0.0;
+        }
+
+        // 5. Restablecer controles de Astrofísica & Órbita
+        if (sliderOrbitalDist) sliderOrbitalDist.value = 1.00;
+        if (dispOrbitalDist) dispOrbitalDist.textContent = '1.00 UA';
+        if (subOrbitalDist) subOrbitalDist.textContent = 'Constante solar: 1361 W/m² (Insolación).';
+        if (sliderObliquity) sliderObliquity.value = 23;
+        if (dispObliquity) dispObliquity.textContent = '23.4°';
+        if (sliderRotationSpeed) sliderRotationSpeed.value = 24;
+        if (dispRotationSpeed) dispRotationSpeed.textContent = '24.0 h';
+        if (btnToggleRotation) {
+            btnToggleRotation.textContent = '⏸️ PAUSAR';
+            btnToggleRotation.classList.add('active-btn');
+        }
+        if (btnReverseRotation) btnReverseRotation.classList.remove('active-btn');
+        if (selectStarType) selectStarType.value = 'sun_g2v';
+        if (sliderMagneticField) sliderMagneticField.value = 1.0;
+        if (dispMagneticField) dispMagneticField.textContent = '1.0x';
+        if (toggleMoon) toggleMoon.checked = true;
+
+        // 6. Restablecer controles de Clima & Atmósfera
+        if (sliderCo2) sliderCo2.value = 420;
+        if (dispCo2) dispCo2.textContent = '420 ppm';
+        if (sliderO2) sliderO2.value = 20.9;
+        if (dispO2) dispO2.textContent = '20.9 %';
+        if (sliderCh4) sliderCh4.value = 1.9;
+        if (dispCh4) dispCh4.textContent = '1.9 ppm';
+        if (sliderSo2) sliderSo2.value = 0;
+        if (dispSo2) dispSo2.textContent = '0 ppm';
+        if (sliderCloudDensity) sliderCloudDensity.value = 75;
+        if (dispCloudDensity) dispCloudDensity.textContent = '75 %';
+        if (sliderSurfacePressure) sliderSurfacePressure.value = 1.00;
+        if (dispSurfacePressure) dispSurfacePressure.textContent = '1.00 atm';
+
+        // 7. Restablecer controles de Geología & Silicatos
+        if (sliderSeaLevel) sliderSeaLevel.value = 0;
+        if (dispSliderSea) dispSliderSea.textContent = '+0 m';
+        if (floodImpactText) floodImpactText.textContent = 'Nivel costero estándar.';
+        if (sliderVolcanism) sliderVolcanism.value = 1.0;
+        if (dispVolcanism) dispVolcanism.textContent = '1.0x';
+        if (toggleThermostat) toggleThermostat.checked = true;
+        if (sliderErosion) sliderErosion.value = 4;
+        if (dispErosion) dispErosion.textContent = '4 %';
+        if (selectOceanPalette) selectOceanPalette.value = 'default';
+
+        // 8. Restablecer controles de Biosfera & Astrobiología
+        if (toggleLife) toggleLife.checked = true;
+        if (lifeStateText) lifeStateText.textContent = 'ACTIVA';
+        if (selectPigment) selectPigment.value = 'green';
+        if (toggleCivilization) toggleCivilization.checked = true;
+        if (sliderNightLights) sliderNightLights.value = 100;
+        if (dispNightLights) dispNightLights.textContent = '100 %';
+
+        // 9. Restablecer Capas & Toggles rápidos
+        if (toggleClouds) toggleClouds.checked = true;
+        if (toggleAtmosphere) toggleAtmosphere.checked = true;
+        const toggleAuroras = document.getElementById('toggle-auroras');
+        if (toggleAuroras) toggleAuroras.checked = true;
+        if (toggleGlobalLightCheck) toggleGlobalLightCheck.checked = false;
+        if (quickClouds) quickClouds.checked = true;
+        if (quickAtmo) quickAtmo.checked = true;
+        if (quickAuroras) quickAuroras.checked = true;
+        if (quickLight) quickLight.checked = false;
+
+        // 10. Restablecer Escala de Tiempo Geológico a Hoy (0 Ma)
+        if (sliderGeoTime) sliderGeoTime.value = 0;
+        applyGeologicalTimeline(0);
+        document.querySelectorAll('.epoch-chip').forEach(c => {
+            c.classList.toggle('active', c.getAttribute('data-ma') === '0');
+        });
+
+        // 11. Restablecer Escenarios y Escáner
+        document.querySelectorAll('.scenario-pill').forEach(p => {
+            p.classList.toggle('active', p.getAttribute('data-scenario') === 'real');
+        });
+
+        document.querySelectorAll('.scanner-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-view') === 'optical');
+        });
+        survey.setViewMode('optical');
+
+        // 12. Actualizar Telemetría
+        syncControlsFromSimulation('real');
+        updateTelemetryDisplay();
+    }
+
     btnReset.addEventListener('click', () => {
-        const realPill = document.querySelector('.scenario-pill[data-scenario="real"]');
-        if (realPill) realPill.click();
+        resetAllParametersToDefault();
     });
+
+    // ========================================================
+    // PERSONALIZADOR DE TELEMETRÍA (QUÉ VER Y ORDEN EN TIEMPO REAL)
+    // ========================================================
+    const btnConfigTelemetry = document.getElementById('btn-config-telemetry');
+    const telemetryCustomizer = document.getElementById('telemetry-customizer');
+    const telemetryGrid = document.getElementById('telemetry-grid-container');
+    const btnResetTelemetryOrder = document.getElementById('btn-reset-telemetry-order');
+
+    if (btnConfigTelemetry && telemetryCustomizer) {
+        btnConfigTelemetry.addEventListener('click', () => {
+            const isCollapsed = telemetryCustomizer.classList.toggle('collapsed');
+            btnConfigTelemetry.classList.toggle('active', !isCollapsed);
+        });
+    }
+
+    // 1. Visibilidad en tiempo real (Qué ver)
+    document.querySelectorAll('#telemetry-customizer input[data-card]').forEach(input => {
+        input.addEventListener('change', (e) => {
+            const cardId = e.target.getAttribute('data-card');
+            const card = document.getElementById(cardId);
+            if (card) {
+                card.style.display = e.target.checked ? '' : 'none';
+            }
+            e.target.closest('.customizer-chip').classList.toggle('active', e.target.checked);
+            saveTelemetrySettings();
+        });
+    });
+
+    // 2. Reordenar con botones [▲] y [▼]
+    function bindCardReorderButtons() {
+        document.querySelectorAll('.btn-card-up').forEach(btn => {
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                const card = btn.closest('.telemetry-card');
+                const prev = card.previousElementSibling;
+                if (prev && prev.classList.contains('telemetry-card')) {
+                    telemetryGrid.insertBefore(card, prev);
+                    saveTelemetrySettings();
+                }
+            };
+        });
+
+        document.querySelectorAll('.btn-card-down').forEach(btn => {
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                const card = btn.closest('.telemetry-card');
+                const next = card.nextElementSibling;
+                if (next && next.classList.contains('telemetry-card')) {
+                    telemetryGrid.insertBefore(next, card);
+                    saveTelemetrySettings();
+                }
+            };
+        });
+    }
+    bindCardReorderButtons();
+
+    // 3. Reordenar mediante Drag & Drop
+    let draggedCard = null;
+
+    document.querySelectorAll('.telemetry-card').forEach(card => {
+        card.addEventListener('dragstart', (e) => {
+            draggedCard = card;
+            card.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', card.id);
+        });
+
+        card.addEventListener('dragend', () => {
+            card.classList.remove('dragging');
+            document.querySelectorAll('.telemetry-card').forEach(c => c.classList.remove('drag-over'));
+            saveTelemetrySettings();
+        });
+
+        card.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (card !== draggedCard) {
+                card.classList.add('drag-over');
+            }
+        });
+
+        card.addEventListener('dragleave', () => {
+            card.classList.remove('drag-over');
+        });
+
+        card.addEventListener('drop', (e) => {
+            e.preventDefault();
+            card.classList.remove('drag-over');
+            if (draggedCard && card !== draggedCard) {
+                const allCards = Array.from(telemetryGrid.querySelectorAll('.telemetry-card'));
+                const draggedIdx = allCards.indexOf(draggedCard);
+                const targetIdx = allCards.indexOf(card);
+                if (draggedIdx < targetIdx) {
+                    telemetryGrid.insertBefore(draggedCard, card.nextSibling);
+                } else {
+                    telemetryGrid.insertBefore(draggedCard, card);
+                }
+                saveTelemetrySettings();
+            }
+        });
+    });
+
+    // 4. Guardar y Restaurar Configuración de Telemetría
+    const DEFAULT_TELEMETRY_ORDER = [
+        'card-temp',
+        'card-sea',
+        'card-thermostat',
+        'card-trophic',
+        'card-atmosphere',
+        'card-clade',
+        'card-chronicle'
+    ];
+
+    function saveTelemetrySettings() {
+        try {
+            if (!telemetryGrid) return;
+            const order = Array.from(telemetryGrid.querySelectorAll('.telemetry-card')).map(c => c.id);
+            const visibility = {};
+            document.querySelectorAll('#telemetry-customizer input[data-card]').forEach(inp => {
+                visibility[inp.getAttribute('data-card')] = inp.checked;
+            });
+            localStorage.setItem('terra_telemetry_order', JSON.stringify(order));
+            localStorage.setItem('terra_telemetry_visibility', JSON.stringify(visibility));
+        } catch (err) {}
+    }
+
+    function loadTelemetrySettings() {
+        try {
+            if (!telemetryGrid) return;
+            const savedOrder = JSON.parse(localStorage.getItem('terra_telemetry_order'));
+            if (savedOrder && Array.isArray(savedOrder)) {
+                savedOrder.forEach(id => {
+                    const card = document.getElementById(id);
+                    if (card && telemetryGrid) telemetryGrid.appendChild(card);
+                });
+            }
+            const savedVis = JSON.parse(localStorage.getItem('terra_telemetry_visibility'));
+            if (savedVis) {
+                Object.entries(savedVis).forEach(([id, isVisible]) => {
+                    const card = document.getElementById(id);
+                    const inp = document.querySelector(`#telemetry-customizer input[data-card="${id}"]`);
+                    if (card) card.style.display = isVisible ? '' : 'none';
+                    if (inp) {
+                        inp.checked = isVisible;
+                        inp.closest('.customizer-chip').classList.toggle('active', isVisible);
+                    }
+                });
+            }
+        } catch (err) {}
+    }
+    loadTelemetrySettings();
+
+    if (btnResetTelemetryOrder) {
+        btnResetTelemetryOrder.addEventListener('click', () => {
+            DEFAULT_TELEMETRY_ORDER.forEach(id => {
+                const card = document.getElementById(id);
+                if (card && telemetryGrid) {
+                    card.style.display = '';
+                    telemetryGrid.appendChild(card);
+                }
+                const inp = document.querySelector(`#telemetry-customizer input[data-card="${id}"]`);
+                if (inp) {
+                    inp.checked = true;
+                    inp.closest('.customizer-chip').classList.add('active');
+                }
+            });
+            localStorage.removeItem('terra_telemetry_order');
+            localStorage.removeItem('terra_telemetry_visibility');
+        });
+    }
 
     function syncControlsFromSimulation(scenarioKey) {
         const scen = window.SCENARIOS[scenarioKey];

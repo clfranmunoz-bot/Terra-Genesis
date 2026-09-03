@@ -85,38 +85,55 @@
             </div>
         </nav>
 
-        <!-- Dock Central Único: Línea Temporal Geodinámica + Modos de Escáner -->
-        <div id="geological-timeline-bar" class="glass-panel">
-            <div class="geo-top-row">
-                <div class="geo-title">
-                    <span class="geo-icon">⏳</span>
-                    <span class="geo-label">TIEMPO:</span>
+        <!-- Barra Flotante Superior de Modos de Escáner -->
+        <div id="scanner-view-bar" class="scanner-floating-pill glass-panel">
+            <span class="scanner-label">ESCÁNER:</span>
+            <button class="scanner-btn active" data-view="optical" title="Óptico Real">👁️ ÓPTICO</button>
+            <button class="scanner-btn" data-view="thermal" title="Térmico FLIR">🌡️ FLIR</button>
+            <button class="scanner-btn" data-view="ndvi" title="Biomasa NDVI">🌿 NDVI</button>
+            <button class="scanner-btn" data-view="magnetic" title="Escudo Magnético">🧲 MAG</button>
+            <button class="scanner-btn btn-global-light" id="btn-toggle-global-light" title="Iluminación 360° sin noche">☀️ LUZ 360°</button>
+        </div>
+
+        <!-- Escala de Tiempo Geológico Lateral Desplegable (-250 a +250 Ma) -->
+        <div id="geological-side-drawer" class="geo-side-drawer glass-panel collapsed">
+            <!-- Píldora / Tab visible cuando está plegado -->
+            <button id="btn-toggle-time-drawer" class="time-drawer-toggle-btn" title="Desplegar escala de tiempo geológico">
+                <span class="drawer-icon">⏳</span>
+                <span class="drawer-label">ESCALA TEMPORAL</span>
+                <span id="disp-side-time-preview" class="drawer-epoch-badge">0 Ma</span>
+                <span class="drawer-arrow" id="time-drawer-arrow">◀</span>
+            </button>
+
+            <!-- Contenido desplegado -->
+            <div class="geo-drawer-content" id="geo-drawer-content">
+                <div class="geo-drawer-header">
+                    <div class="geo-drawer-title">
+                        <span class="geo-icon">⏳</span>
+                        <span class="geo-label">TIEMPO GEODINÁMICO</span>
+                    </div>
+                    <button id="btn-close-time-drawer" class="geo-drawer-close-btn" title="Ocultar escala">✕</button>
+                </div>
+                <div class="geo-epoch-display">
+                    <span class="epoch-tag">ÉPOCA:</span>
                     <span id="disp-geological-time" class="geo-epoch-name">PRESENTE (0 Ma)</span>
                 </div>
-                <!-- Modos de Escáner integrados limpiamente sin superposiciones -->
-                <div id="scanner-view-bar">
-                    <button class="scanner-btn active" data-view="optical" title="Óptico Real">👁️ ÓPTICO</button>
-                    <button class="scanner-btn" data-view="thermal" title="Térmico FLIR">🌡️ FLIR</button>
-                    <button class="scanner-btn" data-view="ndvi" title="Biomasa NDVI">🌿 NDVI</button>
-                    <button class="scanner-btn" data-view="magnetic" title="Escudo Magnético">🧲 MAG</button>
-                    <button class="scanner-btn btn-global-light" id="btn-toggle-global-light" title="Iluminación 360° sin noche">☀️ LUZ 360°</button>
+                <div class="geo-slider-row">
+                    <span class="geo-limit">-250 Ma</span>
+                    <input type="range" id="slider-geological-time" min="-250" max="250" step="1" value="0">
+                    <span class="geo-limit">+250 Ma</span>
                 </div>
-                <div class="geo-actions">
-                    <button id="btn-play-timeline" class="geo-btn" title="Animar deriva continental">▶ ANIMAR</button>
-                    <button id="btn-reset-timeline" class="geo-btn" title="Volver a 0 Ma">↺ HOY</button>
+                <div class="geo-quick-epochs">
+                    <button class="epoch-chip" data-ma="-250">Pangea (-250)</button>
+                    <button class="epoch-chip" data-ma="-150">Jurásico (-150)</button>
+                    <button class="epoch-chip" data-ma="-66">K-Pg (-66)</button>
+                    <button class="epoch-chip active" data-ma="0">Hoy (0)</button>
+                    <button class="epoch-chip" data-ma="250">Pangea +250</button>
                 </div>
-            </div>
-            <div class="geo-slider-row">
-                <span class="geo-limit">-250 Ma</span>
-                <input type="range" id="slider-geological-time" min="-250" max="250" step="1" value="0">
-                <span class="geo-limit">+250 Ma</span>
-            </div>
-            <div class="geo-quick-epochs">
-                <button class="epoch-chip" data-ma="-250">Pangea (-250 Ma)</button>
-                <button class="epoch-chip" data-ma="-150">Jurásico (-150 Ma)</button>
-                <button class="epoch-chip" data-ma="-66">K-Pg (-66 Ma)</button>
-                <button class="epoch-chip active" data-ma="0">Presente (0 Ma)</button>
-                <button class="epoch-chip" data-ma="250">Pangea Ultima (+250 Ma)</button>
+                <div class="geo-drawer-actions">
+                    <button id="btn-play-timeline" class="geo-btn" title="Animar deriva continental">▶ ANIMAR DERIVA</button>
+                    <button id="btn-reset-timeline" class="geo-btn" title="Volver al presente">↺ HOY (0 Ma)</button>
+                </div>
             </div>
         </div>
 
@@ -135,17 +152,43 @@
             <div class="panel-header">
                 <h2><span class="icon">📊</span> TELEMETRÍA</h2>
                 <div class="header-tools">
-                    <span class="status-indicator live">EN VIVO</span>
+                    <button class="telemetry-config-btn" id="btn-config-telemetry" title="Personalizar visibilidad y orden">⚙️ CONFIG</button>
                     <button class="panel-collapse-btn" id="btn-collapse-left" title="Minimizar panel">◀</button>
                 </div>
             </div>
 
-            <div class="telemetry-grid">
+            <!-- Panel Desplegable de Personalización de Telemetría -->
+            <div id="telemetry-customizer" class="telemetry-customizer-drawer collapsed">
+                <div class="customizer-header">
+                    <span class="customizer-title">👁️ QUÉ VER EN TELEMETRÍA:</span>
+                    <button id="btn-reset-telemetry-order" class="btn-micro" title="Restablecer visibilidad y orden inicial">↺ RESTAURAR</button>
+                </div>
+                <div class="customizer-toggles">
+                    <label class="customizer-chip active"><input type="checkbox" checked data-card="card-temp"><span>🌡️ Temp</span></label>
+                    <label class="customizer-chip active"><input type="checkbox" checked data-card="card-sea"><span>🌊 Nivel Mar</span></label>
+                    <label class="customizer-chip active"><input type="checkbox" checked data-card="card-thermostat"><span>🪨 Silicatos</span></label>
+                    <label class="customizer-chip active"><input type="checkbox" checked data-card="card-trophic"><span>🦅 Trófica</span></label>
+                    <label class="customizer-chip active"><input type="checkbox" checked data-card="card-atmosphere"><span>🧪 Gases</span></label>
+                    <label class="customizer-chip active"><input type="checkbox" checked data-card="card-clade"><span>🧬 Dominio</span></label>
+                    <label class="customizer-chip active"><input type="checkbox" checked data-card="card-chronicle"><span>📜 Crónica</span></label>
+                </div>
+                <div class="customizer-hint">
+                    💡 Usa los botones <b>[▲] [▼]</b> o arrastra las tarjetas para reordenar en tiempo real.
+                </div>
+            </div>
+
+            <div class="telemetry-grid" id="telemetry-grid-container">
                 <!-- Temperatura Media -->
-                <div class="telemetry-card" id="card-temp">
+                <div class="telemetry-card" id="card-temp" draggable="true">
                     <div class="card-header">
                         <span class="card-title">TEMP. SUPERFICIAL MEDIA</span>
-                        <span id="val-temp" class="card-value">15.0 °C</span>
+                        <div class="card-header-actions">
+                            <span id="val-temp" class="card-value">15.0 °C</span>
+                            <div class="card-reorder-tools">
+                                <button class="btn-card-up" title="Subir">▲</button>
+                                <button class="btn-card-down" title="Bajar">▼</button>
+                            </div>
+                        </div>
                     </div>
                     <div class="gauge-bar-container">
                         <div id="bar-temp" class="gauge-bar" style="width: 50%;"></div>
@@ -154,10 +197,16 @@
                 </div>
 
                 <!-- Nivel del Mar e Inundación -->
-                <div class="telemetry-card" id="card-sea">
+                <div class="telemetry-card" id="card-sea" draggable="true">
                     <div class="card-header">
                         <span class="card-title">NIVEL DEL MAR RELATIVO</span>
-                        <span id="val-sea" class="card-value">+0 m</span>
+                        <div class="card-header-actions">
+                            <span id="val-sea" class="card-value">+0 m</span>
+                            <div class="card-reorder-tools">
+                                <button class="btn-card-up" title="Subir">▲</button>
+                                <button class="btn-card-down" title="Bajar">▼</button>
+                            </div>
+                        </div>
                     </div>
                     <div class="gauge-bar-container">
                         <div id="bar-sea" class="gauge-bar sea-bar" style="width: 50%;"></div>
@@ -166,17 +215,31 @@
                 </div>
 
                 <!-- Termostato Silicato-Carbono (Walker) -->
-                <div class="telemetry-card" id="card-thermostat">
+                <div class="telemetry-card" id="card-thermostat" draggable="true">
                     <div class="card-header">
                         <span class="card-title">TERMOSTATO SILICATOS</span>
-                        <span id="val-weathering" class="card-value">450 Mt/a</span>
+                        <div class="card-header-actions">
+                            <span id="val-weathering" class="card-value">450 Mt/a</span>
+                            <div class="card-reorder-tools">
+                                <button class="btn-card-up" title="Subir">▲</button>
+                                <button class="btn-card-down" title="Bajar">▼</button>
+                            </div>
+                        </div>
                     </div>
                     <div class="card-subtext" id="status-thermostat">Secuestro químico: 450 Mt CO₂ | Emisión: 450 Mt CO₂</div>
                 </div>
 
                 <!-- Pirámide Trófica Multiespecie -->
-                <div class="telemetry-card" id="card-trophic">
-                    <span class="card-title">RED TRÓFICA ECOLÓGICA</span>
+                <div class="telemetry-card" id="card-trophic" draggable="true">
+                    <div class="card-header">
+                        <span class="card-title">RED TRÓFICA ECOLÓGICA</span>
+                        <div class="card-header-actions">
+                            <div class="card-reorder-tools">
+                                <button class="btn-card-up" title="Subir">▲</button>
+                                <button class="btn-card-down" title="Bajar">▼</button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="trophic-pyramid">
                         <div class="trophic-row">
                             <span>Carnívoros:</span>
@@ -197,8 +260,16 @@
                 </div>
 
                 <!-- Composición Atmosférica -->
-                <div class="telemetry-card" id="card-atmosphere">
-                    <span class="card-title">QUÍMICA ATMOSFÉRICA</span>
+                <div class="telemetry-card" id="card-atmosphere" draggable="true">
+                    <div class="card-header">
+                        <span class="card-title">QUÍMICA ATMOSFÉRICA</span>
+                        <div class="card-header-actions">
+                            <div class="card-reorder-tools">
+                                <button class="btn-card-up" title="Subir">▲</button>
+                                <button class="btn-card-down" title="Bajar">▼</button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="gas-breakdown">
                         <div class="gas-row">
                             <span class="gas-name">Oxígeno (O₂)</span>
@@ -220,17 +291,31 @@
                 </div>
 
                 <!-- Dominio biológico -->
-                <div class="telemetry-card" id="card-clade">
-                    <span class="card-title">DOMINIO BIOLÓGICO</span>
+                <div class="telemetry-card" id="card-clade" draggable="true">
+                    <div class="card-header">
+                        <span class="card-title">DOMINIO BIOLÓGICO</span>
+                        <div class="card-header-actions">
+                            <div class="card-reorder-tools">
+                                <button class="btn-card-up" title="Subir">▲</button>
+                                <button class="btn-card-down" title="Bajar">▼</button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="dominant-badge" id="dominant-clade">HOMO SAPIENS (CIVILIZACIÓN)</div>
                     <div class="card-subtext" id="dominant-desc">Red eléctrica satelital y biosfera modificada.</div>
                 </div>
 
                 <!-- Crónica Evolutiva del Escenario (Integrada en Telemetría) -->
-                <div class="telemetry-card" id="card-chronicle">
+                <div class="telemetry-card" id="card-chronicle" draggable="true">
                     <div class="card-header">
                         <span class="card-title">📜 CRÓNICA EVOLUTIVA</span>
-                        <span class="status-tag" id="chronicle-status">ACTIVO</span>
+                        <div class="card-header-actions">
+                            <span class="status-tag" id="chronicle-status">ACTIVO</span>
+                            <div class="card-reorder-tools">
+                                <button class="btn-card-up" title="Subir">▲</button>
+                                <button class="btn-card-down" title="Bajar">▼</button>
+                            </div>
+                        </div>
                     </div>
                     <p id="chronicle-text" class="chronicle-text-body">
                         La Tierra se encuentra en su línea temporal estándar. La atmósfera oxigenada de origen fotosintético soporta una biosfera compleja y una civilización tecnológica.
@@ -249,13 +334,49 @@
                 </div>
             </div>
 
-            <!-- Category Tabs de Parámetros -->
+            <!-- Barra Rápida de Capas Directas (Siempre a la vista) -->
+            <div class="quick-layers-strip">
+                <span class="strip-label">CAPAS:</span>
+                <label class="strip-chip" title="Capa de Nubes 3D">
+                    <input type="checkbox" id="quick-toggle-clouds" checked>
+                    <span>☁️ Nubes</span>
+                </label>
+                <label class="strip-chip" title="Atmósfera y Limb Haze">
+                    <input type="checkbox" id="quick-toggle-atmo" checked>
+                    <span>🌌 Atmós.</span>
+                </label>
+                <label class="strip-chip" title="Auroras Polares 3D">
+                    <input type="checkbox" id="quick-toggle-auroras" checked>
+                    <span>✨ Auroras</span>
+                </label>
+                <label class="strip-chip" title="Luz solar 360° sin noche">
+                    <input type="checkbox" id="quick-toggle-light">
+                    <span>☀️ 360°</span>
+                </label>
+            </div>
+
+            <!-- Category Tabs de Parámetros (5 columnas exactas, 100% visible sin scroll) -->
             <div class="param-category-tabs">
-                <button class="p-tab active" data-tab="tab-orbit" title="Astrofísica y Dinámica Orbital">🪐 ÓRBITA</button>
-                <button class="p-tab" data-tab="tab-climate" title="Gases y Clima">🧪 CLIMA</button>
-                <button class="p-tab" data-tab="tab-geology" title="Geología y Océanos">🌋 GEOLOGÍA</button>
-                <button class="p-tab" data-tab="tab-biosphere" title="Biosfera y Astrobiología">🧬 VIDA</button>
-                <button class="p-tab" data-tab="tab-layers" title="Capas de Render">🎨 CAPAS</button>
+                <button class="p-tab active" data-tab="tab-orbit" title="Astrofísica y Dinámica Orbital">
+                    <span class="p-tab-icon">🪐</span>
+                    <span class="p-tab-label">ÓRBITA</span>
+                </button>
+                <button class="p-tab" data-tab="tab-climate" title="Gases y Clima">
+                    <span class="p-tab-icon">🧪</span>
+                    <span class="p-tab-label">CLIMA</span>
+                </button>
+                <button class="p-tab" data-tab="tab-geology" title="Geología y Océanos">
+                    <span class="p-tab-icon">🌋</span>
+                    <span class="p-tab-label">GEOLOGÍA</span>
+                </button>
+                <button class="p-tab" data-tab="tab-biosphere" title="Biosfera y Astrobiología">
+                    <span class="p-tab-icon">🧬</span>
+                    <span class="p-tab-label">VIDA</span>
+                </button>
+                <button class="p-tab" data-tab="tab-layers" title="Capas de Render y Cámara">
+                    <span class="p-tab-icon">🎨</span>
+                    <span class="p-tab-label">CAPAS</span>
+                </button>
             </div>
 
             <div class="controls-container">
