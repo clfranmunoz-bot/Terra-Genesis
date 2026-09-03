@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Presentation files
+generar_figuras.py
+generar_presentacion.py
+presentacion_salud_mental/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.agent/

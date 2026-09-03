@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terra Genesis: Observatorio Astrofísico y Geobiólogo Planetario</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌍</text></svg>">
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <!-- Three.js y OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <div id="app-container">
+        <!-- 3D WebGL Canvas Viewport -->
+        <div id="canvas-viewport"></div>
+
+        <!-- Top Header HUD -->
+        <header id="hud-header">
+            <div class="brand">
+                <div class="pulse-dot"></div>
+                <h1>TERRA GENESIS <span class="badge">ASTRO-GEO-BIO v4.0</span></h1>
+            </div>
+            <div class="simulation-time">
+                <span class="label">ÉPOCA:</span>
+                <span id="display-epoch" class="value">PRESENTE ANTROPOCENO (2026 d.C.)</span>
+            </div>
+            <div class="quick-actions">
+                <button id="btn-target-meteor" class="btn-warning">
+                    <span class="icon">🎯</span> IMPACTO
+                </button>
+                <button id="btn-probe-mode" class="btn-cyan">
+                    <span class="icon">🔬</span> SONDA IN SITU
+                </button>
+                <button id="btn-jwst-modal" class="btn-purple">
+                    <span class="icon">📡</span> ESPECTRO JWST
+                </button>
+                <button id="btn-scenario-studio" class="btn-primary">
+                    <span class="icon">✨</span> STUDIO
+                </button>
+                <button id="btn-cinema-mode" class="btn-cinema" title="Vista cinematográfica sin paneles">
+                    <span class="icon">🖥️</span> CINEMÁTICO
+                </button>
+                <button id="btn-reset" class="btn-secondary">
+                    <span class="icon">↺</span> RESET
+                </button>
+            </div>
+        </header>
+
+        <!-- Scenario Bar (Líneas de Tiempo) -->
+        <nav id="scenarios-bar">
+            <div class="scenarios-label">LÍNEAS TEMPORALES:</div>
+            <div class="scenarios-carousel" id="scenarios-carousel">
+                <button class="scenario-pill active" data-scenario="real">
+                    <span class="tag">01</span> Tierra Real
+                </button>
+                <button class="scenario-pill" data-scenario="abiotic">
+                    <span class="tag">02</span> Inerte (Sin Vida)
+                </button>
+                <button class="scenario-pill" data-scenario="dinosaurs">
+                    <span class="tag">03</span> Dinosaurios
+                </button>
+                <button class="scenario-pill" data-scenario="volcanic">
+                    <span class="tag">04</span> Cataclismo Volcánico
+                </button>
+                <button class="scenario-pill" data-scenario="snowball">
+                    <span class="tag">05</span> Bola de Nieve
+                </button>
+                <button class="scenario-pill" data-scenario="runaway_hot">
+                    <span class="tag">06</span> Invernadero
+                </button>
+                <button class="scenario-pill" data-scenario="waterworld">
+                    <span class="tag">07</span> Waterworld (+1.200m)
+                </button>
+                <button class="scenario-pill" data-scenario="pangea">
+                    <span class="tag">08</span> Pangea
+                </button>
+                <button class="scenario-pill" data-scenario="far_future">
+                    <span class="tag">09</span> Futuro Lejano
+                </button>
+            </div>
+        </nav>
+
+        <!-- Dock Central Único: Línea Temporal Geodinámica + Modos de Escáner -->
+        <div id="geological-timeline-bar" class="glass-panel">
+            <div class="geo-top-row">
+                <div class="geo-title">
+                    <span class="geo-icon">⏳</span>
+                    <span class="geo-label">TIEMPO:</span>
+                    <span id="disp-geological-time" class="geo-epoch-name">PRESENTE (0 Ma)</span>
+                </div>
+                <!-- Modos de Escáner integrados limpiamente sin superposiciones -->
+                <div id="scanner-view-bar">
+                    <button class="scanner-btn active" data-view="optical" title="Óptico Real">👁️ ÓPTICO</button>
+                    <button class="scanner-btn" data-view="thermal" title="Térmico FLIR">🌡️ FLIR</button>
+                    <button class="scanner-btn" data-view="ndvi" title="Biomasa NDVI">🌿 NDVI</button>
+                    <button class="scanner-btn" data-view="magnetic" title="Escudo Magnético">🧲 MAG</button>
+                    <button class="scanner-btn btn-global-light" id="btn-toggle-global-light" title="Iluminación 360° sin noche">☀️ LUZ 360°</button>
+                </div>
+                <div class="geo-actions">
+                    <button id="btn-play-timeline" class="geo-btn" title="Animar deriva continental">▶ ANIMAR</button>
+                    <button id="btn-reset-timeline" class="geo-btn" title="Volver a 0 Ma">↺ HOY</button>
+                </div>
+            </div>
+            <div class="geo-slider-row">
+                <span class="geo-limit">-250 Ma</span>
+                <input type="range" id="slider-geological-time" min="-250" max="250" step="1" value="0">
+                <span class="geo-limit">+250 Ma</span>
+            </div>
+            <div class="geo-quick-epochs">
+                <button class="epoch-chip" data-ma="-250">Pangea (-250 Ma)</button>
+                <button class="epoch-chip" data-ma="-150">Jurásico (-150 Ma)</button>
+                <button class="epoch-chip" data-ma="-66">K-Pg (-66 Ma)</button>
+                <button class="epoch-chip active" data-ma="0">Presente (0 Ma)</button>
+                <button class="epoch-chip" data-ma="250">Pangea Ultima (+250 Ma)</button>
+            </div>
+        </div>
+
+        <!-- Edge Tabs para reabrir paneles minimizados -->
+        <button class="edge-tab left-edge-tab" id="btn-tab-left" title="Abrir Telemetría">
+            <span class="edge-tab-icon">📊</span>
+            <span class="edge-tab-text">TELEMETRÍA</span>
+        </button>
+        <button class="edge-tab right-edge-tab" id="btn-tab-right" title="Abrir Parámetros">
+            <span class="edge-tab-icon">⚙️</span>
+            <span class="edge-tab-text">PARÁMETROS</span>
+        </button>
+
+        <!-- Left HUD: Telemetría Científica Planetaria -->
+        <aside id="left-telemetry" class="hud-panel glass-panel">
+            <div class="panel-header">
+                <h2><span class="icon">📊</span> TELEMETRÍA</h2>
+                <div class="header-tools">
+                    <span class="status-indicator live">EN VIVO</span>
+                    <button class="panel-collapse-btn" id="btn-collapse-left" title="Minimizar panel">◀</button>
+                </div>
+            </div>
+
+            <div class="telemetry-grid">
+                <!-- Temperatura Media -->
+                <div class="telemetry-card" id="card-temp">
+                    <div class="card-header">
+                        <span class="card-title">TEMP. SUPERFICIAL MEDIA</span>
+                        <span id="val-temp" class="card-value">15.0 °C</span>
+                    </div>
+                    <div class="gauge-bar-container">
+                        <div id="bar-temp" class="gauge-bar" style="width: 50%;"></div>
+                    </div>
+                    <div class="card-subtext" id="status-temp">Clima templado óptimo</div>
+                </div>
+
+                <!-- Nivel del Mar e Inundación -->
+                <div class="telemetry-card" id="card-sea">
+                    <div class="card-header">
+                        <span class="card-title">NIVEL DEL MAR RELATIVO</span>
+                        <span id="val-sea" class="card-value">+0 m</span>
+                    </div>
+                    <div class="gauge-bar-container">
+                        <div id="bar-sea" class="gauge-bar sea-bar" style="width: 50%;"></div>
+                    </div>
+                    <div class="card-subtext" id="status-sea">Cobertura líquida: 71%</div>
+                </div>
+
+                <!-- Termostato Silicato-Carbono (Walker) -->
+                <div class="telemetry-card" id="card-thermostat">
+                    <div class="card-header">
+                        <span class="card-title">TERMOSTATO SILICATOS</span>
+                        <span id="val-weathering" class="card-value">450 Mt/a</span>
+                    </div>
+                    <div class="card-subtext" id="status-thermostat">Secuestro químico: 450 Mt CO₂ | Emisión: 450 Mt CO₂</div>
+                </div>
+
+                <!-- Pirámide Trófica Multiespecie -->
+                <div class="telemetry-card" id="card-trophic">
+                    <span class="card-title">RED TRÓFICA ECOLÓGICA</span>
+                    <div class="trophic-pyramid">
+                        <div class="trophic-row">
+                            <span>Carnívoros:</span>
+                            <div class="trophic-bar-wrap"><div id="bar-carnivores" class="trophic-bar carnivores" style="width: 100%;"></div></div>
+                            <span id="val-carnivores">100%</span>
+                        </div>
+                        <div class="trophic-row">
+                            <span>Herbívoros:</span>
+                            <div class="trophic-bar-wrap"><div id="bar-herbivores" class="trophic-bar herbivores" style="width: 100%;"></div></div>
+                            <span id="val-herbivores">100%</span>
+                        </div>
+                        <div class="trophic-row">
+                            <span>Productores:</span>
+                            <div class="trophic-bar-wrap"><div id="bar-producers" class="trophic-bar producers" style="width: 100%;"></div></div>
+                            <span id="val-producers">100%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Composición Atmosférica -->
+                <div class="telemetry-card" id="card-atmosphere">
+                    <span class="card-title">QUÍMICA ATMOSFÉRICA</span>
+                    <div class="gas-breakdown">
+                        <div class="gas-row">
+                            <span class="gas-name">Oxígeno (O₂)</span>
+                            <div class="gas-bar-wrap"><div id="bar-o2" class="gas-bar o2" style="width: 21%;"></div></div>
+                            <span id="val-o2" class="gas-val">21.0%</span>
+                        </div>
+                        <div class="gas-row">
+                            <span class="gas-name">CO₂</span>
+                            <div class="gas-bar-wrap"><div id="bar-co2" class="gas-bar co2" style="width: 5%;"></div></div>
+                            <span id="val-co2" class="gas-val">420 ppm</span>
+                        </div>
+                        <div class="gas-row">
+                            <span class="gas-name">Metano (CH₄)</span>
+                            <div class="gas-bar-wrap"><div id="bar-ch4" class="gas-bar ch4" style="width: 2%;"></div></div>
+                            <span id="val-ch4" class="gas-val">1.9 ppm</span>
+                        </div>
+                    </div>
+                    <div class="card-subtext" id="status-pressure">Presión: 1.00 atm | O₃ UV Shield activo</div>
+                </div>
+
+                <!-- Dominio biológico -->
+                <div class="telemetry-card" id="card-clade">
+                    <span class="card-title">DOMINIO BIOLÓGICO</span>
+                    <div class="dominant-badge" id="dominant-clade">HOMO SAPIENS (CIVILIZACIÓN)</div>
+                    <div class="card-subtext" id="dominant-desc">Red eléctrica satelital y biosfera modificada.</div>
+                </div>
+
+                <!-- Crónica Evolutiva del Escenario (Integrada en Telemetría) -->
+                <div class="telemetry-card" id="card-chronicle">
+                    <div class="card-header">
+                        <span class="card-title">📜 CRÓNICA EVOLUTIVA</span>
+                        <span class="status-tag" id="chronicle-status">ACTIVO</span>
+                    </div>
+                    <p id="chronicle-text" class="chronicle-text-body">
+                        La Tierra se encuentra en su línea temporal estándar. La atmósfera oxigenada de origen fotosintético soporta una biosfera compleja y una civilización tecnológica.
+                    </p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Right HUD: Controles de Astrofísica, Geología y Biología -->
+        <aside id="right-controls" class="hud-panel glass-panel">
+            <div class="panel-header">
+                <h2><span class="icon">⚙️</span> PARÁMETROS</h2>
+                <div class="header-tools">
+                    <span class="badge-tag">SUITE</span>
+                    <button class="panel-collapse-btn" id="btn-collapse-right" title="Minimizar panel">▶</button>
+                </div>
+            </div>
+
+            <!-- Category Tabs de Parámetros -->
+            <div class="param-category-tabs">
+                <button class="p-tab active" data-tab="tab-orbit" title="Astrofísica y Dinámica Orbital">🪐 ÓRBITA</button>
+                <button class="p-tab" data-tab="tab-climate" title="Gases y Clima">🧪 CLIMA</button>
+                <button class="p-tab" data-tab="tab-geology" title="Geología y Océanos">🌋 GEOLOGÍA</button>
+                <button class="p-tab" data-tab="tab-biosphere" title="Biosfera y Astrobiología">🧬 VIDA</button>
+                <button class="p-tab" data-tab="tab-layers" title="Capas de Render">🎨 CAPAS</button>
+            </div>
+
+            <div class="controls-container">
+                <!-- 1. TAB: ASTROFÍSICA & ÓRBITA -->
+                <div class="tab-pane active" id="tab-orbit">
+                    <div class="control-group">
+                        <div class="slider-header">
+                            <span class="slider-name">Distancia al Sol (Semieje)</span>
+                            <span id="disp-orbital-dist" class="slider-num">1.00 UA</span>
+                        </div>
+                        <input type="range" id="slider-orbital-dist" min="0.70" max="1.60" step="0.01" value="1.00">
+                        <div class="slider-ticks">
+                            <span>0.70 UA (Venus)</span>
+                            <span>1.00 UA (Hoy)</span>
+                            <span>1.52 UA (Marte)</span>
+                        </div>
+                        <div class="card-subtext" id="sub-orbital-dist">Constante solar: 1361 W/m² (Zona de Habitabilidad óptima).</div>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="slider-header">
+                            <span class="slider-name">Oblicuidad Axial (Inclinación)</span>
+                            <span id="disp-obliquity" class="slider-num">23.4°</span>
+                        </div>
+                        <input type="range" id="slider-obliquity" min="0" max="90" step="1" value="23">
+                        <div class="slider-ticks">
+                            <span>0° (Sin estaciones)</span>
+                            <span>23.4° (Hoy)</span>
+                            <span>90° (Urano)</span>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="slider-header">
+                            <span class="slider-name">Duración del Día (Rotación)</span>
+                            <span id="disp-rotation-speed" class="slider-num">24.0 h</span>
+                        </div>
+                        <input type="range" id="slider-rotation-speed" min="6" max="72" step="1" value="24">
+                        <div class="rotation-btn-row" style="margin-top: 6px;">
+                            <button class="btn-small active-btn" id="btn-toggle-rotation">⏸️ PAUSAR</button>
+                            <button class="btn-small" id="btn-reverse-rotation">🔄 INVERTIR</button>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="slider-header">
+                            <span class="slider-name">Estrella Huésped:</span>
+                        </div>
+                        <select id="select-star-type" class="custom-select">
+                            <option value="sun_g2v" selected>Sol (Enana Amarilla G2V)</option>
+                            <option value="red_dwarf_m">Enana Roja M (TRAPPIST-1 / Próxima)</option>
+                            <option value="orange_dwarf_k">Enana Naranja K (Kepler-442b)</option>
+                            <option value="blue_giant">Gigante Azul Caliente (Rigel)</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="slider-header">
+                            <span class="slider-name">Campo Geomagnético (Dipolo)</span>
+                            <span id="disp-magnetic-field" class="slider-num">1.0x</span>
+                        </div>
+                        <input type="range" id="slider-magnetic-field" min="0" max="3.0" step="0.1" value="1.0">
+                        <div class="layer-toggle-row" style="margin-top: 6px;">
+                            <label class="layer-checkbox-label">
+                                <input type="checkbox" id="toggle-moon" checked>
+                                <span>Presencia de la Luna (Giroscopio)</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. TAB: QUÍMICA ATMOSFÉRICA & CLIMA -->
+                <div class="tab-pane" id="tab-climate">
+                    <div class="control-group">
+                        <div class="slider-header">
+                            <span class="slider-name">Dióxido de Carbono (CO₂)</span>
+                            <span id="disp-co2" class="slider-num">420 ppm</span>
+                        </div>
+                        <input type="range" id="slider-co2" min="50" max="8000" step="25" value="420">
+                        <div class="slider-ticks">
+                            <span>50 (Glacial)</span>
+                            <span>420 (Hoy)</span>
+                            <span>2000 (Dinos)</span>
+                            <span>8000</span>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="slider-header">
+                            <span class="slider-name">Oxígeno Molecular (O₂)</span>
+                            <span id="disp-o2" class="slider-num">20.9 %</span>
+                        </div>
+                        <input type="range" id="slider-o2" min="0.0" max="35.0" step="0.5" value="20.9">
+                        <div class="slider-ticks">
+                            <span>0% (Anóxica)</span>
+                            <span>21% (Hoy)</span>
+                            <span>35% (Carbonífero)</span>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="slider-header">
+                            <span class="slider-name">Metano Atmosférico (CH₄)</span>
+                            <span id="disp-ch4" class="slider-num">1.9 ppm</span>
+                        </div>
+                        <input type="range" id="slider-ch4" min="0.5" max="50.0" step="0.5" value="1.9">
+                        <div class="card-subtext">Potencia de efecto invernadero x28 vs CO₂.</div>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="slider-header">
+                            <span class="slider-name">Dióxido de Azufre (SO₂)</span>
+                            <span id="disp-so2" class="slider-num">0 ppm</span>
+                        </div>
+                        <input type="range" id="slider-so2" min="0" max="150" step="5" value="0">
+                        <div class="card-subtext">Aerosoles reflectantes que enfrían la superficie.</div>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="slider-header">
+                            <span class="slider-name">Densidad de Nubes</span>
+                            <span id="disp-cloud-density" class="slider-num">75 %</span>
+                        </div>
+                        <input type="range" id="slider-cloud-density" min="0" max="100" step="5" value="75">
+                    </div>
+
+                    <div class="control-group">
+                        <div class="slider-header">
+                            <span class="slider-name">Presión en Superficie</span>
+                            <span id="disp-surface-pressure" class="slider-num">1.00 atm</span>
+                        </div>
+                        <input type="range" id="slider-surface-pressure" min="0.20" max="3.00" step="0.05" value="1.00">
+                    </div>
+                </div>
+
+                <!-- 3. TAB: GEOLOGÍA, OCÉANOS & SILICATOS -->
+                <div class="tab-pane" id="tab-geology">
+                    <div class="control-group">
+                        <div class="slider-header">
+                            <span class="slider-name">NIVEL DEL MAR (INUNDACIÓN)</span>
+                            <span id="disp-slider-sea" class="slider-num">+0 m</span>
+                        </div>
+                        <input type="range" id="slider-sea-level" min="-130" max="1500" step="10" value="0">
+                        <div class="slider-ticks">
+                            <span>-130m (Glacial)</span>
+                            <span>0m</span>
+                            <span>+70m (Polos)</span>
+                            <span>+1500m</span>
+                        </div>
+                        <div class="card-subtext" id="flood-impact-text" style="color: #38bdf8;">
+                            Nivel costero estándar.
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="slider-header">
+                            <span class="slider-name">Actividad Volcánica Global</span>
+                            <span id="disp-volcanism" class="slider-num">1.0x</span>
+                        </div>
+                        <input type="range" id="slider-volcanism" min="0.1" max="5.0" step="0.1" value="1.0">
+                        <div class="card-subtext">>1.2x genera fisuras de magma brillante en rifts.</div>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="layer-toggle-row">
+                            <label class="layer-checkbox-label">
+                                <input type="checkbox" id="toggle-thermostat" checked>
+                                <span>Termostato Silicato-Carbono</span>
+                            </label>
+                        </div>
+                        <div class="card-subtext">Secuestro químico automático de CO₂ por lluvia ácida.</div>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="slider-header">
+                            <span class="slider-name">Erosión de la Corteza</span>
+                            <span id="disp-erosion" class="slider-num">4 %</span>
+                        </div>
+                        <input type="range" id="slider-erosion" min="0" max="100" step="2" value="4">
+                        <div class="card-subtext">Desgaste del lecho rocoso (se dispara sin cobertura vegetal).</div>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="slider-header">
+                            <span class="slider-name">Paleta de Color Oceánica:</span>
+                        </div>
+                        <select id="select-ocean-palette" class="custom-select">
+                            <option value="default" selected>Azul Marino Clásico (Actual)</option>
+                            <option value="tropical">Turquesa Tropical (Somero)</option>
+                            <option value="emerald">Verde Esmeralda (Fitoplancton)</option>
+                            <option value="ferrous">Rojo Ferroso (Arqueano Primordial)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 4. TAB: ASTROBIOLOGÍA & BIOSFERA -->
+                <div class="tab-pane" id="tab-biosphere">
+                    <div class="control-group">
+                        <div class="switch-group">
+                            <label class="control-label" for="toggle-life">
+                                <span>VIDA ORGÁNICA</span>
+                            </label>
+                            <div class="toggle-wrapper">
+                                <input type="checkbox" id="toggle-life" checked>
+                                <label for="toggle-life" class="toggle-slider"></label>
+                                <span id="life-state-text" class="toggle-text">ACTIVA</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="slider-header">
+                            <span class="slider-name">Pigmento Fotosintético:</span>
+                        </div>
+                        <select id="select-pigment" class="custom-select">
+                            <option value="green" selected>Clorofila Verde (Presente)</option>
+                            <option value="purple">Retinal Púrpura (Tierra Arqueana)</option>
+                            <option value="black">Fotorreceptores Negros (Enana Roja)</option>
+                            <option value="gold">Xantófila Ámbar / Dorada</option>
+                            <option value="blue">Ficocianina Azul Cobalto</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="layer-toggle-row">
+                            <label class="layer-checkbox-label">
+                                <input type="checkbox" id="toggle-civilization" checked>
+                                <span>Civilización Tecnológica (Luces)</span>
+                            </label>
+                        </div>
+                        <div class="slider-header" style="margin-top: 6px;">
+                            <span class="slider-name">Intensidad de Luces Urbanas</span>
+                            <span id="disp-night-lights" class="slider-num">100 %</span>
+                        </div>
+                        <input type="range" id="slider-night-lights" min="0" max="200" step="10" value="100">
+                    </div>
+                </div>
+
+                <!-- 5. TAB: CAPAS & RENDER -->
+                <div class="tab-pane" id="tab-layers">
+                    <div class="control-group">
+                        <div class="layer-toggle-row">
+                            <label class="layer-checkbox-label" title="Iluminación uniforme 360° sin sombra nocturna">
+                                <input type="checkbox" id="toggle-global-light-check">
+                                <span>☀️ Luz 360° (Sin noche)</span>
+                            </label>
+                        </div>
+                        <div class="layer-toggle-row">
+                            <label class="layer-checkbox-label">
+                                <input type="checkbox" id="toggle-clouds" checked>
+                                <span>☁️ Capa de Nubes 3D</span>
+                            </label>
+                        </div>
+                        <div class="layer-toggle-row">
+                            <label class="layer-checkbox-label">
+                                <input type="checkbox" id="toggle-atmosphere" checked>
+                                <span>🌌 Atmósfera & Limb Haze</span>
+                            </label>
+                        </div>
+                        <div class="layer-toggle-row">
+                            <label class="layer-checkbox-label">
+                                <input type="checkbox" id="toggle-auroras" checked>
+                                <span>✨ Auroras Boreales / Australes</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="control-group" style="gap: 8px;">
+                        <button class="btn-tiny" id="btn-naked-earth">
+                            🌍 MODO CORTEZA PURA
+                        </button>
+                        <button class="btn-tiny" id="btn-restore-defaults" style="background: rgba(255, 100, 100, 0.15); border-color: rgba(255, 100, 100, 0.35); color: #ff8888;">
+                            ↺ RESTABLECER VALORES
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- HUD Flotante de Puntería de Asteroide -->
+        <div id="target-mode-hud" class="glass-panel">
+            <div class="target-hud-title">
+                <span class="target-crosshair-icon">🎯</span> MODO SELECCIÓN DE IMPACTO
+            </div>
+            <div class="target-coords">
+                Haz clic sobre cualquier coordenada del planeta para impactar el asteroide.
+                <div class="coord-readout">COORDENADAS: <span id="target-coords-text">Lat 0.0° / Lon 0.0°</span></div>
+            </div>
+            <div class="meteor-config-row">
+                <div class="config-col">
+                    <label>Diámetro: <span id="disp-meteor-size" class="gold-num">15 km</span></label>
+                    <input type="range" id="slider-meteor-size" min="1" max="150" value="15">
+                </div>
+                <div class="config-col">
+                    <label>Velocidad: <span id="disp-meteor-speed" class="gold-num">25 km/s</span></label>
+                    <input type="range" id="slider-meteor-speed" min="12" max="72" value="25">
+                </div>
+                <div class="config-col">
+                    <label>Composición:</label>
+                    <select id="select-meteor-comp" class="custom-select">
+                        <option value="iron">Hierro/Níquel</option>
+                        <option value="rock" selected>Rocoso</option>
+                        <option value="ice">Cometario</option>
+                    </select>
+                </div>
+            </div>
+            <div class="telemetry-estimate">
+                ENERGÍA: <span id="disp-meteor-energy">1.4 × 10⁸ Mt TNT</span> | 
+                CRÁTER: <span id="disp-meteor-crater">~180 km</span>
+            </div>
+            <div class="target-actions">
+                <button id="btn-cancel-target" class="btn-secondary">CANCELAR</button>
+            </div>
+        </div>
+
+        <!-- Modal 1: Sonda de Muestreo de Superficie In Situ -->
+        <div id="probe-analysis-modal" class="modal-overlay">
+            <div class="modal-box glass-panel" style="width: 580px;">
+                <div class="modal-header">
+                    <h2><span class="icon">🔬</span> INFORME DE SONDA ORBITAL IN SITU</h2>
+                    <button class="close-modal" id="btn-close-probe">✕</button>
+                </div>
+                <div class="modal-body" id="probe-report-content">
+                    <div class="probe-coords-badge" id="probe-latlon">Lat: 0.0° / Lon: 0.0°</div>
+                    <div class="probe-grid">
+                        <div class="probe-item">
+                            <span class="probe-label">BIOMA / AMBIENTE</span>
+                            <span class="probe-val" id="probe-biome">-</span>
+                        </div>
+                        <div class="probe-item">
+                            <span class="probe-label">TEMPERATURA LOCAL</span>
+                            <span class="probe-val" id="probe-temp">-</span>
+                        </div>
+                        <div class="probe-item">
+                            <span class="probe-label">ELEVACIÓN / COTA</span>
+                            <span class="probe-val" id="probe-elevation">-</span>
+                        </div>
+                        <div class="probe-item">
+                            <span class="probe-label">PRESIÓN BAROMÉTRICA</span>
+                            <span class="probe-val" id="probe-pressure">-</span>
+                        </div>
+                        <div class="probe-item">
+                            <span class="probe-label">ÍNDICE RADIACIÓN UV</span>
+                            <span class="probe-val" id="probe-uv">-</span>
+                        </div>
+                    </div>
+                    <div class="probe-detail-box">
+                        <div class="probe-detail-title">ANÁLISIS MINERALÓGICO / EDÁFICO:</div>
+                        <p id="probe-soil-text">-</p>
+                    </div>
+                    <div class="probe-detail-box">
+                        <div class="probe-detail-title">HIDROLOGÍA Y QUÍMICA MARINA:</div>
+                        <p id="probe-water-text">-</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal 2: Espectroscopio de Biosignaturas JWST -->
+        <div id="jwst-spectrum-modal" class="modal-overlay">
+            <div class="modal-box glass-panel" style="width: 720px;">
+                <div class="modal-header">
+                    <h2><span class="icon">📡</span> ESPECTROSCOPIO DE BIOSIGNATURAS (TELESCOPIO JAMES WEBB)</h2>
+                    <button class="close-modal" id="btn-close-jwst">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="spectrum-description">
+                        Espectro de transmisión simulado de la atmósfera terrestre en tránsito estelar (longitud de onda: 0.4 µm a 15 µm).
+                    </div>
+                    <!-- Canvas interactivo del espectro -->
+                    <canvas id="jwst-canvas" width="660" height="220"></canvas>
+                    
+                    <div class="spectrum-legend">
+                        <span class="legend-tag o3">O₃ (Ozono)</span>
+                        <span class="legend-tag h2o">H₂O (Vapor)</span>
+                        <span class="legend-tag ch4">CH₄ (Metano)</span>
+                        <span class="legend-tag co2">CO₂</span>
+                        <span class="legend-tag red-edge">Vegetation Red Edge (700nm)</span>
+                    </div>
+
+                    <div class="jwst-diagnosis-box">
+                        <div class="diagnosis-header">
+                            DIAGNÓSTICO EXOBIOLÓGICO: 
+                            <span id="jwst-diagnosis-status" class="status-confirmed">DESEQUILIBRIO REDOX DETECTADO (VIDA ACTIVA)</span>
+                        </div>
+                        <p id="jwst-diagnosis-desc">
+                            Coexistencia de gases altamente incompatibles en equilibrio termodinámico (O₂/O₃ con CH₄), acompañada de un salto de reflectancia a 700 nm característico de organismos fotosintéticos vasculares.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal 3: Scenario Studio -->
+        <div id="scenario-studio-modal" class="modal-overlay">
+            <div class="modal-box glass-panel">
+                <div class="modal-header">
+                    <h2><span class="icon">✨</span> SCENARIO STUDIO: CREADOR DE ESCENARIOS</h2>
+                    <button class="close-modal" id="btn-close-studio">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group flex-2">
+                            <label>Nombre del Escenario:</label>
+                            <input type="text" id="studio-name" placeholder="Ej: Mundo Glaciar Ecuatorial">
+                        </div>
+                        <div class="form-group flex-2">
+                            <label>Época / Divergencia Temporal:</label>
+                            <input type="text" id="studio-epoch" placeholder="Ej: HACE 200 Ma (EXTINCIÓN ALTERNA)">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Crónica Narrativa Científica:</label>
+                        <textarea id="studio-chronicle" rows="2" placeholder="Describe los cambios biológicos, atmosféricos y geológicos de este mundo..."></textarea>
+                    </div>
+
+                    <div class="form-grid-3">
+                        <div class="form-group">
+                            <label>CO₂ (ppm):</label>
+                            <input type="number" id="studio-co2" value="420" min="50" max="40000">
+                        </div>
+                        <div class="form-group">
+                            <label>Oxígeno O₂ (%):</label>
+                            <input type="number" id="studio-o2" value="21" min="0" max="40" step="0.5">
+                        </div>
+                        <div class="form-group">
+                            <label>Metano CH₄ (ppm):</label>
+                            <input type="number" id="studio-ch4" value="2" min="0" max="200">
+                        </div>
+                    </div>
+
+                    <div class="form-grid-3">
+                        <div class="form-group">
+                            <label>Nivel del Mar (m):</label>
+                            <input type="number" id="studio-sea" value="0" min="-150" max="1500">
+                        </div>
+                        <div class="form-group">
+                            <label>Temperatura (°C):</label>
+                            <input type="number" id="studio-temp" value="15" min="-60" max="60" step="0.5">
+                        </div>
+                        <div class="form-group">
+                            <label>Volcanismo:</label>
+                            <input type="number" id="studio-volcanism" value="1" min="1" max="50" step="0.5">
+                        </div>
+                    </div>
+
+                    <div class="form-grid-3">
+                        <div class="form-group">
+                            <label>Vida Orgánica:</label>
+                            <select id="studio-has-life" class="custom-select">
+                                <option value="true" selected>Sí (Con Vegetación)</option>
+                                <option value="false">No (Planeta Inerte)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Civilización:</label>
+                            <select id="studio-has-civ" class="custom-select">
+                                <option value="true" selected>Sí (Luces)</option>
+                                <option value="false">No (Silvestre)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Especie Dominante:</label>
+                            <input type="text" id="studio-clade" placeholder="Ej: Reptiles / Extremófilos">
+                        </div>
+                    </div>
+
+                    <div class="form-actions-row">
+                        <button id="btn-save-scenario" class="btn-primary">💾 GUARDAR Y ACTIVAR</button>
+                        <button id="btn-export-scenarios" class="btn-secondary">📥 EXPORTAR JSON</button>
+                        <button id="btn-import-scenarios" class="btn-secondary">📤 IMPORTAR JSON</button>
+                        <input type="file" id="file-import-input" accept=".json" style="display: none;">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Overlay de Impacto Cataclísmico -->
+        <div id="impact-alert-overlay">
+            <div class="alert-box">
+                <div class="alert-icon">☄️</div>
+                <div class="alert-title">IMPACTO DE ASTEROIDE DETONADO</div>
+                <div class="alert-desc" id="alert-desc-text">Onda de choque hipersónica modificando la corteza terrestre...</div>
+            </div>
+        </div>
+
+        <!-- Tooltip -->
+        <div id="planet-tooltip"></div>
+    </div>
+
+    <!-- Scripts de la aplicación -->
+    <script src="js/simulation.js"></script>
+    <script src="js/scenarios.js"></script>
+    <script src="js/astrophysics.js"></script>
+    <script src="js/geology.js"></script>
+    <script src="js/astrobiology.js"></script>
+    <script src="js/survey.js"></script>
+    <script src="js/tectonics.js"></script>
+    <script src="js/planet.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
