@@ -600,8 +600,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ========================================================
-    // ESPECTROSCOPIO DE BIOSIGNATURAS (JWST)
+    // ESPECTROSCOPIO DE BIOSIGNATURAS (JWST) REACTIVO
     // ========================================================
+    const activeJwstMolecules = new Set(['o3', 'h2o', 'ch4', 'co2', 'so2', 'red-edge']);
+    const jwstFilterBtns = document.querySelectorAll('#jwst-filter-chips .legend-tag');
+
+    jwstFilterBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const mol = btn.getAttribute('data-molecule');
+            if (!mol) return;
+            if (activeJwstMolecules.has(mol)) {
+                activeJwstMolecules.delete(mol);
+                btn.classList.remove('active');
+            } else {
+                activeJwstMolecules.add(mol);
+                btn.classList.add('active');
+            }
+            renderJwstSpectrum();
+        });
+    });
+
     btnJwstModal.addEventListener('click', () => {
         jwstModal.classList.add('active');
         renderJwstSpectrum();
@@ -612,68 +630,140 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function renderJwstSpectrum() {
+        if (!jwstCanvas) return;
         const ctx = jwstCanvas.getContext('2d');
         const w = jwstCanvas.width;
         const h = jwstCanvas.height;
 
         ctx.clearRect(0, 0, w, h);
 
-        // Cuadrícula y ejes de longitud de onda
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-        ctx.lineWidth = 1;
-        for (let x = 40; x < w; x += 60) {
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, h - 25);
-            ctx.stroke();
-        }
+        const padLeft = 45;
+        const padRight = 20;
+        const padTop = 30;
+        const padBottom = 30;
+        const graphW = w - padLeft - padRight;
+        const graphH = h - padTop - padBottom;
 
-        // Obtener datos del espectro
+        // Función de mapeo de longitud de onda logarítmica/proporcional (0.4 a 15 um)
+        const getX = (wl) => padLeft + ((Math.log(wl / 0.4)) / Math.log(15.0 / 0.4)) * graphW;
+
+        // 1. Regiones Espectrales de Fondo (VIS, NIR, MIR)
+        const xVisEnd = getX(0.75);
+        const xNirEnd = getX(5.0);
+
+        // Visible (0.4 - 0.75 um)
+        const visGrad = ctx.createLinearGradient(padLeft, 0, xVisEnd, 0);
+        visGrad.addColorStop(0, 'rgba(99, 102, 241, 0.08)');
+        visGrad.addColorStop(1, 'rgba(239, 68, 68, 0.08)');
+        ctx.fillStyle = visGrad;
+        ctx.fillRect(padLeft, padTop, xVisEnd - padLeft, graphH);
+
+        // Near-Infrared (0.75 - 5.0 um)
+        ctx.fillStyle = 'rgba(168, 85, 247, 0.04)';
+        ctx.fillRect(xVisEnd, padTop, xNirEnd - xVisEnd, graphH);
+
+        // Mid-Infrared (5.0 - 15.0 um)
+        ctx.fillStyle = 'rgba(244, 63, 94, 0.04)';
+        ctx.fillRect(xNirEnd, padTop, padLeft + graphW - xNirEnd, graphH);
+
+        // 2. Cuadrícula y Marcas de Eje X
+        const tickWavelengths = [0.4, 0.7, 1.0, 2.0, 4.0, 8.0, 15.0];
+        ctx.font = '9px Share Tech Mono, monospace';
+        ctx.textAlign = 'center';
+
+        tickWavelengths.forEach(wl => {
+            const x = getX(wl);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(x, padTop);
+            ctx.lineTo(x, padTop + graphH);
+            ctx.stroke();
+
+            ctx.fillStyle = '#64748b';
+            ctx.fillText(wl < 1 ? `${wl * 1000}nm` : `${wl}µm`, x, padTop + graphH + 14);
+        });
+
+        // Eje Y (Transmisión 0% a 100%)
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#64748b';
+        ctx.fillText('100%', padLeft - 6, padTop + 8);
+        ctx.fillText('50%', padLeft - 6, padTop + graphH * 0.5 + 4);
+        ctx.fillText('0%', padLeft - 6, padTop + graphH);
+
+        // 3. Resaltado de Bandas Moleculares Activas
+        const molecularBands = [
+            { id: 'red-edge', name: 'Vegetation Edge', wl: 0.70, width: 0.08, color: '#10b981' },
+            { id: 'h2o', name: 'H₂O', wl: 1.4, width: 0.22, color: '#60a5fa' },
+            { id: 'h2o', name: 'H₂O', wl: 1.9, width: 0.25, color: '#60a5fa' },
+            { id: 'ch4', name: 'CH₄', wl: 3.3, width: 0.35, color: '#f59e0b' },
+            { id: 'co2', name: 'CO₂ (4.3µm)', wl: 4.3, width: 0.40, color: '#f43f5e' },
+            { id: 'so2', name: 'SO₂', wl: 7.3, width: 0.35, color: '#fb923c' },
+            { id: 'ch4', name: 'CH₄', wl: 7.7, width: 0.40, color: '#f59e0b' },
+            { id: 'o3', name: 'O₃ (9.6µm)', wl: 9.6, width: 0.60, color: '#38bdf8' },
+            { id: 'co2', name: 'CO₂ (15µm)', wl: 14.8, width: 0.70, color: '#f43f5e' }
+        ];
+
+        molecularBands.forEach(band => {
+            if (!activeJwstMolecules.has(band.id)) return;
+            const xCenter = getX(band.wl);
+            const xLeft = getX(band.wl - band.width * 0.5);
+            const xRight = getX(band.wl + band.width * 0.5);
+            const bandW = Math.max(6, xRight - xLeft);
+
+            ctx.fillStyle = `${band.color}18`;
+            ctx.fillRect(xCenter - bandW * 0.5, padTop, bandW, graphH);
+
+            ctx.strokeStyle = `${band.color}50`;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(xCenter - bandW * 0.5, padTop, bandW, graphH);
+
+            ctx.fillStyle = band.color;
+            ctx.font = '9px Share Tech Mono, monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(band.name, xCenter, padTop - 6);
+        });
+
+        // 4. Datos del Espectro Continuo Sintético
         const data = astrobiology.generateAtmosphericSpectrum();
         const points = data.spectrum;
 
-        // Dibujar curva espectral continua
+        // Curva espectral suavizada con resplandor
         ctx.beginPath();
         ctx.strokeStyle = '#c084fc';
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = 2.2;
+        ctx.shadowColor = 'rgba(192, 132, 252, 0.6)';
+        ctx.shadowBlur = 8;
 
         for (let i = 0; i < points.length; i++) {
             const pt = points[i];
-            const x = 40 + ((pt.wavelength - 0.4) / (15.0 - 0.4)) * (w - 70);
-            const y = (h - 40) - (pt.flux * (h - 70));
+            const x = getX(pt.wavelength);
+            const y = padTop + (1.0 - Math.min(1.15, pt.flux)) * graphH;
 
             if (i === 0) ctx.moveTo(x, y);
             else ctx.lineTo(x, y);
         }
         ctx.stroke();
+        ctx.shadowBlur = 0; // Reset sombra
 
-        // Etiquetas de bandas clave
-        ctx.font = '10px Share Tech Mono, monospace';
-        ctx.fillStyle = '#38bdf8';
-        ctx.fillText('O₃', 60, 65);
-        ctx.fillStyle = '#10b981';
-        ctx.fillText('Red Edge (700nm)', 85, 35);
-        ctx.fillStyle = '#60a5fa';
-        ctx.fillText('H₂O', 140, 110);
-        ctx.fillStyle = '#f59e0b';
-        ctx.fillText('CH₄', 220, 95);
-        ctx.fillStyle = '#f43f5e';
-        ctx.fillText('CO₂ (4.3µm)', 320, 140);
-        ctx.fillText('CO₂ (15µm)', 580, 160);
-
-        // Actualizar diagnóstico
+        // 5. Diagnóstico Exobiológico
         const diagStatus = document.getElementById('jwst-diagnosis-status');
         const diagDesc = document.getElementById('jwst-diagnosis-desc');
 
-        if (simulation.current.hasLife && simulation.current.o2 > 8 && simulation.current.ch4 > 0.5) {
+        if (simulation.current.hasLife && simulation.current.o2 > 6 && simulation.current.ch4 > 0.4) {
             diagStatus.textContent = 'DESEQUILIBRIO REDOX DETECTADO (VIDA ACTIVA)';
             diagStatus.className = 'status-confirmed';
-            diagDesc.textContent = 'Coexistencia no termodinámica de un potente oxidante (O₂/O₃) y reductor (CH₄). Salto reflectivo de clorofila/pigmentos a 700 nm confirma biosfera fotosintética.';
+            diagDesc.textContent = `Coexistencia termodinámicamente anómala de oxidante O₂/O₃ (${simulation.current.o2.toFixed(1)}%) y reductor CH₄ (${simulation.current.ch4.toFixed(1)} ppm). Salto reflectivo "Red Edge" a 700 nm confirma biosfera fotosintética activa.`;
+        } else if (simulation.current.hasLife) {
+            diagStatus.textContent = 'BIOSIGNATURA DÉBIL / PROTO-BIÓTICA';
+            diagStatus.className = '';
+            diagStatus.style.color = '#f59e0b';
+            diagDesc.textContent = 'Presencia de compuestos prebióticos o microbianos anaerobios. El desequilibrio redox atmosférico es marginal.';
         } else {
-            diagStatus.textContent = 'EQUILIBRIO TERMODINÁMICO INERTE (SIN BIOSIGNATURA)';
+            diagStatus.textContent = 'EQUILIBRIO TERMODINÁMICO INERTE (SIN VIDA)';
             diagStatus.className = '';
             diagStatus.style.color = '#f43f5e';
-            diagDesc.textContent = 'Espectro dominado por gases abióticos (CO₂ / N₂ / Vapor de agua). Ausencia de desequilibrio químico oxidante-reductor.';
+            diagDesc.textContent = 'Espectro dominado exclusivamente por gases abióticos e invernadero (CO₂ / Vapor de agua). Ausencia absoluta de biosignaturas biológicas.';
         }
     }
 
@@ -1337,6 +1427,75 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ========================================================
+    // REGISTRO DE TENDENCIA TÉRMICA EN TIEMPO REAL (SPARKLINE)
+    // ========================================================
+    const tempTrendHistory = [];
+    const maxTrendPoints = 60;
+    let sparklineTimer = 0;
+    const canvasTempTrend = document.getElementById('canvas-temp-trend');
+
+    function updateTempTrend(dt, currentTemp) {
+        sparklineTimer += dt;
+        if (sparklineTimer >= 0.8) {
+            sparklineTimer = 0;
+            tempTrendHistory.push(currentTemp);
+            if (tempTrendHistory.length > maxTrendPoints) {
+                tempTrendHistory.shift();
+            }
+            drawTempSparkline();
+        }
+    }
+
+    function drawTempSparkline() {
+        if (!canvasTempTrend) return;
+        const ctx = canvasTempTrend.getContext('2d');
+        const w = canvasTempTrend.width;
+        const h = canvasTempTrend.height;
+
+        ctx.clearRect(0, 0, w, h);
+
+        if (tempTrendHistory.length < 2) return;
+
+        let minT = Math.min(...tempTrendHistory);
+        let maxT = Math.max(...tempTrendHistory);
+        if (maxT - minT < 2.0) {
+            minT -= 1.0;
+            maxT += 1.0;
+        }
+
+        const grad = ctx.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, 'rgba(0, 240, 255, 0.40)');
+        grad.addColorStop(1, 'rgba(0, 240, 255, 0.0)');
+
+        ctx.beginPath();
+        for (let i = 0; i < tempTrendHistory.length; i++) {
+            const x = (i / (maxTrendPoints - 1)) * w;
+            const y = h - ((tempTrendHistory[i] - minT) / (maxT - minT)) * (h - 6) - 3;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+
+        ctx.strokeStyle = '#00f0ff';
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
+
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
+        ctx.closePath();
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // Punto actual
+        const lastIdx = tempTrendHistory.length - 1;
+        const lastX = (lastIdx / (maxTrendPoints - 1)) * w;
+        const lastY = h - ((tempTrendHistory[lastIdx] - minT) / (maxT - minT)) * (h - 6) - 3;
+        ctx.beginPath();
+        ctx.arc(lastX, lastY, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+    }
+
+    // ========================================================
     // BUCLE DE RENDERIZADO Y FÍSICA
     // ========================================================
     let lastTime = performance.now();
@@ -1368,6 +1527,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         updateTelemetryDisplay();
+        updateTempTrend(dt, simulation.current.meanTemp);
+
+        if (jwstModal && jwstModal.classList.contains('active')) {
+            renderJwstSpectrum();
+        }
     }
 
     requestAnimationFrame(animate);

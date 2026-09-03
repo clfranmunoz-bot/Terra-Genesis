@@ -17,6 +17,36 @@ class SurveyEngine {
             // Mapeo numérico para el shader: 0=óptico, 1=térmico, 2=ndvi, 3=magnético
             const modeMap = { optical: 0.0, thermal: 1.0, ndvi: 2.0, magnetic: 3.0 };
             this.viewer.earthUniforms.uViewMode.value = modeMap[mode] !== undefined ? modeMap[mode] : 0.0;
+            
+            // Alternar líneas de dipolo magnético 3D
+            if (this.viewer.setMagneticFieldVisible) {
+                this.viewer.setMagneticFieldVisible(mode === 'magnetic');
+            }
+        }
+
+        // Actualizar widget de Leyenda Radiométrica Científica
+        const legend = document.getElementById('scanner-legend');
+        const legendTitle = document.getElementById('legend-title');
+        const legendUnit = document.getElementById('legend-unit');
+        const legendBar = document.getElementById('legend-gradient-bar');
+        const legendLabels = document.getElementById('legend-labels');
+
+        if (legend && legendTitle && legendUnit && legendBar && legendLabels) {
+            if (mode === 'thermal') {
+                legend.classList.remove('hidden');
+                legendTitle.textContent = 'RADIOMETRÍA TÉRMICA FLIR';
+                legendUnit.textContent = '[-50°C a +50°C]';
+                legendBar.className = 'legend-bar legend-flir';
+                legendLabels.innerHTML = '<span>-50°C (Polar)</span><span>-25°C</span><span>0°C (Deshielo)</span><span>+25°C</span><span>+50°C (Tórrido)</span>';
+            } else if (mode === 'ndvi') {
+                legend.classList.remove('hidden');
+                legendTitle.textContent = 'ÍNDICE DE VEGETACIÓN NDVI (BIOMASA)';
+                legendUnit.textContent = '[0.00 a 1.00 NDVI]';
+                legendBar.className = 'legend-bar legend-ndvi';
+                legendLabels.innerHTML = '<span>0.0 (Océano/Inerte)</span><span>0.25 (Estepa)</span><span>0.50 (Bosque)</span><span>0.75 (Selva)</span><span>1.0 (Máx. Clorofila)</span>';
+            } else {
+                legend.classList.add('hidden');
+            }
         }
     }
 

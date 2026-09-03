@@ -29,24 +29,24 @@
                 <span class="label">ÉPOCA:</span>
                 <span id="display-epoch" class="value">PRESENTE ANTROPOCENO (2026 d.C.)</span>
             </div>
-            <div class="quick-actions">
-                <button id="btn-target-meteor" class="btn-warning">
-                    <span class="icon">🎯</span> IMPACTO
+            <div class="quick-actions" id="header-quick-actions">
+                <button id="btn-target-meteor" class="obs-btn obs-btn-impact" title="Lanzar impacto balístico de asteroide">
+                    <span class="icon">☄️</span> <span class="btn-text">IMPACTO</span>
                 </button>
-                <button id="btn-probe-mode" class="btn-cyan">
-                    <span class="icon">🔬</span> SONDA IN SITU
+                <button id="btn-probe-mode" class="obs-btn obs-btn-probe" title="Lanzar sonda orbital de muestreo biológico e in situ">
+                    <span class="icon">🔬</span> <span class="btn-text">SONDA</span>
                 </button>
-                <button id="btn-jwst-modal" class="btn-purple">
-                    <span class="icon">📡</span> ESPECTRO JWST
+                <button id="btn-jwst-modal" class="obs-btn obs-btn-jwst" title="Espectroscopio de biosignaturas James Webb (JWST)">
+                    <span class="icon">📡</span> <span class="btn-text">JWST</span>
                 </button>
-                <button id="btn-scenario-studio" class="btn-primary">
-                    <span class="icon">✨</span> STUDIO
+                <button id="btn-scenario-studio" class="obs-btn obs-btn-studio" title="Estudio creador y exportador de escenarios">
+                    <span class="icon">✨</span> <span class="btn-text">STUDIO</span>
                 </button>
-                <button id="btn-cinema-mode" class="btn-cinema" title="Vista cinematográfica sin paneles">
-                    <span class="icon">🖥️</span> CINEMÁTICO
+                <button id="btn-cinema-mode" class="obs-btn obs-btn-cinema" title="Vista cinematográfica sin HUD">
+                    <span class="icon">🖥️</span> <span class="btn-text">CINEMA</span>
                 </button>
-                <button id="btn-reset" class="btn-secondary">
-                    <span class="icon">↺</span> RESET
+                <button id="btn-reset" class="obs-btn obs-btn-reset" title="Restablecer todos los parámetros a la Tierra actual">
+                    <span class="icon">↺</span> <span class="btn-text">RESET</span>
                 </button>
             </div>
         </header>
@@ -88,11 +88,27 @@
         <!-- Barra Flotante Superior de Modos de Escáner -->
         <div id="scanner-view-bar" class="scanner-floating-pill glass-panel">
             <span class="scanner-label">ESCÁNER:</span>
-            <button class="scanner-btn active" data-view="optical" title="Óptico Real">👁️ ÓPTICO</button>
-            <button class="scanner-btn" data-view="thermal" title="Térmico FLIR">🌡️ FLIR</button>
-            <button class="scanner-btn" data-view="ndvi" title="Biomasa NDVI">🌿 NDVI</button>
-            <button class="scanner-btn" data-view="magnetic" title="Escudo Magnético">🧲 MAG</button>
-            <button class="scanner-btn btn-global-light" id="btn-toggle-global-light" title="Iluminación 360° sin noche">☀️ LUZ 360°</button>
+            <button class="scanner-btn active" data-view="optical" title="Espectro visible óptico real">👁️ ÓPTICO</button>
+            <button class="scanner-btn" data-view="thermal" title="Termografía infrarroja FLIR">🌡️ FLIR</button>
+            <button class="scanner-btn" data-view="ndvi" title="Índice de vegetación de diferencia normalizada (NDVI)">🌿 NDVI</button>
+            <button class="scanner-btn" data-view="magnetic" title="Escudo y líneas de dipolo magnético 3D">🧲 MAG</button>
+            <button class="scanner-btn btn-global-light" id="btn-toggle-global-light" title="Iluminación 360° uniforme sin noche">☀️ LUZ 360°</button>
+        </div>
+
+        <!-- Leyenda Radiométrica Científica Flotante (FLIR / NDVI) -->
+        <div id="scanner-legend" class="scanner-legend glass-panel hidden">
+            <div class="legend-header">
+                <span id="legend-title" class="legend-title">RADIOMETRÍA TÉRMICA SUPERFICIAL</span>
+                <span id="legend-unit" class="legend-unit">[-60°C a +60°C]</span>
+            </div>
+            <div id="legend-gradient-bar" class="legend-bar legend-flir"></div>
+            <div id="legend-labels" class="legend-labels">
+                <span>-60°C (Polar)</span>
+                <span>-20°C</span>
+                <span>0°C</span>
+                <span>+25°C</span>
+                <span>+60°C (Tórrido)</span>
+            </div>
         </div>
 
         <!-- Escala de Tiempo Geológico Lateral Desplegable (-250 a +250 Ma) -->
@@ -192,6 +208,10 @@
                     </div>
                     <div class="gauge-bar-container">
                         <div id="bar-temp" class="gauge-bar" style="width: 50%;"></div>
+                    </div>
+                    <div class="trend-sparkline-wrap">
+                        <span class="sparkline-title">TENDENCIA TÉRMICA (60s):</span>
+                        <canvas id="canvas-temp-trend" width="240" height="30"></canvas>
                     </div>
                     <div class="card-subtext" id="status-temp">Clima templado óptimo</div>
                 </div>
@@ -749,12 +769,13 @@
                     <!-- Canvas interactivo del espectro -->
                     <canvas id="jwst-canvas" width="660" height="220"></canvas>
                     
-                    <div class="spectrum-legend">
-                        <span class="legend-tag o3">O₃ (Ozono)</span>
-                        <span class="legend-tag h2o">H₂O (Vapor)</span>
-                        <span class="legend-tag ch4">CH₄ (Metano)</span>
-                        <span class="legend-tag co2">CO₂</span>
-                        <span class="legend-tag red-edge">Vegetation Red Edge (700nm)</span>
+                    <div class="spectrum-legend" id="jwst-filter-chips">
+                        <button class="legend-tag o3 active" data-molecule="o3" title="Filtrar firma de Ozono (Banda 9.6 µm)">O₃ (Ozono 9.6µm)</button>
+                        <button class="legend-tag h2o active" data-molecule="h2o" title="Filtrar bandas de vapor de agua (1.4 y 1.9 µm)">H₂O (Vapor 1.4/1.9µm)</button>
+                        <button class="legend-tag ch4 active" data-molecule="ch4" title="Filtrar metano biosférico (3.3 y 7.7 µm)">CH₄ (Metano 3.3µm)</button>
+                        <button class="legend-tag co2 active" data-molecule="co2" title="Filtrar dióxido de carbono (4.3 y 15 µm)">CO₂ (4.3 / 15µm)</button>
+                        <button class="legend-tag so2 active" data-molecule="so2" title="Filtrar dióxido de azufre volcánico (7.3 µm)">SO₂ (Volcánico 7.3µm)</button>
+                        <button class="legend-tag red-edge active" data-molecule="red-edge" title="Salto de reflectancia vegetal o pigmentaria a 700 nm">Red Edge (700nm)</button>
                     </div>
 
                     <div class="jwst-diagnosis-box">

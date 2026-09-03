@@ -148,9 +148,11 @@ body, html {
     letter-spacing: 1px;
 }
 
+/* Unifed Observatory Toolbar Buttons (NASA/ESA aesthetic) */
 .quick-actions {
     display: flex;
-    gap: 10px;
+    align-items: center;
+    gap: 6px;
 }
 
 button {
@@ -162,62 +164,76 @@ button {
     border-radius: 6px;
 }
 
-.btn-primary {
-    background: linear-gradient(135deg, #00f0ff 0%, #0077ff 100%);
-    color: #000;
-    font-size: 0.75rem;
-    font-weight: 800;
-    padding: 8px 16px;
-    letter-spacing: 1px;
-    box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
-    border: 1px solid #70f0ff;
-    display: flex;
+.obs-btn {
+    display: inline-flex;
     align-items: center;
     gap: 6px;
-}
-
-.btn-primary:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 0 25px rgba(0, 240, 255, 0.7);
-    color: #000;
-}
-
-.btn-warning {
-    background: linear-gradient(135deg, #ff3366 0%, #d90429 100%);
-    color: #fff;
-    font-size: 0.75rem;
+    padding: 6px 12px;
+    font-family: var(--font-heading);
+    font-size: 0.72rem;
     font-weight: 700;
-    padding: 8px 16px;
-    letter-spacing: 1px;
-    box-shadow: 0 0 15px rgba(255, 51, 102, 0.4);
-    border: 1px solid #ff758f;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.btn-warning:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 0 25px rgba(255, 51, 102, 0.7);
-}
-
-.btn-secondary {
-    background: rgba(255, 255, 255, 0.08);
+    letter-spacing: 0.8px;
     color: var(--text-main);
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 8px 14px;
-    letter-spacing: 1px;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    background: rgba(14, 25, 45, 0.75);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 240, 255, 0.22);
+    border-radius: 6px;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.16);
+.obs-btn:hover {
+    background: rgba(0, 240, 255, 0.14);
     border-color: var(--accent-cyan);
     color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0, 240, 255, 0.25);
+}
+
+.obs-btn:active {
+    transform: translateY(0);
+}
+
+.obs-btn .icon {
+    font-size: 0.85rem;
+}
+
+.obs-btn-impact {
+    border-color: rgba(255, 75, 75, 0.35);
+}
+
+.obs-btn-impact:hover {
+    background: rgba(255, 75, 75, 0.18);
+    border-color: #ff4b4b;
+    box-shadow: 0 4px 14px rgba(255, 75, 75, 0.3);
+}
+
+.obs-btn-probe {
+    border-color: rgba(0, 240, 255, 0.35);
+}
+
+.obs-btn-jwst {
+    border-color: rgba(180, 100, 255, 0.35);
+}
+
+.obs-btn-jwst:hover {
+    background: rgba(180, 100, 255, 0.18);
+    border-color: #b464ff;
+    box-shadow: 0 4px 14px rgba(180, 100, 255, 0.3);
+}
+
+.obs-btn-studio {
+    border-color: rgba(255, 180, 0, 0.35);
+}
+
+.obs-btn-studio:hover {
+    background: rgba(255, 180, 0, 0.18);
+    border-color: #ffb400;
+    box-shadow: 0 4px 14px rgba(255, 180, 0, 0.3);
+}
+
+.obs-btn-reset:hover {
+    border-color: rgba(255, 255, 255, 0.45);
+    background: rgba(255, 255, 255, 0.12);
 }
 
 /* Scenarios Nav Bar */
@@ -1464,6 +1480,11 @@ input[type="range"]::-webkit-slider-thumb:hover {
     max-width: 90vw;
 }
 
+/* Estado desplegado a un lado de los controles sin solapamiento */
+.geo-side-drawer:not(.collapsed) {
+    right: 385px;
+}
+
 /* Estado plegado */
 .geo-side-drawer.collapsed {
     padding: 0;
@@ -1669,23 +1690,24 @@ input[type="range"]::-webkit-slider-thumb:hover {
 
 .geo-quick-epochs {
     display: flex;
-    justify-content: space-between;
+    flex-wrap: wrap;
     gap: 4px;
-    overflow-x: auto;
 }
 
 .epoch-chip {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
     color: #cbd5e1;
     font-family: var(--font-heading);
-    font-size: 0.62rem;
+    font-size: 0.60rem;
     font-weight: 600;
-    padding: 3px 7px;
-    border-radius: 10px;
+    padding: 3px 6px;
+    border-radius: 8px;
     cursor: pointer;
     white-space: nowrap;
     transition: all 0.2s;
+    flex: 1 1 calc(33.33% - 4px);
+    text-align: center;
 }
 
 .epoch-chip:hover {
@@ -1873,12 +1895,12 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 .p-tab-label {
-    font-size: 0.55rem;
+    font-size: 0.52rem;
     font-weight: 700;
-    letter-spacing: 0.3px;
+    letter-spacing: 0px;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow: visible;
+    text-overflow: clip;
     max-width: 100%;
 }
 
@@ -2053,6 +2075,163 @@ input[type="range"]::-webkit-slider-thumb:hover {
     line-height: 1.4;
     color: #cbd5e1;
     margin: 6px 0 0 0;
+}
+
+/* ========================================================
+   SCIENTIFIC RADIOMETRIC LEGEND (FLIR / NDVI)
+   ======================================================== */
+.scanner-legend {
+    position: absolute;
+    top: 175px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 22;
+    background: rgba(7, 12, 23, 0.92);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(0, 240, 255, 0.35);
+    border-radius: 12px;
+    padding: 7px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 340px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 15px rgba(0, 240, 255, 0.15);
+    transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: auto;
+}
+
+.scanner-legend.hidden {
+    opacity: 0;
+    transform: translate(-50%, -10px);
+    pointer-events: none;
+}
+
+.legend-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--font-heading);
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+}
+
+.legend-title {
+    color: var(--accent-cyan);
+}
+
+.legend-unit {
+    color: #94a3b8;
+    font-family: var(--font-mono);
+    font-size: 0.60rem;
+}
+
+.legend-bar {
+    width: 100%;
+    height: 10px;
+    border-radius: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.legend-flir {
+    background: linear-gradient(90deg, #050530 0%, #1e3a8a 25%, #10b981 50%, #facc15 75%, #ef4444 95%, #ffffff 100%);
+}
+
+.legend-ndvi {
+    background: linear-gradient(90deg, #475569 0%, #a3e635 35%, #16a34a 70%, #064e3b 100%);
+}
+
+.legend-labels {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 0.58rem;
+    color: #cbd5e1;
+}
+
+/* ========================================================
+   SPARKLINE HISTORIAL TÉRMICO (60s)
+   ======================================================== */
+.trend-sparkline-wrap {
+    margin-top: 6px;
+    padding: 4px 6px;
+    background: rgba(0, 0, 0, 0.40);
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.sparkline-title {
+    font-family: var(--font-heading);
+    font-size: 0.55rem;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    letter-spacing: 0.5px;
+}
+
+#canvas-temp-trend {
+    width: 100%;
+    height: 30px;
+    display: block;
+}
+
+/* ========================================================
+   JWST FILTROS MOLECULARES INTERACTIVOS
+   ======================================================== */
+#jwst-filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 10px 0;
+    justify-content: center;
+}
+
+#jwst-filter-chips .legend-tag {
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity: 0.5;
+}
+
+#jwst-filter-chips .legend-tag.active {
+    opacity: 1;
+    border-color: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 0 10px currentColor;
+    transform: translateY(-1px);
+}
+
+#jwst-filter-chips .legend-tag:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+/* Scrollbar estilizada para telemetría */
+#left-telemetry {
+    scrollbar-gutter: stable;
+}
+
+#left-telemetry::-webkit-scrollbar {
+    width: 4px;
+}
+
+#left-telemetry::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+#left-telemetry::-webkit-scrollbar-thumb {
+    background: rgba(0, 240, 255, 0.3);
+    border-radius: 4px;
+}
+
+#left-telemetry::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-cyan);
 }
 
 

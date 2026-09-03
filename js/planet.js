@@ -38,6 +38,7 @@ class PlanetViewer {
         this.createClouds();
         this.createAtmosphere();
         this.createAuroras();
+        this.createMagneticFieldLines();
         this.createProbeVisuals();
         this.initMeteorEffects();
 
@@ -567,11 +568,32 @@ class PlanetViewer {
                 vec3 viewDir = normalize(cameraPosition - vWorldPosition);
                 vec3 sunDir = normalize(vSunDir);
 
-                float fresnel = pow(1.0 - max(0.0, dot(normal, viewDir)), 3.6);
-                float sunFacing = dot(normal, sunDir) * 0.5 + 0.5;
-                float intensity = fresnel * (sunFacing * 0.85 + 0.15) * uOpacity;
+                // Fresnel de limbo atmosférico exterior
+                float fresnel = pow(1.0 - max(0.0, dot(normal, viewDir)), 3.2);
 
-                gl_FragColor = vec4(uColor, intensity);
+                // Incidencia solar en la atmósfera
+                float sunDot = dot(normal, sunDir);
+
+                // 1. Dispersión Rayleigh diurna (azul cielo intenso)
+                vec3 rayleighColor = uColor * 1.35;
+
+                // 2. Dispersión crepuscular en el terminador (atardecer / amanecer simultáneo en el limbo)
+                // Aumenta el camino óptico de la luz produciendo tonos ámbar y rojo profundo
+                vec3 sunsetRing = vec3(1.0, 0.44, 0.10) * 1.8;
+                float twilightFactor = smoothstep(-0.25, 0.08, sunDot) * smoothstep(0.40, 0.05, sunDot);
+
+                // 3. Dispersión frontal de Mie (halo solar brillante en el horizonte)
+                float miePhase = pow(max(0.0, dot(viewDir, -sunDir)), 8.0) * 0.7;
+                vec3 mieGlow = vec3(1.0, 0.95, 0.85) * miePhase;
+
+                // Combinación fotométrica
+                vec3 atmoColor = mix(rayleighColor, sunsetRing, twilightFactor * 0.85) + mieGlow;
+
+                // Atenuación nocturna suave en el hemisferio nocturno
+                float sunFacing = smoothstep(-0.45, 0.65, sunDot);
+                float intensity = fresnel * (sunFacing * 0.90 + 0.10) * uOpacity;
+
+                gl_FragColor = vec4(atmoColor, intensity);
             }
         `;
 
@@ -659,6 +681,60 @@ class PlanetViewer {
         this.auroraSouthMesh.position.set(0, -this.planetRadius * 0.94, 0);
         this.auroraSouthMesh.rotation.x = Math.PI / 2;
         this.scene.add(this.auroraSouthMesh);
+    }
+
+    /**
+     * Crea la geometría tridimensional de líneas de dipolo magnético y cinturones de radiación
+     */
+    createMagneticFieldLines() {
+        this.magneticFieldGroup = new THREE.Group();
+        this.magneticFieldGroup.visible = false;
+
+        const loopCount = 14;
+        const R = this.planetRadius;
+        const shellDistances = [R * 1.6, R * 2.2, R * 2.8];
+
+        shellDistances.forEach((maxR, shellIdx) => {
+            const mat = new THREE.LineBasicMaterial({
+                color: shellIdx === 0 ? 0x00f0ff : (shellIdx === 1 ? 0x38bdf8 : 0xb464ff),
+                transparent: true,
+                opacity: shellIdx === 0 ? 0.70 : (shellIdx === 1 ? 0.45 : 0.30),
+                blending: THREE.AdditiveBlending
+            });
+
+            for (let i = 0; i < loopCount; i++) {
+                const phi = (i / loopCount) * Math.PI * 2;
+                const points = [];
+                const segments = 36;
+
+                // Ecuación dipolar clásica: r = L * sin^2(theta)
+                for (let j = 0; j <= segments; j++) {
+                    const theta = (j / segments) * Math.PI;
+                    if (theta < 0.22 || theta > Math.PI - 0.22) continue;
+                    const r = maxR * Math.pow(Math.sin(theta), 2.0);
+                    if (r < R * 0.98) continue;
+
+                    const x = r * Math.sin(theta) * Math.cos(phi);
+                    const z = r * Math.sin(theta) * Math.sin(phi);
+                    const y = r * Math.cos(theta);
+                    points.push(new THREE.Vector3(x, y, z));
+                }
+
+                if (points.length > 2) {
+                    const geom = new THREE.BufferGeometry().setFromPoints(points);
+                    const line = new THREE.Line(geom, mat);
+                    this.magneticFieldGroup.add(line);
+                }
+            }
+        });
+
+        this.scene.add(this.magneticFieldGroup);
+    }
+
+    setMagneticFieldVisible(visible) {
+        if (this.magneticFieldGroup) {
+            this.magneticFieldGroup.visible = visible;
+        }
     }
 
     createProbeVisuals() {
@@ -866,6 +942,14 @@ class PlanetViewer {
 
             if (this.earthMesh) this.earthMesh.rotation.y = this.earthRotation;
             if (this.cloudMesh) this.cloudMesh.rotation.y = this.earthRotation + this.cloudRotationOffset * 1.5;
+        }
+
+        // Rotación dinámica de las líneas de campo geomagnético
+        if (this.magneticFieldGroup && this.magneticFieldGroup.visible) {
+            this.magneticFieldGroup.rotation.y += dt * 0.04;
+            if (this.earthMesh) {
+                this.magneticFieldGroup.rotation.z = this.earthMesh.rotation.z;
+            }
         }
 
         // 2. Shaders de Superficie
