@@ -332,3 +332,44 @@ def stop_tunnel() -> Tuple[bool, str]:
         _write_state(state)
 
     return True, "Acceso remoto desconectado exitosamente. La aplicación ya no es accesible por el enlace público."
+
+
+def is_local_session() -> bool:
+    """
+    Determina con alta fiabilidad si la petición actual proviene directamente
+    del computador donde se ejecuta el servidor (localhost / 127.0.0.1),
+    o si es un usuario externo conectado a través de internet/túnel/red remota.
+    """
+    try:
+        import streamlit as st
+        if not hasattr(st, "context"):
+            return True
+
+        # 1. URL reportada por el navegador del cliente a Streamlit
+        client_url = str(getattr(st.context, "url", "") or "").lower()
+        if "trycloudflare.com" in client_url:
+            return False
+
+        # 2. Encabezados HTTP de la conexión
+        headers = getattr(st.context, "headers", None)
+        if headers:
+            host = str(headers.get("host", "")).lower()
+            if "trycloudflare.com" in host:
+                return False
+            if "cf-ray" in headers or "cf-connecting-ip" in headers:
+                return False
+
+            # Si el host es explícitamente localhost o 127.0.0.1
+            if host.startswith("localhost") or host.startswith("127.0.0.1") or host.startswith("[::1]"):
+                ip = getattr(st.context, "ip_address", None)
+                if ip is None or ip in ["127.0.0.1", "::1"]:
+                    return True
+
+        # 3. Dirección IP remota detectada en WebSocket
+        ip = getattr(st.context, "ip_address", None)
+        if ip is not None and ip not in ["127.0.0.1", "::1"]:
+            return False
+
+        return True
+    except Exception:
+        return True

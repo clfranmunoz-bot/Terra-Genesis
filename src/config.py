@@ -91,3 +91,6 @@ def extract_element_symbol(col_name: str) -> str:
     if symbol in ELEMENT_CATALOG:
         return symbol
     return symbol if symbol.upper() not in ['N', 'PESO', 'ID', 'EXTRA'] else ""
+
+# PIN Maestro de Administrador (para acceso seguro a controles de servidor)
+ADMIN_PIN = os.getenv("CTPP_ADMIN_PIN", "2026")

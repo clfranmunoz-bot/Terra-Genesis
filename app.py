@@ -18,7 +18,8 @@ from src.tunnel_manager import (
     start_tunnel,
     stop_tunnel,
     get_tunnel_status,
-    get_local_ip
+    get_local_ip,
+    is_local_session
 )
 from src.config import (
     DEFAULT_PULP_PATHS,
@@ -26,7 +27,8 @@ from src.config import (
     DEFAULT_PULP_PATH,
     DEFAULT_CUTTING_PATH,
     PRIORITY_ELEMENTS,
-    ELEMENT_CATALOG
+    ELEMENT_CATALOG,
+    ADMIN_PIN
 )
 from src.data_loader import (
     scan_directories,
@@ -146,55 +148,84 @@ def main():
         """, unsafe_allow_html=True)
         st.header("⚙️ Configuración y Filtros")
 
-        # 1. Configuración de Directorios y Campañas
-        with st.expander("📁 Rutas de Datos y Campañas (OneDrive)", expanded=False):
-            st.markdown("**Carpetas de Pulpas Configurada(s):**")
-            for p in DEFAULT_PULP_PATHS:
-                st.code(p, language="text")
-            st.markdown("**Carpetas de Cutting Configurada(s):**")
-            for c in DEFAULT_CUTTING_PATHS:
-                st.code(c, language="text")
-            if st.button("🔄 Re-escanear Carpetas"):
-                st.cache_data.clear()
-                st.rerun()
+        # Determinar nivel de privilegios (Servidor Local vs Usuario Remoto)
+        is_server_host = is_local_session()
+        is_admin = is_server_host or st.session_state.get('admin_authenticated', False)
 
-        # Control de Compartir Acceso Remoto
-        with st.expander("🌐 Compartir Acceso Remoto Temporal", expanded=False):
-            t_state = get_tunnel_status()
-            if t_state["is_active"]:
-                st.success("🟢 **Acceso Remoto Activo**")
-                st.markdown(f"**Enlace Público (Internet):**\n[{t_state['url']}]({t_state['url']})")
-                st.code(t_state["url"], language="text")
-                st.markdown(f"**Enlace Red Local (Misma Wi-Fi):**\n`{t_state.get('local_url', 'http://127.0.0.1:8501')}`")
-                rem = t_state.get("remaining_seconds", 0)
-                mins = rem // 60
-                secs = rem % 60
-                st.caption(f"⏱️ Tiempo restante de acceso: **{mins}m {secs}s**")
-                if st.button("🛑 Desconectar y Bloquear Acceso"):
-                    stop_tunnel()
+        if is_admin:
+            # 1. Configuración de Directorios y Campañas (Solo Administrador)
+            with st.expander("📁 Rutas de Datos y Campañas (OneDrive)", expanded=False):
+                st.markdown("**Carpetas de Pulpas Configurada(s):**")
+                for p in DEFAULT_PULP_PATHS:
+                    st.code(p, language="text")
+                st.markdown("**Carpetas de Cutting Configurada(s):**")
+                for c in DEFAULT_CUTTING_PATHS:
+                    st.code(c, language="text")
+                if st.button("🔄 Re-escanear Carpetas"):
+                    st.cache_data.clear()
                     st.rerun()
-            else:
-                st.info("Genera un enlace público temporal (HTTPS) para compartir la plataforma con supervisores o colegas durante el tiempo que tú decidas.")
-                c_dur1, c_dur2 = st.columns([2, 1])
-                with c_dur1:
-                    dur_min = st.selectbox(
-                        "Duración del acceso:",
-                        [15, 30, 60, 120, 240, 480],
-                        index=2,
-                        format_func=lambda m: f"{m} minutos" if m < 60 else f"{m // 60} horas"
-                    )
-                with c_dur2:
-                    st.write("")
-                    st.write("")
-                    start_btn = st.button("🚀 Iniciar Enlace", use_container_width=True)
-                if start_btn:
-                    with st.spinner("Generando enlace seguro..."):
-                        ok, msg, u = start_tunnel(8501, dur_min)
-                        if ok:
-                            st.success("¡Enlace creado exitosamente!")
-                            st.rerun()
-                        else:
-                            st.error(f"Error: {msg}")
+
+            # Control de Compartir Acceso Remoto (Solo Administrador)
+            with st.expander("🌐 Compartir Acceso Remoto Temporal", expanded=False):
+                t_state = get_tunnel_status()
+                if t_state["is_active"]:
+                    st.success("🟢 **Acceso Remoto Activo**")
+                    st.markdown(f"**Enlace Público (Internet):**\n[{t_state['url']}]({t_state['url']})")
+                    st.code(t_state["url"], language="text")
+                    st.markdown(f"**Enlace Red Local (Misma Wi-Fi):**\n`{t_state.get('local_url', 'http://127.0.0.1:8501')}`")
+                    rem = t_state.get("remaining_seconds", 0)
+                    mins = rem // 60
+                    secs = rem % 60
+                    st.caption(f"⏱️ Tiempo restante de acceso: **{mins}m {secs}s**")
+                    if st.button("🛑 Desconectar y Bloquear Acceso"):
+                        stop_tunnel()
+                        st.rerun()
+                else:
+                    st.info("Genera un enlace público temporal (HTTPS) para compartir la plataforma con supervisores o colegas durante el tiempo que tú decidas.")
+                    c_dur1, c_dur2 = st.columns([2, 1])
+                    with c_dur1:
+                        dur_min = st.selectbox(
+                            "Duración del acceso:",
+                            [15, 30, 60, 120, 240, 480],
+                            index=2,
+                            format_func=lambda m: f"{m} minutos" if m < 60 else f"{m // 60} horas"
+                        )
+                    with c_dur2:
+                        st.write("")
+                        st.write("")
+                        start_btn = st.button("🚀 Iniciar Enlace", use_container_width=True)
+                    if start_btn:
+                        with st.spinner("Generando enlace seguro..."):
+                            ok, msg, u = start_tunnel(8501, dur_min)
+                            if ok:
+                                st.success("¡Enlace creado exitosamente!")
+                                st.rerun()
+                            else:
+                                st.error(f"Error: {msg}")
+
+            if not is_server_host and st.session_state.get('admin_authenticated'):
+                if st.button("🔒 Cerrar Modo Administrador", key="btn_logout_admin"):
+                    st.session_state['admin_authenticated'] = False
+                    st.rerun()
+        else:
+            # Para usuarios remotos (Invitados / Jefe / Supervisores)
+            st.markdown("""
+            <div style="background: rgba(37, 99, 235, 0.07); border-left: 4px solid #2563eb; padding: 0.6rem 1rem; border-radius: 4px; margin-bottom: 1.2rem;">
+                <span style="font-size: 0.88rem; color: #1e40af; font-weight: 700;">👁️ Sesión Remota (Modo Consulta)</span><br>
+                <span style="font-size: 0.8rem; color: #3b82f6;">Vista interactiva de exploración geológica QA/QC. Las funciones del servidor y control de enlace están protegidas en el equipo local.</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Opción discreta para desbloqueo con PIN si el dueño entra desde su propio teléfono o laptop
+            with st.expander("🔐 ¿Eres el Administrador? (Desbloquear con PIN)", expanded=False):
+                pin_try = st.text_input("Ingresa el PIN maestro:", type="password", key="auth_pin_input")
+                if st.button("Validar PIN", key="btn_validate_pin"):
+                    if pin_try == ADMIN_PIN:
+                        st.session_state['admin_authenticated'] = True
+                        st.success("¡Identidad verificada! Modo Administrador activado.")
+                        st.rerun()
+                    else:
+                        st.error("PIN incorrecto.")
 
         # Escanear carpetas
         try:
