@@ -97,9 +97,9 @@ for _k, _v in DEFAULT_STYLE_SETTINGS.items():
     if _k not in st.session_state or st.session_state[_k] in [None, '#000000', '', 'None']:
         st.session_state[_k] = _v
 
-# Caching de escaneo de carpetas
+# Caching de escaneo de carpetas (versión 2 para invalidar caché previo)
 @st.cache_data(show_spinner="Escaneando directorios de sondajes...")
-def cached_scan(pulp_paths: tuple, cutting_paths: tuple):
+def cached_scan(pulp_paths: tuple, cutting_paths: tuple, _version: int = 2):
     return scan_directories(list(pulp_paths), list(cutting_paths))
 
 # Caching de carga por sondaje
@@ -310,7 +310,7 @@ def main():
                 st.rerun()
     with col_hdr:
         st.title("Comparador de Análisis FRX: Pulpas vs. Cutting")
-    st.caption("Control de Calidad Geológico (QA/QC), Calibración y Comparación Multi-Elemento en Sondajes")
+    st.caption("Control de Calidad Geológico (QA/QC), Calibración y Comparación Multi-Elemento en Sondajes | **Desarrollado por Claudio Muñoz Rubilar**")
 
     st.info("🔒 **Modo de Lectura Segura**: Tus archivos maestros en OneDrive se abren únicamente en modo de lectura estricta. Ningún dato original es modificado ni sobrescrito.")
 
@@ -405,7 +405,7 @@ def main():
 
         # 1. Filtro por Campaña
         st.subheader("🗓️ Selección de Campaña")
-        campaign_opts = ["Todas las Campañas"] + [f"Campaña {c}" for c in campaigns]
+        campaign_opts = ["Todas las Campañas"] + [c for c in campaigns if c != "Todas las Campañas"]
         selected_camp_label = st.selectbox(
             "Campaña a explorar:",
             campaign_opts,
@@ -414,15 +414,38 @@ def main():
         )
 
         if selected_camp_label == "Todas las Campañas":
-            available_holes = all_holes_list
+            camp_filtered_holes = all_holes_list
         else:
-            camp_val = selected_camp_label.replace("Campaña ", "").strip()
-            available_holes = [
+            camp_filtered_holes = [
                 h for h in all_holes_list
-                if holes_info.get(h, {}).get('pulp_campaign') == camp_val or holes_info.get(h, {}).get('cutting_campaign') == camp_val
+                if holes_info.get(h, {}).get('campaign') == selected_camp_label
             ]
 
-        # 2. Selección de Sondaje
+        # 2. Filtro por Tipo de Fuente (Pareado, Solo Cutting o Solo Pulpa)
+        st.subheader("🔍 Tipo de Fuente")
+        source_opts = [
+            "Todos los Sondajes (🟢 + 🟡 + 🔵)",
+            "🟢 Pareados (Pulpa + Cutting)",
+            "🟡 Solo Cutting (Terreno)",
+            "🔵 Solo Pulpa (Laboratorio)"
+        ]
+        source_filter = st.selectbox(
+            "Filtrar por Fuente Disponible:",
+            source_opts,
+            index=0,
+            help="Permite aislar rápidamente sondajes que solo tienen datos de una fuente (ej. solo Cutting de terreno o solo Pulpa de laboratorio)."
+        )
+
+        if "🟢" in source_filter:
+            available_holes = [h for h in camp_filtered_holes if holes_info.get(h, {}).get('source_type') == 'both']
+        elif "🟡" in source_filter:
+            available_holes = [h for h in camp_filtered_holes if holes_info.get(h, {}).get('source_type') == 'only_cutting']
+        elif "🔵" in source_filter:
+            available_holes = [h for h in camp_filtered_holes if holes_info.get(h, {}).get('source_type') == 'only_pulp']
+        else:
+            available_holes = camp_filtered_holes
+
+        # 3. Selección de Sondaje
         st.subheader("📍 Selección de Sondaje")
         hole_options = ["— Selecciona un sondaje para comenzar —"] + available_holes
 
@@ -431,14 +454,14 @@ def main():
                 return h
             info = holes_info.get(h, {})
             stype = info.get('source_type', 'both')
-            camp = info.get('pulp_campaign') or info.get('cutting_campaign') or ''
+            camp = info.get('campaign', '')
             if stype == 'both':
-                tag = "🟢 [PP + CT]"
+                badge = "🟢 [PP + CT]"
             elif stype == 'only_cutting':
-                tag = "🟡 [Solo Cutting]"
+                badge = "🟡 [Solo Cutting]"
             else:
-                tag = "🔵 [Solo Pulpa]"
-            return f"{h} {tag} ({camp})" if camp else f"{h} {tag}"
+                badge = "🔵 [Solo Pulpa]"
+            return f"{badge}  {h}  ({camp})" if camp else f"{badge}  {h}"
 
         hole_choice = st.selectbox(
             "Seleccione Sondaje:",
@@ -449,8 +472,9 @@ def main():
         selected_hole = hole_choice if hole_choice != hole_options[0] else None
 
         n_both = sum(1 for h in available_holes if holes_info.get(h, {}).get('source_type') == 'both')
-        n_mono = len(available_holes) - n_both
-        st.caption(f"📊 **{len(available_holes)} sondajes disponibles** ({n_both} pareados, {n_mono} monofuente).")
+        n_cut = sum(1 for h in available_holes if holes_info.get(h, {}).get('source_type') == 'only_cutting')
+        n_pulp = sum(1 for h in available_holes if holes_info.get(h, {}).get('source_type') == 'only_pulp')
+        st.caption(f"📊 **{len(available_holes)} sondajes listados** (🟢 {n_both} pareados, 🟡 {n_cut} cutting, 🔵 {n_pulp} pulpa).")
 
         # 3. Tratamiento de <LOD
         st.subheader("🧪 Límite de Detección (<LOD)")
@@ -802,6 +826,16 @@ def main():
                 </div>
                 """, unsafe_allow_html=True)
 
+        # Autoría y Créditos del Software
+        st.markdown("---")
+        st.markdown("""
+        <div style="padding: 0.9rem 1rem; background: #1e293b; border: 1px solid #334155; border-radius: 8px; text-align: center; margin-top: 0.8rem; box-shadow: 0 2px 8px rgba(0,0,0,0.25);">
+            <span style="font-size: 0.72rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Desarrollado por</span><br>
+            <span style="font-size: 1.05rem; font-weight: 700; color: #38bdf8;">Claudio Muñoz Rubilar</span><br>
+            <span style="font-size: 0.78rem; color: #cbd5e1; font-weight: 500;">Control Geológico & QA/QC Analítico</span>
+        </div>
+        """, unsafe_allow_html=True)
+
     dash_map = {
         "── Sólida": "solid",
         "··· Punteada": "dot",
@@ -847,6 +881,9 @@ def main():
 
     # Si no hay sondaje seleccionado, mostrar la tarjeta de bienvenida en el cuerpo principal
     if not has_active_data:
+        tot_both = sum(1 for h in all_holes_list if holes_info.get(h, {}).get('source_type') == 'both')
+        tot_cut = sum(1 for h in all_holes_list if holes_info.get(h, {}).get('source_type') == 'only_cutting')
+        tot_pulp = sum(1 for h in all_holes_list if holes_info.get(h, {}).get('source_type') == 'only_pulp')
         st.markdown(f"""
         <div style="padding: 2.2rem 2.5rem; background: rgba(30, 41, 59, 0.7); border-radius: 12px; border: 1px solid #334155; margin: 1.5rem 0 2rem 0; box-shadow: 0 4px 16px rgba(0,0,0,0.2);">
             <h2 style="margin-top: 0; color: #38bdf8; font-weight: 700;">🏔️ Bienvenido a Ct-Pp QA/QC Analytics</h2>
@@ -856,9 +893,9 @@ def main():
             </p>
             <div style="display: flex; gap: 1.2rem; flex-wrap: wrap; margin-top: 1.4rem;">
                 <div style="background: #1e293b; padding: 0.9rem 1.4rem; border-radius: 8px; border: 1px solid #334155; box-shadow: 0 2px 8px rgba(0,0,0,0.3); min-width: 170px;">
-                    <span style="font-size: 0.82rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Sondajes Disponibles</span><br>
-                    <span style="font-size: 1.6rem; font-weight: 700; color: #ffffff;">{len(available_holes)}</span><br>
-                    <span style="font-size: 0.78rem; color: #60a5fa; font-weight: 500;">({n_both} pareados + {n_mono} monofuente)</span>
+                    <span style="font-size: 0.82rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Sondajes Totales</span><br>
+                    <span style="font-size: 1.6rem; font-weight: 700; color: #ffffff;">{len(all_holes_list)}</span><br>
+                    <span style="font-size: 0.78rem; color: #60a5fa; font-weight: 500;">🟢 {tot_both} PP+CT | 🟡 {tot_cut} CT | 🔵 {tot_pulp} PP</span>
                 </div>
                 <div style="background: #1e293b; padding: 0.9rem 1.4rem; border-radius: 8px; border: 1px solid #334155; box-shadow: 0 2px 8px rgba(0,0,0,0.3); min-width: 170px;">
                     <span style="font-size: 0.82rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Elementos Disponibles</span><br>
@@ -874,6 +911,10 @@ def main():
             <div style="margin-top: 1.6rem; padding: 0.9rem 1.2rem; background: rgba(30, 58, 138, 0.35); border-left: 4px solid #3b82f6; border-radius: 4px;">
                 <span style="color: #93c5fd; font-size: 1rem; font-weight: 600;">👈 Para comenzar:</span>
                 <span style="color: #f1f5f9; font-size: 0.95rem;"> Selecciona un sondaje específico en el menú desplegable de la barra lateral izquierda.</span>
+            </div>
+            <div style="margin-top: 1.6rem; padding-top: 1rem; border-top: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                <span style="color: #cbd5e1; font-size: 0.92rem;">👨‍💻 Software diseñado y desarrollado por <b>Claudio Muñoz Rubilar</b></span>
+                <span style="color: #94a3b8; font-size: 0.82rem;">Ct-Pp QA/QC Analytics &bull; Geología & Reconciliación Minera</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -1409,6 +1450,14 @@ def main():
                 df_active.to_excel(writer, index=False, sheet_name="Todos_los_Datos")
                 if not summary_table.empty:
                     summary_table.to_excel(writer, index=False, sheet_name="Resumen_35_Elementos")
+                df_author = pd.DataFrame([{
+                    "Software": "Ct-Pp QA/QC Analytics",
+                    "Desarrollador": "Claudio Muñoz Rubilar",
+                    "Especialidad": "Geología & Control de Calidad Analítico (QA/QC)",
+                    "Sondaje": selected_hole if selected_hole else 'Sondaje',
+                    "Fecha Exportación": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M")
+                }])
+                df_author.to_excel(writer, index=False, sheet_name="Creditos_Autor")
             excel_buffer.seek(0)
             st.download_button(
                 label="📊 Descargar Informe Completo en Excel (.xlsx)",
@@ -1416,6 +1465,14 @@ def main():
                 file_name=f"FRX_Reporte_{selected_hole if selected_hole else 'Sondaje'}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
+
+    # --- PIE DE PÁGINA / AUTORÍA DEL SOFTWARE ---
+    st.markdown("---")
+    st.markdown("""
+    <div style="text-align: center; padding: 1.5rem 0 2rem 0; color: #64748b; font-size: 0.85rem;">
+        🔬 <b>Ct-Pp QA/QC Analytics</b> &bull; Software desarrollado por <b>Claudio Muñoz Rubilar</b> &bull; Reconciliación Geológica Pulpas vs. Cutting
+    </div>
+    """, unsafe_allow_html=True)
 
 
 if __name__ == "__main__":

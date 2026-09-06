@@ -4,15 +4,37 @@ Módulo de Configuración y Constantes del Sistema de Comparación FRX.
 import os
 import re
 
-DEFAULT_PULP_PATHS = [
-    r"C:\Users\cemge\OneDrive - GEOATACAMA CONSULTORES LTDA\CEM Muestrera\FRX\Pulpas\Campaña 2023 - 2024\REPORTE MLP ( POR PULPA )\2026",
-    r"C:\Users\cemge\OneDrive - GEOATACAMA CONSULTORES LTDA\CEM Muestrera\FRX\Pulpas\Campaña 2023 - 2024\REPORTE MLP ( POR PULPA )\2025"
-]
+PULP_ROOT = r"C:\Users\cemge\OneDrive - GEOATACAMA CONSULTORES LTDA\CEM Muestrera\FRX\Pulpas\Campaña 2023 - 2024\REPORTE MLP ( POR PULPA )"
+if os.path.exists(PULP_ROOT):
+    _pulp_subdirs = [
+        os.path.join(PULP_ROOT, d) for d in os.listdir(PULP_ROOT)
+        if os.path.isdir(os.path.join(PULP_ROOT, d)) and d.isdigit()
+    ]
+    DEFAULT_PULP_PATHS = sorted(_pulp_subdirs, reverse=True) if _pulp_subdirs else [
+        os.path.join(PULP_ROOT, "2026"),
+        os.path.join(PULP_ROOT, "2025")
+    ]
+else:
+    DEFAULT_PULP_PATHS = [
+        r"C:\Users\cemge\OneDrive - GEOATACAMA CONSULTORES LTDA\CEM Muestrera\FRX\Pulpas\Campaña 2023 - 2024\REPORTE MLP ( POR PULPA )\2026",
+        r"C:\Users\cemge\OneDrive - GEOATACAMA CONSULTORES LTDA\CEM Muestrera\FRX\Pulpas\Campaña 2023 - 2024\REPORTE MLP ( POR PULPA )\2025"
+    ]
 
-DEFAULT_CUTTING_PATHS = [
-    r"C:\Users\cemge\OneDrive - GEOATACAMA CONSULTORES LTDA\CEM Muestrera\FRX\Cutting\Campaña 2025-2031\REPORTE MLP (Por sondaje)",
-    r"C:\Users\cemge\OneDrive - GEOATACAMA CONSULTORES LTDA\CEM Muestrera\FRX\Cutting\Campaña 2023-2025\REPORTE MLP (POR SONDAJE)"
-]
+CUTTING_ROOT = r"C:\Users\cemge\OneDrive - GEOATACAMA CONSULTORES LTDA\CEM Muestrera\FRX\Cutting"
+DEFAULT_CUTTING_PATHS = []
+if os.path.exists(CUTTING_ROOT):
+    for _c_dir in sorted(os.listdir(CUTTING_ROOT), reverse=True):
+        _full_c = os.path.join(CUTTING_ROOT, _c_dir)
+        if os.path.isdir(_full_c) and 'camp' in _c_dir.lower():
+            for _sub in os.listdir(_full_c):
+                if 'reporte' in _sub.lower() and 'sondaje' in _sub.lower() and 'sg' not in _sub.lower():
+                    DEFAULT_CUTTING_PATHS.append(os.path.join(_full_c, _sub))
+
+if not DEFAULT_CUTTING_PATHS:
+    DEFAULT_CUTTING_PATHS = [
+        r"C:\Users\cemge\OneDrive - GEOATACAMA CONSULTORES LTDA\CEM Muestrera\FRX\Cutting\Campaña 2025-2031\REPORTE MLP (Por sondaje)",
+        r"C:\Users\cemge\OneDrive - GEOATACAMA CONSULTORES LTDA\CEM Muestrera\FRX\Cutting\Campaña 2023-2025\REPORTE MLP (POR SONDAJE)"
+    ]
 
 DEFAULT_PULP_PATH = DEFAULT_PULP_PATHS[0]
 DEFAULT_CUTTING_PATH = DEFAULT_CUTTING_PATHS[0]

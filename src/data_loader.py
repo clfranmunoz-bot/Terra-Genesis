@@ -39,6 +39,26 @@ def select_best_cutting_file(files: List[str]) -> str:
     return max(cands, key=os.path.getsize)
 
 
+def normalize_campaign_name(raw_name: Optional[str]) -> str:
+    """Unifica y normaliza los nombres de campañas geológicas a formato estándar."""
+    if not raw_name:
+        return "Campaña General"
+    raw = str(raw_name).strip()
+    if '2025-2031' in raw or raw == '2026':
+        return 'Campaña 2025-2031'
+    elif '2023-2025' in raw or raw in ['2025', '2024']:
+        return 'Campaña 2023-2025'
+    elif '2023-2024' in raw or '2023 - 2024' in raw:
+        return 'Campaña 2023-2024'
+    elif '2021-2023' in raw or raw in ['2023', '2022']:
+        return 'Campaña 2021-2023'
+    elif raw.isdigit():
+        return f"Campaña {raw}"
+    elif not raw.lower().startswith('campaña'):
+        return f"Campaña {raw}"
+    return raw
+
+
 def scan_directories(pulp_base_dir: Union[str, List[str]] = DEFAULT_PULP_PATHS,
                      cutting_base_dir: Union[str, List[str]] = DEFAULT_CUTTING_PATHS) -> Dict[str, Any]:
     """
@@ -88,6 +108,9 @@ def scan_directories(pulp_base_dir: Union[str, List[str]] = DEFAULT_PULP_PATHS,
 
     holes_info = {}
     for h in common_holes:
+        p_c = normalize_campaign_name(pulp_map[h]['campaign'])
+        c_c = normalize_campaign_name(cutting_map[h]['campaign'])
+        unified_camp = c_c if c_c else p_c
         holes_info[h] = {
             'hole_id': h,
             'source_type': 'both',
@@ -95,12 +118,13 @@ def scan_directories(pulp_base_dir: Union[str, List[str]] = DEFAULT_PULP_PATHS,
             'cutting_folder': cutting_map[h]['folder'],
             'pulp_file': pulp_map[h]['file'],
             'cutting_file': cutting_map[h]['file'],
-            'pulp_campaign': pulp_map[h]['campaign'],
-            'cutting_campaign': cutting_map[h]['campaign'],
-            'campaign': f"{pulp_map[h]['campaign']} / {cutting_map[h]['campaign']}"
+            'pulp_campaign': p_c,
+            'cutting_campaign': c_c,
+            'campaign': unified_camp
         }
 
     for h in only_pulp:
+        unified_camp = normalize_campaign_name(pulp_map[h]['campaign'])
         holes_info[h] = {
             'hole_id': h,
             'source_type': 'only_pulp',
@@ -108,12 +132,13 @@ def scan_directories(pulp_base_dir: Union[str, List[str]] = DEFAULT_PULP_PATHS,
             'cutting_folder': None,
             'pulp_file': pulp_map[h]['file'],
             'cutting_file': None,
-            'pulp_campaign': pulp_map[h]['campaign'],
+            'pulp_campaign': unified_camp,
             'cutting_campaign': None,
-            'campaign': pulp_map[h]['campaign']
+            'campaign': unified_camp
         }
 
     for h in only_cutting:
+        unified_camp = normalize_campaign_name(cutting_map[h]['campaign'])
         holes_info[h] = {
             'hole_id': h,
             'source_type': 'only_cutting',
@@ -122,18 +147,12 @@ def scan_directories(pulp_base_dir: Union[str, List[str]] = DEFAULT_PULP_PATHS,
             'pulp_file': None,
             'cutting_file': cutting_map[h]['file'],
             'pulp_campaign': None,
-            'cutting_campaign': cutting_map[h]['campaign'],
-            'campaign': cutting_map[h]['campaign']
+            'cutting_campaign': unified_camp,
+            'campaign': unified_camp
         }
 
     all_holes = sorted(list(holes_info.keys()))
-    all_camps = set()
-    for info in holes_info.values():
-        if info.get('pulp_campaign'):
-            all_camps.add(info['pulp_campaign'])
-        if info.get('cutting_campaign'):
-            all_camps.add(info['cutting_campaign'])
-    campaigns = sorted(list(all_camps))
+    campaigns = sorted(list(set(info['campaign'] for info in holes_info.values())), reverse=True)
 
     return {
         'common_holes': common_holes,

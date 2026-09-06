@@ -54,3 +54,12 @@ Plataforma especializada en reconciliación geológica y control de calidad anal
 ## 🔒 Seguridad e Integridad de Datos
 
 Esta plataforma opera bajo **modo estricto de solo lectura** sobre las carpetas de datos de campaña en OneDrive. Ningún archivo maestro original es modificado, renombrado ni sobreescrito.
+
+---
+
+## 👨‍💻 Autoría y Créditos
+
+* **Desarrollador del Software**: **Claudio Muñoz Rubilar**
+* **Especialidad**: Geología de Exploración, Control de Calidad Analítico (QA/QC) & Reconciliación FRX
+* **Plataforma**: Ct-Pp QA/QC Analytics
+
