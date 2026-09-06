@@ -1,9 +1,9 @@
 @echo off
 chcp 65001 >nul
-title Terra-Genesis QA/QC - Compartir Acceso Remoto Temporal
+title Ct-Pp QA/QC - Compartir Acceso Remoto Temporal
 cls
 echo ====================================================================
-echo         TERRA-GENESIS QA/QC - COMPARTIR APLICACIÓN TEMPORAL
+echo            CT-PP QA/QC - COMPARTIR APLICACIÓN TEMPORAL
 echo ====================================================================
 echo.
 echo Este lanzador genera un enlace público temporal y seguro (HTTPS)

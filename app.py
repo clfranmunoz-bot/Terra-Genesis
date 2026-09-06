@@ -158,6 +158,44 @@ def main():
                 st.cache_data.clear()
                 st.rerun()
 
+        # Control de Compartir Acceso Remoto
+        with st.expander("🌐 Compartir Acceso Remoto Temporal", expanded=False):
+            t_state = get_tunnel_status()
+            if t_state["is_active"]:
+                st.success("🟢 **Acceso Remoto Activo**")
+                st.markdown(f"**Enlace Público (Internet):**\n[{t_state['url']}]({t_state['url']})")
+                st.code(t_state["url"], language="text")
+                st.markdown(f"**Enlace Red Local (Misma Wi-Fi):**\n`{t_state.get('local_url', 'http://127.0.0.1:8501')}`")
+                rem = t_state.get("remaining_seconds", 0)
+                mins = rem // 60
+                secs = rem % 60
+                st.caption(f"⏱️ Tiempo restante de acceso: **{mins}m {secs}s**")
+                if st.button("🛑 Desconectar y Bloquear Acceso"):
+                    stop_tunnel()
+                    st.rerun()
+            else:
+                st.info("Genera un enlace público temporal (HTTPS) para compartir la plataforma con supervisores o colegas durante el tiempo que tú decidas.")
+                c_dur1, c_dur2 = st.columns([2, 1])
+                with c_dur1:
+                    dur_min = st.selectbox(
+                        "Duración del acceso:",
+                        [15, 30, 60, 120, 240, 480],
+                        index=2,
+                        format_func=lambda m: f"{m} minutos" if m < 60 else f"{m // 60} horas"
+                    )
+                with c_dur2:
+                    st.write("")
+                    st.write("")
+                    start_btn = st.button("🚀 Iniciar Enlace", use_container_width=True)
+                if start_btn:
+                    with st.spinner("Generando enlace seguro..."):
+                        ok, msg, u = start_tunnel(8501, dur_min)
+                        if ok:
+                            st.success("¡Enlace creado exitosamente!")
+                            st.rerun()
+                        else:
+                            st.error(f"Error: {msg}")
+
         # Escanear carpetas
         try:
             scan_res = cached_scan(tuple(DEFAULT_PULP_PATHS), tuple(DEFAULT_CUTTING_PATHS))
@@ -224,7 +262,7 @@ def main():
                 st.markdown("---")
                 st.markdown(f"""
                 <div style="padding: 2.2rem 2.5rem; background: linear-gradient(135deg, rgba(37, 99, 235, 0.07) 0%, rgba(59, 130, 246, 0.02) 100%); border-radius: 12px; border: 1px solid rgba(59, 130, 246, 0.22); margin-bottom: 2rem;">
-                    <h2 style="margin-top: 0; color: #1d4ed8; font-weight: 700;">🏔️ Bienvenido a Terra-Genesis QA/QC Analytics</h2>
+                    <h2 style="margin-top: 0; color: #1d4ed8; font-weight: 700;">🏔️ Bienvenido a Ct-Pp QA/QC Analytics</h2>
                     <p style="font-size: 1.05rem; line-height: 1.6; color: #334155;">
                         Plataforma especializada en reconciliación geológica y control de calidad analítico entre lecturas de 
                         <b>FRX Portátil (Cutting)</b> y ensayos químicos de laboratorio oficial <b>(Pulpa)</b>.

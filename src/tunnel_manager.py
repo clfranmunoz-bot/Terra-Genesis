@@ -27,6 +27,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 TOOLS_DIR = ROOT_DIR / "tools"
 CLOUDFLARED_BIN = TOOLS_DIR / "cloudflared.exe"
 STATE_FILE = TOOLS_DIR / "tunnel_state.json"
+LOG_FILE = TOOLS_DIR / "tunnel.log"
 
 # Lock para sincronizar acceso al estado
 _STATE_LOCK = threading.Lock()
@@ -170,15 +171,17 @@ def get_tunnel_status() -> Dict[str, Any]:
         if state.get("status") == "RUNNING" and expires_at:
             remaining = max(0, int(expires_at - now))
 
+        local_ip = get_local_ip()
         return {
             "is_active": state.get("status") == "RUNNING",
             "status": state.get("status", "STOPPED"),
             "url": state.get("url"),
+            "local_url": f"http://{local_ip}:8501",
             "pid": state.get("pid"),
             "duration_seconds": state.get("duration_seconds", 0),
             "remaining_seconds": remaining,
             "expires_at": expires_at,
-            "local_ip": get_local_ip(),
+            "local_ip": local_ip,
             "error": state.get("error")
         }
 
@@ -226,47 +229,52 @@ def start_tunnel(port: int = 8501, duration_minutes: int = 30) -> Tuple[bool, st
     cmd = [
         cloudflared_path,
         "tunnel",
-        "--url", f"http://localhost:{port}",
+        "--edge-ip-version", "4",
+        "--url", f"http://127.0.0.1:{port}",
         "--no-autoupdate"
     ]
 
     try:
-        # En Windows, CREATE_NO_WINDOW evita ventanas negras emergentes
+        TOOLS_DIR.mkdir(parents=True, exist_ok=True)
+        # Redirigir la salida a archivo para evitar desbordamiento del buffer de tubería en Windows
+        log_write = open(LOG_FILE, "w", encoding="utf-8")
         creationflags = 0x08000000 if os.name == 'nt' else 0
         proc = subprocess.Popen(
             cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1,
+            stdout=log_write,
+            stderr=subprocess.STDOUT,
             creationflags=creationflags
         )
         _ACTIVE_PROC = proc
 
-        # Cloudflare Tunnel emite la URL en stderr
+        # Cloudflare Tunnel escribe la URL pública en su salida estándar/error
         tunnel_url = None
         start_wait = time.time()
         url_regex = re.compile(r"https://[a-zA-Z0-9-]+\.trycloudflare\.com")
 
-        # Leer stderr con timeout de 25 segundos
-        while time.time() - start_wait < 25:
-            if proc.poll() is not None:
-                # El proceso terminó prematuramente
-                _, err_out = proc.communicate(timeout=2)
-                return False, f"El proceso cloudflared falló al iniciar: {err_out[:300]}", None
+        # Leer log progresivamente con timeout de 30 segundos
+        with open(LOG_FILE, "r", encoding="utf-8", errors="ignore") as log_read:
+            while time.time() - start_wait < 30:
+                if proc.poll() is not None:
+                    time.sleep(0.5)
+                    err_out = log_read.read()
+                    return False, f"El proceso cloudflared falló al iniciar: {err_out[:300]}", None
 
-            line = proc.stderr.readline()
-            if line:
-                match = url_regex.search(line)
-                if match:
-                    tunnel_url = match.group(0)
-                    break
-            else:
-                time.sleep(0.1)
+                line = log_read.readline()
+                if line:
+                    match = url_regex.search(line)
+                    if match:
+                        tunnel_url = match.group(0)
+                        break
+                else:
+                    time.sleep(0.2)
 
         if not tunnel_url:
             _kill_pid_tree(proc.pid)
             return False, "Tiempo de espera agotado sin recibir la URL pública de Cloudflare.", None
+
+        # Breve pausa para propagación inicial en borde Cloudflare
+        time.sleep(1.5)
 
         # Configurar expiración
         now = time.time()
