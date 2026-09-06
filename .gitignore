@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# Streamlit logs and secrets
+.streamlit/secrets.toml
+*.log
+
+# Geological Data files (Strict corporate protection)
+*.xlsx
+*.xls
+*.csv
+
+# Cloudflare tools and temporary state
+tools/
+*.tmp
+
+# IDEs & OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.agent/
+
+# Legacy files from other projects
+textures/
+css/
+js/
+index.html
+iniciar_simulador.bat
+server.py
+generar_figuras.py
+generar_presentacion.py
+presentacion_salud_mental/
+core_logging_interface.html
+geocore_visor_geologico.html
+informe_analisis_ddh4082.html
