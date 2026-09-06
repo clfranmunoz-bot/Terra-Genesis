@@ -20,23 +20,48 @@ from src.config import (
 
 
 def select_best_pulp_file(files: List[str]) -> str:
-    """Selecciona el reporte oficial de pulpas descartando plantillas vacías."""
-    valid = [f for f in files if not os.path.basename(f).startswith('~$') and '-geoatacama' not in os.path.basename(f).lower()]
+    """Selecciona el reporte oficial de pulpas descartando plantillas y generadoras."""
+    valid = []
+    for f in files:
+        b = os.path.basename(f).lower()
+        if b.startswith('~$') or '-geoatacama' in b:
+            continue
+        if any(bad in b for bad in ['planilla', 'generacion', 'generación', 'generadora', 'plantilla', 'factores']):
+            continue
+        valid.append(f)
     if not valid:
-        valid = files
-    reps = [f for f in valid if 'reporte' in os.path.basename(f).lower() or '_pp' in os.path.basename(f).lower()]
-    cands = reps if reps else valid
-    return max(cands, key=os.path.getsize)
+        valid = [f for f in files if not os.path.basename(f).startswith('~$')]
+
+    pp_files = [f for f in valid if '_pp' in os.path.basename(f).lower()]
+    if pp_files:
+        return max(pp_files, key=os.path.getsize)
+    rep_files = [f for f in valid if 'reporte' in os.path.basename(f).lower()]
+    if rep_files:
+        return max(rep_files, key=os.path.getsize)
+    return max(valid, key=os.path.getsize) if valid else files[0]
 
 
 def select_best_cutting_file(files: List[str]) -> str:
     """Selecciona el reporte oficial de cutting descartando plantillas y generadoras."""
-    valid = [f for f in files if not os.path.basename(f).startswith('~$') and '-geoatacama' not in os.path.basename(f).lower() and 'generadora' not in os.path.basename(f).lower()]
+    valid = []
+    for f in files:
+        b = os.path.basename(f).lower()
+        if b.startswith('~$') or '-geoatacama' in b:
+            continue
+        if any(bad in b for bad in ['planilla', 'generacion', 'generación', 'generadora', 'plantilla', 'factores']):
+            continue
+        valid.append(f)
     if not valid:
-        valid = files
-    reps = [f for f in valid if 'reporte' in os.path.basename(f).lower() or '_ct' in os.path.basename(f).lower()]
-    cands = reps if reps else valid
-    return max(cands, key=os.path.getsize)
+        valid = [f for f in files if not os.path.basename(f).startswith('~$')]
+
+    ct_files = [f for f in valid if '_ct' in os.path.basename(f).lower()]
+    if ct_files:
+        return max(ct_files, key=os.path.getsize)
+    rep_files = [f for f in valid if 'reporte' in os.path.basename(f).lower()]
+    if rep_files:
+        return max(rep_files, key=os.path.getsize)
+    return max(valid, key=os.path.getsize) if valid else files[0]
+
 
 
 def normalize_campaign_name(raw_name: Optional[str]) -> str:

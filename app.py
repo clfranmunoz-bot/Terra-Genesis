@@ -97,14 +97,14 @@ for _k, _v in DEFAULT_STYLE_SETTINGS.items():
     if _k not in st.session_state or st.session_state[_k] in [None, '#000000', '', 'None']:
         st.session_state[_k] = _v
 
-# Caching de escaneo de carpetas (versión 2 para invalidar caché previo)
+# Caching de escaneo de carpetas (versión 3 para invalidar caché previo)
 @st.cache_data(show_spinner="Escaneando directorios de sondajes...")
-def cached_scan(pulp_paths: tuple, cutting_paths: tuple, _version: int = 2):
+def cached_scan(pulp_paths: tuple, cutting_paths: tuple, _version: int = 3):
     return scan_directories(list(pulp_paths), list(cutting_paths))
 
 # Caching de carga por sondaje
 @st.cache_data(show_spinner="Cargando y procesando datos del sondaje...")
-def cached_load_hole(holes_info: dict, hole_id: str, lod_mode: str):
+def cached_load_hole(holes_info: dict, hole_id: str, lod_mode: str, _version: int = 3):
     return load_dataset_for_hole(holes_info, hole_id, lod_mode=lod_mode)
 
 # Caching de consolidado
@@ -452,16 +452,13 @@ def main():
         def format_hole_item(h):
             if h.startswith("—"):
                 return h
+            # Si el usuario ya filtró por una fuente específica, mostrar solo el nombre del sondaje
+            if source_filter != "Todos los Sondajes (🟢 + 🟡 + 🔵)":
+                return h
             info = holes_info.get(h, {})
             stype = info.get('source_type', 'both')
-            camp = info.get('campaign', '')
-            if stype == 'both':
-                badge = "🟢 [PP + CT]"
-            elif stype == 'only_cutting':
-                badge = "🟡 [Solo Cutting]"
-            else:
-                badge = "🔵 [Solo Pulpa]"
-            return f"{badge}  {h}  ({camp})" if camp else f"{badge}  {h}"
+            badge = "🟢" if stype == 'both' else ("🟡" if stype == 'only_cutting' else "🔵")
+            return f"{badge}  {h}"
 
         hole_choice = st.selectbox(
             "Seleccione Sondaje:",
@@ -1012,12 +1009,13 @@ def main():
         with col_orient:
             orient_choice = st.radio(
                 "📐 Orientación del Perfil:",
-                ["↕️ Vertical", "↔️ Horizontal (A lo largo del Sondaje)"],
+                ["↔️ Horizontal (A lo largo del Sondaje)", "↕️ Vertical"],
+                index=0,
                 horizontal=True,
-                help="↕️ Vertical: Eje Y hacia abajo (profundidad del pozo). ↔️ Horizontal: Eje X continuo con rangeslider para navegar a lo largo de todo el sondaje."
+                help="↔️ Horizontal: Eje X continuo con rangeslider para navegar a lo largo de todo el sondaje. ↕️ Vertical: Eje Y hacia abajo (profundidad del pozo)."
             )
 
-        orientation_param = 'vertical' if orient_choice.startswith("↕️") else 'horizontal'
+        orientation_param = 'horizontal' if "Horizontal" in orient_choice else 'vertical'
 
         # Controles de escala y altura según orientación
         if orientation_param == 'vertical':

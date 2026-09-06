@@ -238,10 +238,27 @@ def run_tests():
     assert len(f_pulp_cross.data) >= 1, "Monofuente pulp cross correlation must contain trace"
     print("   Success: Both monofuente holes DDH3866 (Solo Cutting [Y]) and DDH3825 (Solo Pulpa [B]) verified with 100% stability.")
 
+    print("16. Testing specific holes DDH3711 (Solo Cutting) and DDH3846 (Paired)...")
+    # DDH3711 should load official report with 90 intervals and valid Cu_Cut
+    df_3711 = load_dataset_for_hole(scan_res['holes_info'], 'DDH3711')
+    assert not df_3711.empty, "DDH3711 must not be empty"
+    assert len(df_3711) == 90, f"Expected 90 intervals for DDH3711, got {len(df_3711)}"
+    assert 'Cu_Cut' in df_3711.columns, "DDH3711 must contain Cu_Cut"
+
+    # DDH3846 should load paired report without KeyError and contain both Cu_Pulp and Cu_Cut
+    df_3846 = load_dataset_for_hole(scan_res['holes_info'], 'DDH3846')
+    assert not df_3846.empty, "DDH3846 must not be empty"
+    assert len(df_3846) >= 140, f"Expected >= 140 intervals for DDH3846, got {len(df_3846)}"
+    assert 'Cu_Pulp' in df_3846.columns and 'Cu_Cut' in df_3846.columns, "DDH3846 must have both Cu_Pulp and Cu_Cut"
+    f_3846_dh = plot_downhole_profile(df_3846, 'Cu', 'DDH3846', '%', orientation='horizontal')
+    assert len(f_3846_dh.data) >= 2, "DDH3846 horizontal profile must render both pulp and cut"
+    print("   Success: DDH3711 and DDH3846 verified with 100% data integrity and zero errors.")
+
     print("\n=========================================")
-    print("  ALL 15 TESTS PASSED WITH 100% SUCCESS! ")
+    print("  ALL 16 TESTS PASSED WITH 100% SUCCESS! ")
     print("=========================================")
 
 if __name__ == '__main__':
     run_tests()
+
 
