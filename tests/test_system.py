@@ -209,8 +209,29 @@ def run_tests():
     assert f_dh_340.layout.margin.t == 75, f"Expected margin.t 75 for medium-compact height, got {f_dh_340.layout.margin.t}"
     print("   Success: Compact horizontal profile layouts verified.")
 
+    print("15. Testing monofuente (single-source) loading and plotting (DDH3866 - Solo Cutting)...")
+    assert 'all_holes' in scan_res, "scan_directories must return 'all_holes'"
+    assert len(scan_res['all_holes']) >= 234, f"Expected >= 234 total holes, got {len(scan_res['all_holes'])}"
+    assert 'DDH3866' in scan_res['all_holes'], "DDH3866 should be in all_holes"
+
+    df_3866 = load_dataset_for_hole(scan_res['holes_info'], 'DDH3866')
+    assert not df_3866.empty, "DDH3866 DataFrame must not be empty"
+    assert 'Cu_Cut' in df_3866.columns, "DDH3866 must have Cu_Cut column"
+    assert 'Cu_Pulp' not in df_3866.columns, "DDH3866 is monofuente (should not have Cu_Pulp)"
+
+    # Test plotting monofuente hole
+    f_mono_dh = plot_downhole_profile(df_3866, 'Cu', 'DDH3866', '%', orientation='vertical')
+    assert len(f_mono_dh.data) >= 1, "Monofuente profile must contain at least 1 trace"
+
+    f_mono_mt = plot_multi_track_downhole(df_3866, ['Cu', 'Mo'], 'DDH3866', orientation='vertical')
+    assert len(f_mono_mt.data) >= 1, "Monofuente multi-track must contain traces"
+
+    f_mono_cross = plot_cross_element_correlation(df_3866, 'Cu', 'Mo', 'DDH3866')
+    assert len(f_mono_cross.data) >= 1, "Monofuente cross correlation must contain cutting trace"
+    print("   Success: Monofuente hole DDH3866 loaded and plotted with 100% stability.")
+
     print("\n=========================================")
-    print("  ALL 14 TESTS PASSED WITH 100% SUCCESS! ")
+    print("  ALL 15 TESTS PASSED WITH 100% SUCCESS! ")
     print("=========================================")
 
 if __name__ == '__main__':

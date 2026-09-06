@@ -90,6 +90,7 @@ def scan_directories(pulp_base_dir: Union[str, List[str]] = DEFAULT_PULP_PATHS,
     for h in common_holes:
         holes_info[h] = {
             'hole_id': h,
+            'source_type': 'both',
             'pulp_folder': pulp_map[h]['folder'],
             'cutting_folder': cutting_map[h]['folder'],
             'pulp_file': pulp_map[h]['file'],
@@ -99,10 +100,44 @@ def scan_directories(pulp_base_dir: Union[str, List[str]] = DEFAULT_PULP_PATHS,
             'campaign': f"{pulp_map[h]['campaign']} / {cutting_map[h]['campaign']}"
         }
 
-    campaigns = sorted(list(set(info['pulp_campaign'] for info in holes_info.values())))
+    for h in only_pulp:
+        holes_info[h] = {
+            'hole_id': h,
+            'source_type': 'only_pulp',
+            'pulp_folder': pulp_map[h]['folder'],
+            'cutting_folder': None,
+            'pulp_file': pulp_map[h]['file'],
+            'cutting_file': None,
+            'pulp_campaign': pulp_map[h]['campaign'],
+            'cutting_campaign': None,
+            'campaign': pulp_map[h]['campaign']
+        }
+
+    for h in only_cutting:
+        holes_info[h] = {
+            'hole_id': h,
+            'source_type': 'only_cutting',
+            'pulp_folder': None,
+            'cutting_folder': cutting_map[h]['folder'],
+            'pulp_file': None,
+            'cutting_file': cutting_map[h]['file'],
+            'pulp_campaign': None,
+            'cutting_campaign': cutting_map[h]['campaign'],
+            'campaign': cutting_map[h]['campaign']
+        }
+
+    all_holes = sorted(list(holes_info.keys()))
+    all_camps = set()
+    for info in holes_info.values():
+        if info.get('pulp_campaign'):
+            all_camps.add(info['pulp_campaign'])
+        if info.get('cutting_campaign'):
+            all_camps.add(info['cutting_campaign'])
+    campaigns = sorted(list(all_camps))
 
     return {
-        'common_holes': sorted(list(holes_info.keys())),
+        'common_holes': common_holes,
+        'all_holes': all_holes,
         'holes_info': holes_info,
         'only_pulp': only_pulp,
         'only_cutting': only_cutting,
@@ -174,49 +209,78 @@ def parse_pulp_excel(file_path: str) -> pd.DataFrame:
 def parse_cutting_excel(file_path: str) -> pd.DataFrame:
     """
     Parsea un archivo de reporte de Cutting (ej. Reporte MLP DDH4092_CT.xlsx).
-    Maneja la cabecera de 1 fila con sufijos _pct y _ppm.
+    Soporta tanto archivos con cabecera de 1 fila (2025-2031) como de 2 filas (2023-2025).
     """
-    df = pd.read_excel(file_path, header=0)
-    if df.empty:
-        return df
+    raw_df = pd.read_excel(file_path, header=None)
+    if raw_df.shape[0] < 2:
+        return pd.DataFrame()
 
-    rename_dict = {}
-    element_cols = {}
+    r0 = [str(x).strip() if pd.notna(x) else "" for x in raw_df.iloc[0]]
+    r1 = [str(x).strip() if pd.notna(x) else "" for x in raw_df.iloc[1]]
 
-    for col in df.columns:
-        c_str = str(col).strip()
-        c_lower = c_str.lower()
+    r0_lower = [x.lower() for x in r0]
+    is_1row = any('from' in x or 'desde' in x or 'to' in x or 'hasta' in x for x in r0_lower)
 
-        if 'from' in c_lower or 'desde' in c_lower:
-            rename_dict[col] = 'From'
-        elif 'to' in c_lower or 'hasta' in c_lower:
-            rename_dict[col] = 'To'
-        elif 'sondaje' in c_lower or 'hole' in c_lower:
-            rename_dict[col] = 'Sondaje'
-        elif 'id.' in c_lower or 'id' in c_lower or 'muestra' in c_lower:
-            rename_dict[col] = 'Sample_ID_Cut'
-        elif 'peso' in c_lower:
-            rename_dict[col] = 'Peso_Cut'
-        elif 'nº' in c_lower or 'n°' in c_lower:
-            rename_dict[col] = 'Row_Index_Cut'
-        else:
-            symbol = extract_element_symbol(c_str)
-            if symbol and symbol.upper() not in ['NONE', 'NAN', 'UNNAMED']:
-                col_name = f"{symbol}_Cut"
-                rename_dict[col] = col_name
-                element_cols[col_name] = symbol
+    col_names = []
+    if is_1row:
+        for idx, c_str in enumerate(r0):
+            cl = c_str.lower()
+            if 'from' in cl or 'desde' in cl:
+                col_names.append('From')
+            elif 'to' in cl or 'hasta' in cl:
+                col_names.append('To')
+            elif 'sondaje' in cl or 'hole' in cl:
+                col_names.append('Sondaje')
+            elif 'id.' in cl or 'id' in cl or 'muestra' in cl:
+                col_names.append('Sample_ID_Cut')
+            elif 'peso' in cl:
+                col_names.append('Peso_Cut')
+            elif 'nº' in cl or 'n°' in cl:
+                col_names.append('Row_Index_Cut')
+            else:
+                sym = extract_element_symbol(c_str)
+                if sym and sym.upper() not in ['NONE', 'NAN', 'UNNAMED', '']:
+                    col_names.append(f"{sym}_Cut")
+                else:
+                    col_names.append(f"Extra_{idx}")
+        df_data = raw_df.iloc[1:].copy()
+    else:
+        for idx in range(len(r0)):
+            r0_val = r0[idx]
+            r1_val = r1[idx]
+            r1_l = r1_val.lower()
+            if 'from' in r1_l or 'desde' in r1_l:
+                col_names.append('From')
+            elif 'to' in r1_l or 'hasta' in r1_l:
+                col_names.append('To')
+            elif 'sondaje' in r1_l or 'hole' in r1_l:
+                col_names.append('Sondaje')
+            elif 'id.' in r1_l or 'id' in r1_l or 'muestra' in r1_l:
+                col_names.append('Sample_ID_Cut')
+            elif 'peso' in r1_l:
+                col_names.append('Peso_Cut')
+            elif 'nº' in r1_l or 'n°' in r1_l:
+                col_names.append('Row_Index_Cut')
+            else:
+                elem_raw = r0_val if r0_val and r0_val != 'None' else r1_val
+                sym = extract_element_symbol(elem_raw)
+                if sym and sym.upper() not in ['NONE', 'NAN', 'UNNAMED', '']:
+                    col_names.append(f"{sym}_Cut")
+                else:
+                    col_names.append(f"Extra_{idx}")
+        df_data = raw_df.iloc[2:].copy()
 
-    df = df.rename(columns=rename_dict)
+    df_data.columns = col_names[:df_data.shape[1]]
 
     # Limpiar From y To
-    if 'From' in df.columns and 'To' in df.columns:
-        df['From'] = pd.to_numeric(df['From'], errors='coerce')
-        df['To'] = pd.to_numeric(df['To'], errors='coerce')
-        df = df.dropna(subset=['From', 'To']).copy()
-        df['From'] = df['From'].astype(float).round(2)
-        df['To'] = df['To'].astype(float).round(2)
+    if 'From' in df_data.columns and 'To' in df_data.columns:
+        df_data['From'] = pd.to_numeric(df_data['From'], errors='coerce')
+        df_data['To'] = pd.to_numeric(df_data['To'], errors='coerce')
+        df_data = df_data.dropna(subset=['From', 'To']).copy()
+        df_data['From'] = df_data['From'].astype(float).round(2)
+        df_data['To'] = df_data['To'].astype(float).round(2)
 
-    return df
+    return df_data
 
 
 def clean_element_series(series: pd.Series, lod_mode: str = 'exclude') -> Tuple[pd.Series, pd.Series]:
@@ -340,21 +404,98 @@ def merge_pulp_and_cutting(pulp_df: pd.DataFrame,
     return merged
 
 
+def process_single_source_pulp(df_pulp: pd.DataFrame, hole_id: str, lod_mode: str = 'exclude') -> pd.DataFrame:
+    """
+    Procesa un DataFrame proveniente exclusivamente de Pulpa (Lab) cuando no existe Cutting.
+    """
+    if df_pulp.empty:
+        return pd.DataFrame()
+    df = df_pulp.copy()
+    if 'From' not in df.columns or 'To' not in df.columns:
+        return pd.DataFrame()
+
+    df['Sondaje'] = hole_id
+    df['Longitud_m'] = (df['To'] - df['From']).round(2)
+    df['Punto_Medio_m'] = ((df['From'] + df['To']) / 2.0).round(2)
+
+    new_derived_cols = {}
+    p_cols = [c for c in df.columns if c.endswith('_Pulp') and c[:-5] in ELEMENT_CATALOG]
+    for p_col in p_cols:
+        elem = p_col[:-5]
+        num_p, lod_p = clean_element_series(df[p_col], lod_mode=lod_mode)
+        df[p_col] = num_p
+        new_derived_cols[f"LOD_Flag_{elem}_Pulp"] = lod_p
+
+    if new_derived_cols:
+        df_derived = pd.DataFrame(new_derived_cols, index=df.index)
+        df = pd.concat([df, df_derived], axis=1)
+
+    base_cols = ['Sondaje', 'From', 'To', 'Longitud_m', 'Punto_Medio_m']
+    if 'Sample_ID_Pulp' in df.columns:
+        base_cols.append('Sample_ID_Pulp')
+    other_cols = [c for c in df.columns if c not in base_cols]
+    df = df[base_cols + other_cols].sort_values(by='From').reset_index(drop=True)
+    return df
+
+
+def process_single_source_cutting(df_cut: pd.DataFrame, hole_id: str, lod_mode: str = 'exclude') -> pd.DataFrame:
+    """
+    Procesa un DataFrame proveniente exclusivamente de Cutting (FRX) cuando no existe Pulpa.
+    """
+    if df_cut.empty:
+        return pd.DataFrame()
+    df = df_cut.copy()
+    if 'From' not in df.columns or 'To' not in df.columns:
+        return pd.DataFrame()
+
+    df['Sondaje'] = hole_id
+    df['Longitud_m'] = (df['To'] - df['From']).round(2)
+    df['Punto_Medio_m'] = ((df['From'] + df['To']) / 2.0).round(2)
+
+    new_derived_cols = {}
+    c_cols = [c for c in df.columns if c.endswith('_Cut') and c[:-4] in ELEMENT_CATALOG]
+    for c_col in c_cols:
+        elem = c_col[:-4]
+        num_c, lod_c = clean_element_series(df[c_col], lod_mode=lod_mode)
+        df[c_col] = num_c
+        new_derived_cols[f"LOD_Flag_{elem}_Cut"] = lod_c
+
+    if new_derived_cols:
+        df_derived = pd.DataFrame(new_derived_cols, index=df.index)
+        df = pd.concat([df, df_derived], axis=1)
+
+    base_cols = ['Sondaje', 'From', 'To', 'Longitud_m', 'Punto_Medio_m']
+    if 'Sample_ID_Cut' in df.columns:
+        base_cols.append('Sample_ID_Cut')
+    other_cols = [c for c in df.columns if c not in base_cols]
+    df = df[base_cols + other_cols].sort_values(by='From').reset_index(drop=True)
+    return df
+
+
 def load_dataset_for_hole(holes_info: Dict[str, Any],
                           hole_id: str,
                           lod_mode: str = 'exclude') -> pd.DataFrame:
     """
-    Carga y fusiona los datos de un sondaje individual específico.
+    Carga y procesa los datos de un sondaje individual específico.
+    Soporta sondajes pareados ('both') y sondajes monofuente ('only_pulp' o 'only_cutting').
     """
     norm_id = normalize_hole_id(hole_id)
     if norm_id not in holes_info:
-        raise ValueError(f"Sondaje {hole_id} no encontrado en la lista de sondajes comunes.")
+        raise ValueError(f"Sondaje {hole_id} no encontrado en la lista de sondajes disponibles.")
 
     info = holes_info[norm_id]
-    df_pulp = parse_pulp_excel(info['pulp_file'])
-    df_cut = parse_cutting_excel(info['cutting_file'])
+    source_type = info.get('source_type', 'both')
 
-    return merge_pulp_and_cutting(df_pulp, df_cut, hole_id=norm_id, lod_mode=lod_mode)
+    if source_type == 'only_pulp' or (info.get('pulp_file') and not info.get('cutting_file')):
+        df_pulp = parse_pulp_excel(info['pulp_file'])
+        return process_single_source_pulp(df_pulp, hole_id=norm_id, lod_mode=lod_mode)
+    elif source_type == 'only_cutting' or (info.get('cutting_file') and not info.get('pulp_file')):
+        df_cut = parse_cutting_excel(info['cutting_file'])
+        return process_single_source_cutting(df_cut, hole_id=norm_id, lod_mode=lod_mode)
+    else:
+        df_pulp = parse_pulp_excel(info['pulp_file'])
+        df_cut = parse_cutting_excel(info['cutting_file'])
+        return merge_pulp_and_cutting(df_pulp, df_cut, hole_id=norm_id, lod_mode=lod_mode)
 
 
 def load_all_holes_consolidated(holes_info: Dict[str, Any],

@@ -138,175 +138,270 @@ def plot_downhole_profile(df: pd.DataFrame,
     c_col = f"{element}_Cut"
     d_col = f"{element}_Diff_Abs"
 
-    # Filtrar datos válidos
-    sub = df[['From', 'To', 'Punto_Medio_m', p_col, c_col, d_col]].dropna(subset=['From', 'To']).copy()
+    has_pulp = p_col in df.columns
+    has_cut = c_col in df.columns
+    is_paired = has_pulp and has_cut and (d_col in df.columns)
+
+    cols_to_sub = ['From', 'To', 'Punto_Medio_m']
+    if has_pulp:
+        cols_to_sub.append(p_col)
+    if has_cut:
+        cols_to_sub.append(c_col)
+    if is_paired:
+        cols_to_sub.append(d_col)
+
+    sub = df[cols_to_sub].dropna(subset=['From', 'To']).copy()
     sub = sub.sort_values(by='From')
 
-    # Diferencia: color Cutting si Cutting >= Pulpa, color Pulpa si Pulpa > Cutting
-    colors_diff = [color_cut if v >= 0 else color_pulp for v in sub[d_col]]
-
+    colors_diff = [color_cut if v >= 0 else color_pulp for v in sub[d_col]] if is_paired else []
     t = get_theme_layout_params(theme)
 
     if orientation == 'horizontal':
         # --- MODO HORIZONTAL (A lo largo del pozo) ---
-        fig = make_subplots(
-            rows=2, cols=1,
-            shared_xaxes=True,
-            row_heights=[0.70, 0.30],
-            vertical_spacing=0.08
-        )
+        if is_paired:
+            fig = make_subplots(
+                rows=2, cols=1,
+                shared_xaxes=True,
+                row_heights=[0.70, 0.30],
+                vertical_spacing=0.08
+            )
 
-        # 1. Curvas de Ley (Fila 1)
-        fig.add_trace(
-            go.Scatter(
-                x=sub['Punto_Medio_m'],
-                y=sub[p_col],
-                mode=plot_mode,
-                name='Pulpa (Referencia)',
-                line=dict(color=color_pulp, width=width_pulp, dash=dash_pulp),
-                marker=dict(size=marker_size, color=color_pulp, symbol='circle'),
-                hovertemplate=(
-                    f"<b>Pulpa</b><br>"
-                    f"Profundidad: %{{x:.1f}}m (Tramo: %{{customdata[0]:.1f}}-%{{customdata[1]:.1f}}m)<br>"
-                    f"Ley: %{{y:.4f}} {unit}<extra></extra>"
+            # 1. Curvas de Ley (Fila 1)
+            fig.add_trace(
+                go.Scatter(
+                    x=sub['Punto_Medio_m'],
+                    y=sub[p_col],
+                    mode=plot_mode,
+                    name='Pulpa (Referencia)',
+                    line=dict(color=color_pulp, width=width_pulp, dash=dash_pulp),
+                    marker=dict(size=marker_size, color=color_pulp, symbol='circle'),
+                    hovertemplate=(
+                        f"<b>Pulpa</b><br>"
+                        f"Profundidad: %{{x:.1f}}m (Tramo: %{{customdata[0]:.1f}}-%{{customdata[1]:.1f}}m)<br>"
+                        f"Ley: %{{y:.4f}} {unit}<extra></extra>"
+                    ),
+                    customdata=sub[['From', 'To']].values
                 ),
-                customdata=sub[['From', 'To']].values
-            ),
-            row=1, col=1
-        )
+                row=1, col=1
+            )
 
-        fig.add_trace(
-            go.Scatter(
-                x=sub['Punto_Medio_m'],
-                y=sub[c_col],
-                mode=plot_mode,
-                name='Cutting (FRX)',
-                line=dict(color=color_cut, width=width_cut, dash=dash_cut),
-                marker=dict(size=marker_size, color=color_cut, symbol='square'),
-                hovertemplate=(
-                    f"<b>Cutting</b><br>"
-                    f"Profundidad: %{{x:.1f}}m (Tramo: %{{customdata[0]:.1f}}-%{{customdata[1]:.1f}}m)<br>"
-                    f"Ley: %{{y:.4f}} {unit}<extra></extra>"
+            fig.add_trace(
+                go.Scatter(
+                    x=sub['Punto_Medio_m'],
+                    y=sub[c_col],
+                    mode=plot_mode,
+                    name='Cutting (FRX)',
+                    line=dict(color=color_cut, width=width_cut, dash=dash_cut),
+                    marker=dict(size=marker_size, color=color_cut, symbol='square'),
+                    hovertemplate=(
+                        f"<b>Cutting</b><br>"
+                        f"Profundidad: %{{x:.1f}}m (Tramo: %{{customdata[0]:.1f}}-%{{customdata[1]:.1f}}m)<br>"
+                        f"Ley: %{{y:.4f}} {unit}<extra></extra>"
+                    ),
+                    customdata=sub[['From', 'To']].values
                 ),
-                customdata=sub[['From', 'To']].values
-            ),
-            row=1, col=1
-        )
+                row=1, col=1
+            )
 
-        # 2. Barras de Diferencia Verticales (Fila 2)
-        fig.add_trace(
-            go.Bar(
-                x=sub['Punto_Medio_m'],
-                y=sub[d_col],
-                name='Δ (Cut - Pulp)',
-                marker=dict(color=colors_diff),
-                hovertemplate=(
-                    f"<b>Diferencia</b><br>"
-                    f"Profundidad: %{{x:.1f}}m<br>"
-                    f"Δ: %{{y:+.4f}} {unit}<extra></extra>"
+            # 2. Barras de Diferencia Verticales (Fila 2)
+            fig.add_trace(
+                go.Bar(
+                    x=sub['Punto_Medio_m'],
+                    y=sub[d_col],
+                    name='Δ (Cut - Pulp)',
+                    marker=dict(color=colors_diff),
+                    hovertemplate=(
+                        f"<b>Diferencia</b><br>"
+                        f"Profundidad: %{{x:.1f}}m<br>"
+                        f"Δ: %{{y:+.4f}} {unit}<extra></extra>"
+                    ),
+                    customdata=sub[['From', 'To']].values
                 ),
-                customdata=sub[['From', 'To']].values
-            ),
-            row=2, col=1
-        )
+                row=2, col=1
+            )
 
-        fig.add_hline(y=0, line_width=1, line_dash='dash', line_color=t['line_ref_color'], row=2, col=1)
+            fig.add_hline(y=0, line_width=1, line_dash='dash', line_color=t['line_ref_color'], row=2, col=1)
 
-        fig.update_yaxes(title_text=f"Ley {element} ({unit})", row=1, col=1)
-        fig.update_yaxes(title_text=f"Δ ({unit})", row=2, col=1)
-        fig.update_xaxes(
-            title_text="Profundidad a lo largo del pozo (m)",
-            rangeslider=dict(visible=True, thickness=0.06),
-            row=2, col=1
-        )
+            fig.update_yaxes(title_text=f"Ley {element} ({unit})", row=1, col=1)
+            fig.update_yaxes(title_text=f"Δ ({unit})", row=2, col=1)
+            fig.update_xaxes(
+                title_text="Profundidad a lo largo del pozo (m)",
+                rangeslider=dict(visible=True, thickness=0.06),
+                row=2, col=1
+            )
+        else:
+            fig = go.Figure()
+            if has_pulp:
+                fig.add_trace(
+                    go.Scatter(
+                        x=sub['Punto_Medio_m'],
+                        y=sub[p_col],
+                        mode=plot_mode,
+                        name='Pulpa (Referencia)',
+                        line=dict(color=color_pulp, width=width_pulp, dash=dash_pulp),
+                        marker=dict(size=marker_size, color=color_pulp, symbol='circle'),
+                        hovertemplate=(
+                            f"<b>Pulpa</b><br>"
+                            f"Profundidad: %{{x:.1f}}m (Tramo: %{{customdata[0]:.1f}}-%{{customdata[1]:.1f}}m)<br>"
+                            f"Ley: %{{y:.4f}} {unit}<extra></extra>"
+                        ),
+                        customdata=sub[['From', 'To']].values
+                    )
+                )
+            if has_cut:
+                fig.add_trace(
+                    go.Scatter(
+                        x=sub['Punto_Medio_m'],
+                        y=sub[c_col],
+                        mode=plot_mode,
+                        name='Cutting (FRX)',
+                        line=dict(color=color_cut, width=width_cut, dash=dash_cut),
+                        marker=dict(size=marker_size, color=color_cut, symbol='square'),
+                        hovertemplate=(
+                            f"<b>Cutting</b><br>"
+                            f"Profundidad: %{{x:.1f}}m (Tramo: %{{customdata[0]:.1f}}-%{{customdata[1]:.1f}}m)<br>"
+                            f"Ley: %{{y:.4f}} {unit}<extra></extra>"
+                        ),
+                        customdata=sub[['From', 'To']].values
+                    )
+                )
+            fig.update_yaxes(title_text=f"Ley {element} ({unit})")
+            fig.update_xaxes(
+                title_text="Profundidad a lo largo del pozo (m)",
+                rangeslider=dict(visible=True, thickness=0.06)
+            )
 
     else:
         # --- MODO VERTICAL ---
-        fig = make_subplots(
-            rows=1, cols=2,
-            shared_yaxes=True,
-            column_widths=[0.70, 0.30],
-            horizontal_spacing=0.05
-        )
+        if is_paired:
+            fig = make_subplots(
+                rows=1, cols=2,
+                shared_yaxes=True,
+                column_widths=[0.70, 0.30],
+                horizontal_spacing=0.05
+            )
 
-        # 1. Curva Pulpa
-        fig.add_trace(
-            go.Scatter(
-                x=sub[p_col],
-                y=sub['Punto_Medio_m'],
-                mode=plot_mode,
-                name='Pulpa (Referencia)',
-                line=dict(color=color_pulp, width=width_pulp, dash=dash_pulp),
-                marker=dict(size=marker_size, color=color_pulp, symbol='circle'),
-                hovertemplate=(
-                    f"<b>Pulpa</b><br>"
-                    f"Tramo: %{{customdata[0]:.1f}}m - %{{customdata[1]:.1f}}m<br>"
-                    f"Ley: %{{x:.4f}} {unit}<extra></extra>"
+            # 1. Curva Pulpa
+            fig.add_trace(
+                go.Scatter(
+                    x=sub[p_col],
+                    y=sub['Punto_Medio_m'],
+                    mode=plot_mode,
+                    name='Pulpa (Referencia)',
+                    line=dict(color=color_pulp, width=width_pulp, dash=dash_pulp),
+                    marker=dict(size=marker_size, color=color_pulp, symbol='circle'),
+                    hovertemplate=(
+                        f"<b>Pulpa</b><br>"
+                        f"Tramo: %{{customdata[0]:.1f}}m - %{{customdata[1]:.1f}}m<br>"
+                        f"Ley: %{{x:.4f}} {unit}<extra></extra>"
+                    ),
+                    customdata=sub[['From', 'To']].values
                 ),
-                customdata=sub[['From', 'To']].values
-            ),
-            row=1, col=1
-        )
+                row=1, col=1
+            )
 
-        # 2. Curva Cutting
-        fig.add_trace(
-            go.Scatter(
-                x=sub[c_col],
-                y=sub['Punto_Medio_m'],
-                mode=plot_mode,
-                name='Cutting (FRX)',
-                line=dict(color=color_cut, width=width_cut, dash=dash_cut),
-                marker=dict(size=marker_size, color=color_cut, symbol='square'),
-                hovertemplate=(
-                    f"<b>Cutting</b><br>"
-                    f"Tramo: %{{customdata[0]:.1f}}m - %{{customdata[1]:.1f}}m<br>"
-                    f"Ley: %{{x:.4f}} {unit}<extra></extra>"
+            # 2. Curva Cutting
+            fig.add_trace(
+                go.Scatter(
+                    x=sub[c_col],
+                    y=sub['Punto_Medio_m'],
+                    mode=plot_mode,
+                    name='Cutting (FRX)',
+                    line=dict(color=color_cut, width=width_cut, dash=dash_cut),
+                    marker=dict(size=marker_size, color=color_cut, symbol='square'),
+                    hovertemplate=(
+                        f"<b>Cutting</b><br>"
+                        f"Tramo: %{{customdata[0]:.1f}}m - %{{customdata[1]:.1f}}m<br>"
+                        f"Ley: %{{x:.4f}} {unit}<extra></extra>"
+                    ),
+                    customdata=sub[['From', 'To']].values
                 ),
-                customdata=sub[['From', 'To']].values
-            ),
-            row=1, col=1
-        )
+                row=1, col=1
+            )
 
-        # 3. Barras de Diferencia en Panel 2 (Colores unificados)
-        fig.add_trace(
-            go.Bar(
-                x=sub[d_col],
-                y=sub['Punto_Medio_m'],
-                orientation='h',
-                name='Δ (Cut - Pulp)',
-                marker=dict(color=colors_diff),
-                hovertemplate=(
-                    f"<b>Diferencia</b><br>"
-                    f"Tramo: %{{customdata[0]:.1f}}m - %{{customdata[1]:.1f}}m<br>"
-                    f"Δ: %{{x:+.4f}} {unit}<extra></extra>"
+            # 3. Barras de Diferencia en Panel 2 (Colores unificados)
+            fig.add_trace(
+                go.Bar(
+                    x=sub[d_col],
+                    y=sub['Punto_Medio_m'],
+                    orientation='h',
+                    name='Δ (Cut - Pulp)',
+                    marker=dict(color=colors_diff),
+                    hovertemplate=(
+                        f"<b>Diferencia</b><br>"
+                        f"Tramo: %{{customdata[0]:.1f}}m - %{{customdata[1]:.1f}}m<br>"
+                        f"Δ: %{{x:+.4f}} {unit}<extra></extra>"
+                    ),
+                    customdata=sub[['From', 'To']].values
                 ),
-                customdata=sub[['From', 'To']].values
-            ),
-            row=1, col=2
-        )
+                row=1, col=2
+            )
 
-        # Línea cero en diferencia
-        fig.add_vline(x=0, line_width=1, line_dash='dash', line_color=t['line_ref_color'], row=1, col=2)
+            # Línea cero en diferencia
+            fig.add_vline(x=0, line_width=1, line_dash='dash', line_color=t['line_ref_color'], row=1, col=2)
 
-        # Invertir eje Y (profundidad geológica)
-        fig.update_yaxes(autorange='reversed')
-        fig.update_yaxes(title_text="Profundidad (m)", row=1, col=1)
+            # Invertir eje Y (profundidad geológica)
+            fig.update_yaxes(autorange='reversed')
+            fig.update_yaxes(title_text="Profundidad (m)", row=1, col=1)
 
-        # Ejes X superiores con espaciado garantizado anti-solapamiento
-        fig.update_xaxes(
-            title_text=f"<b>Ley {element} ({unit})</b>",
-            side='top',
-            title_standoff=14,
-            mirror='ticks',
-            row=1, col=1
-        )
-        fig.update_xaxes(
-            title_text=f"<b>Δ (Cut - Pulp) ({unit})</b>",
-            side='top',
-            title_standoff=14,
-            mirror='ticks',
-            row=1, col=2
-        )
+            # Ejes X superiores con espaciado garantizado anti-solapamiento
+            fig.update_xaxes(
+                title_text=f"<b>Ley {element} ({unit})</b>",
+                side='top',
+                title_standoff=14,
+                mirror='ticks',
+                row=1, col=1
+            )
+            fig.update_xaxes(
+                title_text=f"<b>Δ (Cut - Pulp) ({unit})</b>",
+                side='top',
+                title_standoff=14,
+                mirror='ticks',
+                row=1, col=2
+            )
+        else:
+            fig = go.Figure()
+            if has_pulp:
+                fig.add_trace(
+                    go.Scatter(
+                        x=sub[p_col],
+                        y=sub['Punto_Medio_m'],
+                        mode=plot_mode,
+                        name='Pulpa (Referencia)',
+                        line=dict(color=color_pulp, width=width_pulp, dash=dash_pulp),
+                        marker=dict(size=marker_size, color=color_pulp, symbol='circle'),
+                        hovertemplate=(
+                            f"<b>Pulpa</b><br>"
+                            f"Tramo: %{{customdata[0]:.1f}}m - %{{customdata[1]:.1f}}m<br>"
+                            f"Ley: %{{x:.4f}} {unit}<extra></extra>"
+                        ),
+                        customdata=sub[['From', 'To']].values
+                    )
+                )
+            if has_cut:
+                fig.add_trace(
+                    go.Scatter(
+                        x=sub[c_col],
+                        y=sub['Punto_Medio_m'],
+                        mode=plot_mode,
+                        name='Cutting (FRX)',
+                        line=dict(color=color_cut, width=width_cut, dash=dash_cut),
+                        marker=dict(size=marker_size, color=color_cut, symbol='square'),
+                        hovertemplate=(
+                            f"<b>Cutting</b><br>"
+                            f"Tramo: %{{customdata[0]:.1f}}m - %{{customdata[1]:.1f}}m<br>"
+                            f"Ley: %{{x:.4f}} {unit}<extra></extra>"
+                        ),
+                        customdata=sub[['From', 'To']].values
+                    )
+                )
+            fig.update_yaxes(autorange='reversed', title_text="Profundidad (m)")
+            fig.update_xaxes(
+                title_text=f"<b>Ley {element} ({unit})</b>",
+                side='top',
+                title_standoff=14,
+                mirror='ticks'
+            )
 
     # Layout unificado con separación de dos filas (Título arriba, Leyenda debajo)
     sub_title_text = "Vertical" if orientation == 'vertical' else "Horizontal"
@@ -402,52 +497,62 @@ def plot_multi_track_downhole(df: pd.DataFrame,
             p_col = f"{el}_Pulp"
             c_col = f"{el}_Cut"
 
-            if p_col not in df.columns or c_col not in df.columns:
+            has_p = p_col in df.columns
+            has_c = c_col in df.columns
+            if not has_p and not has_c:
                 continue
 
-            sub = df[['From', 'To', 'Punto_Medio_m', p_col, c_col]].dropna(subset=['From', 'To']).copy()
+            cols_sub = ['From', 'To', 'Punto_Medio_m']
+            if has_p:
+                cols_sub.append(p_col)
+            if has_c:
+                cols_sub.append(c_col)
+
+            sub = df[cols_sub].dropna(subset=['From', 'To']).copy()
             sub = sub.sort_values(by='From')
             show_leg = (idx == 1)
 
             # 1. Curva Pulpa
-            fig.add_trace(
-                go.Scatter(
-                    x=sub['Punto_Medio_m'],
-                    y=sub[p_col],
-                    mode=plot_mode,
-                    name='Pulpa (Ref)',
-                    line=dict(color=color_pulp, width=width_pulp, dash=dash_pulp),
-                    marker=dict(size=marker_size, color=color_pulp),
-                    showlegend=show_leg,
-                    hovertemplate=(
-                        f"<b>{el} (Pulpa)</b><br>"
-                        f"Profundidad: %{{x:.1f}}m (Tramo: %{{customdata[0]:.1f}}-%{{customdata[1]:.1f}}m)<br>"
-                        f"Ley: %{{y:.4f}} {unit}<extra></extra>"
+            if has_p:
+                fig.add_trace(
+                    go.Scatter(
+                        x=sub['Punto_Medio_m'],
+                        y=sub[p_col],
+                        mode=plot_mode,
+                        name='Pulpa (Ref)',
+                        line=dict(color=color_pulp, width=width_pulp, dash=dash_pulp),
+                        marker=dict(size=marker_size, color=color_pulp),
+                        showlegend=show_leg,
+                        hovertemplate=(
+                            f"<b>{el} (Pulpa)</b><br>"
+                            f"Profundidad: %{{x:.1f}}m (Tramo: %{{customdata[0]:.1f}}-%{{customdata[1]:.1f}}m)<br>"
+                            f"Ley: %{{y:.4f}} {unit}<extra></extra>"
+                        ),
+                        customdata=sub[['From', 'To']].values
                     ),
-                    customdata=sub[['From', 'To']].values
-                ),
-                row=idx, col=1
-            )
+                    row=idx, col=1
+                )
 
             # 2. Curva Cutting
-            fig.add_trace(
-                go.Scatter(
-                    x=sub['Punto_Medio_m'],
-                    y=sub[c_col],
-                    mode=plot_mode,
-                    name='Cutting (FRX)',
-                    line=dict(color=color_cut, width=width_cut, dash=dash_cut),
-                    marker=dict(size=marker_size, color=color_cut, symbol='square'),
-                    showlegend=show_leg,
-                    hovertemplate=(
-                        f"<b>{el} (Cutting)</b><br>"
-                        f"Profundidad: %{{x:.1f}}m (Tramo: %{{customdata[0]:.1f}}-%{{customdata[1]:.1f}}m)<br>"
-                        f"Ley: %{{y:.4f}} {unit}<extra></extra>"
+            if has_c:
+                fig.add_trace(
+                    go.Scatter(
+                        x=sub['Punto_Medio_m'],
+                        y=sub[c_col],
+                        mode=plot_mode,
+                        name='Cutting (FRX)',
+                        line=dict(color=color_cut, width=width_cut, dash=dash_cut),
+                        marker=dict(size=marker_size, color=color_cut, symbol='square'),
+                        showlegend=show_leg,
+                        hovertemplate=(
+                            f"<b>{el} (Cutting)</b><br>"
+                            f"Profundidad: %{{x:.1f}}m (Tramo: %{{customdata[0]:.1f}}-%{{customdata[1]:.1f}}m)<br>"
+                            f"Ley: %{{y:.4f}} {unit}<extra></extra>"
+                        ),
+                        customdata=sub[['From', 'To']].values
                     ),
-                    customdata=sub[['From', 'To']].values
-                ),
-                row=idx, col=1
-            )
+                    row=idx, col=1
+                )
 
             fig.update_yaxes(title_text=f"<b>{el}</b> ({unit})", row=idx, col=1)
 
@@ -471,52 +576,62 @@ def plot_multi_track_downhole(df: pd.DataFrame,
             p_col = f"{el}_Pulp"
             c_col = f"{el}_Cut"
 
-            if p_col not in df.columns or c_col not in df.columns:
+            has_p = p_col in df.columns
+            has_c = c_col in df.columns
+            if not has_p and not has_c:
                 continue
 
-            sub = df[['From', 'To', 'Punto_Medio_m', p_col, c_col]].dropna(subset=['From', 'To']).copy()
+            cols_sub = ['From', 'To', 'Punto_Medio_m']
+            if has_p:
+                cols_sub.append(p_col)
+            if has_c:
+                cols_sub.append(c_col)
+
+            sub = df[cols_sub].dropna(subset=['From', 'To']).copy()
             sub = sub.sort_values(by='From')
             show_leg = (idx == 1)
 
             # 1. Curva Pulpa
-            fig.add_trace(
-                go.Scatter(
-                    x=sub[p_col],
-                    y=sub['Punto_Medio_m'],
-                    mode=plot_mode,
-                    name='Pulpa (Ref)',
-                    line=dict(color=color_pulp, width=width_pulp, dash=dash_pulp),
-                    marker=dict(size=marker_size, color=color_pulp),
-                    showlegend=show_leg,
-                    hovertemplate=(
-                        f"<b>{el} (Pulpa)</b><br>"
-                        f"Tramo: %{{customdata[0]:.1f}}m - %{{customdata[1]:.1f}}m<br>"
-                        f"Ley: %{{x:.4f}} {unit}<extra></extra>"
+            if has_p:
+                fig.add_trace(
+                    go.Scatter(
+                        x=sub[p_col],
+                        y=sub['Punto_Medio_m'],
+                        mode=plot_mode,
+                        name='Pulpa (Ref)',
+                        line=dict(color=color_pulp, width=width_pulp, dash=dash_pulp),
+                        marker=dict(size=marker_size, color=color_pulp),
+                        showlegend=show_leg,
+                        hovertemplate=(
+                            f"<b>{el} (Pulpa)</b><br>"
+                            f"Tramo: %{{customdata[0]:.1f}}m - %{{customdata[1]:.1f}}m<br>"
+                            f"Ley: %{{x:.4f}} {unit}<extra></extra>"
+                        ),
+                        customdata=sub[['From', 'To']].values
                     ),
-                    customdata=sub[['From', 'To']].values
-                ),
-                row=1, col=idx
-            )
+                    row=1, col=idx
+                )
 
             # 2. Curva Cutting
-            fig.add_trace(
-                go.Scatter(
-                    x=sub[c_col],
-                    y=sub['Punto_Medio_m'],
-                    mode=plot_mode,
-                    name='Cutting (FRX)',
-                    line=dict(color=color_cut, width=width_cut, dash=dash_cut),
-                    marker=dict(size=marker_size, color=color_cut, symbol='square'),
-                    showlegend=show_leg,
-                    hovertemplate=(
-                        f"<b>{el} (Cutting)</b><br>"
-                        f"Tramo: %{{customdata[0]:.1f}}m - %{{customdata[1]:.1f}}m<br>"
-                        f"Ley: %{{x:.4f}} {unit}<extra></extra>"
+            if has_c:
+                fig.add_trace(
+                    go.Scatter(
+                        x=sub[c_col],
+                        y=sub['Punto_Medio_m'],
+                        mode=plot_mode,
+                        name='Cutting (FRX)',
+                        line=dict(color=color_cut, width=width_cut, dash=dash_cut),
+                        marker=dict(size=marker_size, color=color_cut, symbol='square'),
+                        showlegend=show_leg,
+                        hovertemplate=(
+                            f"<b>{el} (Cutting)</b><br>"
+                            f"Tramo: %{{customdata[0]:.1f}}m - %{{customdata[1]:.1f}}m<br>"
+                            f"Ley: %{{x:.4f}} {unit}<extra></extra>"
+                        ),
+                        customdata=sub[['From', 'To']].values
                     ),
-                    customdata=sub[['From', 'To']].values
-                ),
-                row=1, col=idx
-            )
+                    row=1, col=idx
+                )
 
             # Eje X superior con espaciado anti-solapamiento (sin subplots que colisionen)
             fig.update_xaxes(
@@ -603,57 +718,66 @@ def plot_two_elements_overlay(df: pd.DataFrame,
 
     req_cols = list(dict.fromkeys(['From', 'To', 'Punto_Medio_m', f"{elem1}_Pulp", f"{elem1}_Cut", f"{elem2}_Pulp", f"{elem2}_Cut"]))
     cols_to_use = [c for c in req_cols if c in df.columns]
-    sub = df[cols_to_use].dropna().copy()
+    sub = df[cols_to_use].dropna(subset=['From', 'To']).copy()
     sub = sub.sort_values(by='From')
 
     t = get_theme_layout_params(theme)
     fig = go.Figure()
 
+    c_e1_p = f"{elem1}_Pulp"
+    c_e1_c = f"{elem1}_Cut"
+    c_e2_p = f"{elem2}_Pulp"
+    c_e2_c = f"{elem2}_Cut"
+
     if orientation == 'horizontal':
         # Eje X: Profundidad, Eje Y1 (izq): elem1, Eje Y2 (der): elem2
-        fig.add_trace(go.Scatter(
-            x=sub['Punto_Medio_m'],
-            y=sub[f"{elem1}_Pulp"],
-            mode=plot_mode,
-            name=f"{elem1} Pulpa",
-            line=dict(color=color_pulp, width=width_pulp, dash=dash_pulp),
-            marker=dict(size=marker_size, color=color_pulp),
-            hovertemplate=f"<b>{elem1} Pulpa</b><br>Profundidad: %{{x:.1f}}m<br>Ley: %{{y:.4f}} {unit1}<extra></extra>",
-            customdata=sub[['From', 'To']].values
-        ))
-        fig.add_trace(go.Scatter(
-            x=sub['Punto_Medio_m'],
-            y=sub[f"{elem1}_Cut"],
-            mode=plot_mode,
-            name=f"{elem1} Cutting",
-            line=dict(color=color_cut, width=width_cut, dash=dash_cut),
-            marker=dict(size=marker_size, color=color_cut, symbol='square'),
-            hovertemplate=f"<b>{elem1} Cutting</b><br>Profundidad: %{{x:.1f}}m<br>Ley: %{{y:.4f}} {unit1}<extra></extra>",
-            customdata=sub[['From', 'To']].values
-        ))
+        if c_e1_p in sub.columns:
+            fig.add_trace(go.Scatter(
+                x=sub['Punto_Medio_m'],
+                y=sub[c_e1_p],
+                mode=plot_mode,
+                name=f"{elem1} Pulpa",
+                line=dict(color=color_pulp, width=width_pulp, dash=dash_pulp),
+                marker=dict(size=marker_size, color=color_pulp),
+                hovertemplate=f"<b>{elem1} Pulpa</b><br>Profundidad: %{{x:.1f}}m<br>Ley: %{{y:.4f}} {unit1}<extra></extra>",
+                customdata=sub[['From', 'To']].values
+            ))
+        if c_e1_c in sub.columns:
+            fig.add_trace(go.Scatter(
+                x=sub['Punto_Medio_m'],
+                y=sub[c_e1_c],
+                mode=plot_mode,
+                name=f"{elem1} Cutting",
+                line=dict(color=color_cut, width=width_cut, dash=dash_cut),
+                marker=dict(size=marker_size, color=color_cut, symbol='square'),
+                hovertemplate=f"<b>{elem1} Cutting</b><br>Profundidad: %{{x:.1f}}m<br>Ley: %{{y:.4f}} {unit1}<extra></extra>",
+                customdata=sub[['From', 'To']].values
+            ))
 
-        fig.add_trace(go.Scatter(
-            x=sub['Punto_Medio_m'],
-            y=sub[f"{elem2}_Pulp"],
-            mode=plot_mode,
-            name=f"{elem2} Pulpa",
-            line=dict(color=color_e2_pulp, width=width_e2_pulp, dash=dash_e2_pulp),
-            marker=dict(size=marker_size, color=color_e2_pulp),
-            yaxis='y2',
-            hovertemplate=f"<b>{elem2} Pulpa</b><br>Profundidad: %{{x:.1f}}m<br>Ley: %{{y:.4f}} {unit2}<extra></extra>",
-            customdata=sub[['From', 'To']].values
-        ))
-        fig.add_trace(go.Scatter(
-            x=sub['Punto_Medio_m'],
-            y=sub[f"{elem2}_Cut"],
-            mode=plot_mode,
-            name=f"{elem2} Cutting",
-            line=dict(color=color_e2_cut, width=width_e2_cut, dash=dash_e2_cut),
-            marker=dict(size=marker_size, color=color_e2_cut, symbol='diamond'),
-            yaxis='y2',
-            hovertemplate=f"<b>{elem2} Cutting</b><br>Profundidad: %{{x:.1f}}m<br>Ley: %{{y:.4f}} {unit2}<extra></extra>",
-            customdata=sub[['From', 'To']].values
-        ))
+        if c_e2_p in sub.columns:
+            fig.add_trace(go.Scatter(
+                x=sub['Punto_Medio_m'],
+                y=sub[c_e2_p],
+                mode=plot_mode,
+                name=f"{elem2} Pulpa",
+                line=dict(color=color_e2_pulp, width=width_e2_pulp, dash=dash_e2_pulp),
+                marker=dict(size=marker_size, color=color_e2_pulp),
+                yaxis='y2',
+                hovertemplate=f"<b>{elem2} Pulpa</b><br>Profundidad: %{{x:.1f}}m<br>Ley: %{{y:.4f}} {unit2}<extra></extra>",
+                customdata=sub[['From', 'To']].values
+            ))
+        if c_e2_c in sub.columns:
+            fig.add_trace(go.Scatter(
+                x=sub['Punto_Medio_m'],
+                y=sub[c_e2_c],
+                mode=plot_mode,
+                name=f"{elem2} Cutting",
+                line=dict(color=color_e2_cut, width=width_e2_cut, dash=dash_e2_cut),
+                marker=dict(size=marker_size, color=color_e2_cut, symbol='diamond'),
+                yaxis='y2',
+                hovertemplate=f"<b>{elem2} Cutting</b><br>Profundidad: %{{x:.1f}}m<br>Ley: %{{y:.4f}} {unit2}<extra></extra>",
+                customdata=sub[['From', 'To']].values
+            ))
 
         fig.update_layout(
             xaxis=dict(
@@ -678,45 +802,49 @@ def plot_two_elements_overlay(df: pd.DataFrame,
         )
     else:
         # Modo Vertical: Eje Y Profundidad invertido, Eje X1 inferior elem1, Eje X2 superior elem2
-        fig.add_trace(go.Scatter(
-            x=sub[f"{elem1}_Pulp"],
-            y=sub['Punto_Medio_m'],
-            mode=plot_mode,
-            name=f"{elem1} Pulpa",
-            line=dict(color=color_pulp, width=width_pulp, dash=dash_pulp),
-            marker=dict(size=marker_size, color=color_pulp),
-            hovertemplate=f"<b>{elem1} Pulpa:</b> %{{x:.4f}} {unit1}<extra></extra>"
-        ))
-        fig.add_trace(go.Scatter(
-            x=sub[f"{elem1}_Cut"],
-            y=sub['Punto_Medio_m'],
-            mode=plot_mode,
-            name=f"{elem1} Cutting",
-            line=dict(color=color_cut, width=width_cut, dash=dash_cut),
-            marker=dict(size=marker_size, color=color_cut, symbol='square'),
-            hovertemplate=f"<b>{elem1} Cutting:</b> %{{x:.4f}} {unit1}<extra></extra>"
-        ))
+        if c_e1_p in sub.columns:
+            fig.add_trace(go.Scatter(
+                x=sub[c_e1_p],
+                y=sub['Punto_Medio_m'],
+                mode=plot_mode,
+                name=f"{elem1} Pulpa",
+                line=dict(color=color_pulp, width=width_pulp, dash=dash_pulp),
+                marker=dict(size=marker_size, color=color_pulp),
+                hovertemplate=f"<b>{elem1} Pulpa:</b> %{{x:.4f}} {unit1}<extra></extra>"
+            ))
+        if c_e1_c in sub.columns:
+            fig.add_trace(go.Scatter(
+                x=sub[c_e1_c],
+                y=sub['Punto_Medio_m'],
+                mode=plot_mode,
+                name=f"{elem1} Cutting",
+                line=dict(color=color_cut, width=width_cut, dash=dash_cut),
+                marker=dict(size=marker_size, color=color_cut, symbol='square'),
+                hovertemplate=f"<b>{elem1} Cutting:</b> %{{x:.4f}} {unit1}<extra></extra>"
+            ))
 
-        fig.add_trace(go.Scatter(
-            x=sub[f"{elem2}_Pulp"],
-            y=sub['Punto_Medio_m'],
-            mode=plot_mode,
-            name=f"{elem2} Pulpa",
-            line=dict(color=color_e2_pulp, width=width_e2_pulp, dash=dash_e2_pulp),
-            marker=dict(size=marker_size, color=color_e2_pulp),
-            xaxis='x2',
-            hovertemplate=f"<b>{elem2} Pulpa:</b> %{{x:.4f}} {unit2}<extra></extra>"
-        ))
-        fig.add_trace(go.Scatter(
-            x=sub[f"{elem2}_Cut"],
-            y=sub['Punto_Medio_m'],
-            mode=plot_mode,
-            name=f"{elem2} Cutting",
-            line=dict(color=color_e2_cut, width=width_e2_cut, dash=dash_e2_cut),
-            marker=dict(size=marker_size, color=color_e2_cut, symbol='diamond'),
-            xaxis='x2',
-            hovertemplate=f"<b>{elem2} Cutting:</b> %{{x:.4f}} {unit2}<extra></extra>"
-        ))
+        if c_e2_p in sub.columns:
+            fig.add_trace(go.Scatter(
+                x=sub[c_e2_p],
+                y=sub['Punto_Medio_m'],
+                mode=plot_mode,
+                name=f"{elem2} Pulpa",
+                line=dict(color=color_e2_pulp, width=width_e2_pulp, dash=dash_e2_pulp),
+                marker=dict(size=marker_size, color=color_e2_pulp),
+                xaxis='x2',
+                hovertemplate=f"<b>{elem2} Pulpa:</b> %{{x:.4f}} {unit2}<extra></extra>"
+            ))
+        if c_e2_c in sub.columns:
+            fig.add_trace(go.Scatter(
+                x=sub[c_e2_c],
+                y=sub['Punto_Medio_m'],
+                mode=plot_mode,
+                name=f"{elem2} Cutting",
+                line=dict(color=color_e2_cut, width=width_e2_cut, dash=dash_e2_cut),
+                marker=dict(size=marker_size, color=color_e2_cut, symbol='diamond'),
+                xaxis='x2',
+                hovertemplate=f"<b>{elem2} Cutting:</b> %{{x:.4f}} {unit2}<extra></extra>"
+            ))
 
         fig.update_layout(
             xaxis=dict(
@@ -1334,56 +1462,66 @@ def plot_cross_element_correlation(df: pd.DataFrame,
     unit_x = get_element_unit(elem_x)
     unit_y = get_element_unit(elem_y)
 
-    req_cols = list(dict.fromkeys(['From', 'To', f"{elem_x}_Pulp", f"{elem_y}_Pulp", f"{elem_x}_Cut", f"{elem_y}_Cut"]))
-    cols_to_use = [c for c in req_cols if c in df.columns]
-    sub = df[cols_to_use].dropna().copy()
-    if sub.empty:
+    has_pulp = f"{elem_x}_Pulp" in df.columns and f"{elem_y}_Pulp" in df.columns
+    has_cut = f"{elem_x}_Cut" in df.columns and f"{elem_y}_Cut" in df.columns
+
+    if not has_pulp and not has_cut:
         return go.Figure()
 
     t = get_theme_layout_params(theme)
     fig = go.Figure()
 
     # 1. Puntos Pulpa
-    xp, yp = sub[f"{elem_x}_Pulp"].values, sub[f"{elem_y}_Pulp"].values
-    fig.add_trace(go.Scatter(
-        x=xp, y=yp,
-        mode='markers',
-        marker=dict(size=marker_size, color=color_pulp, opacity=0.75, symbol='circle'),
-        name=f'Pulpa ({elem_x} vs {elem_y})',
-        hovertemplate=f"<b>Pulpa</b><br>Tramo: %{{customdata[0]:.1f}}-%{{customdata[1]:.1f}}m<br>{elem_x}: %{{x:.4f}} {unit_x}<br>{elem_y}: %{{y:.4f}} {unit_y}<extra></extra>",
-        customdata=sub[['From', 'To']].values
-    ))
+    if has_pulp:
+        cols_p = [c for c in ['From', 'To', f"{elem_x}_Pulp", f"{elem_y}_Pulp"] if c in df.columns]
+        sub_p = df[cols_p].dropna().copy()
+        if not sub_p.empty:
+            xp, yp = sub_p[f"{elem_x}_Pulp"].values, sub_p[f"{elem_y}_Pulp"].values
+            cdata_p = sub_p[['From', 'To']].values if 'From' in sub_p.columns and 'To' in sub_p.columns else None
+            fig.add_trace(go.Scatter(
+                x=xp, y=yp,
+                mode='markers',
+                marker=dict(size=marker_size, color=color_pulp, opacity=0.75, symbol='circle'),
+                name=f'Pulpa ({elem_x} vs {elem_y})',
+                hovertemplate=f"<b>Pulpa</b><br>{elem_x}: %{{x:.4f}} {unit_x}<br>{elem_y}: %{{y:.4f}} {unit_y}<extra></extra>" if cdata_p is None else f"<b>Pulpa</b><br>Tramo: %{{customdata[0]:.1f}}-%{{customdata[1]:.1f}}m<br>{elem_x}: %{{x:.4f}} {unit_x}<br>{elem_y}: %{{y:.4f}} {unit_y}<extra></extra>",
+                customdata=cdata_p
+            ))
 
-    # Regresión Pulpa
-    if len(xp) > 2 and np.std(xp) > 0:
-        sp, ip, rp, _, _ = stats.linregress(xp, yp)
-        lx = np.linspace(np.min(xp), np.max(xp), 50)
-        fig.add_trace(go.Scatter(
-            x=lx, y=sp*lx + ip, mode='lines',
-            line=dict(color=color_pulp, width=width_pulp, dash=dash_pulp),
-            name=f'Tendencia Pulpa (R²={rp**2:.3f})'
-        ))
+            # Regresión Pulpa
+            if len(xp) > 2 and np.std(xp) > 0:
+                sp, ip, rp, _, _ = stats.linregress(xp, yp)
+                lx = np.linspace(np.min(xp), np.max(xp), 50)
+                fig.add_trace(go.Scatter(
+                    x=lx, y=sp*lx + ip, mode='lines',
+                    line=dict(color=color_pulp, width=width_pulp, dash=dash_pulp),
+                    name=f'Tendencia Pulpa (R²={rp**2:.3f})'
+                ))
 
     # 2. Puntos Cutting
-    xc, yc = sub[f"{elem_x}_Cut"].values, sub[f"{elem_y}_Cut"].values
-    fig.add_trace(go.Scatter(
-        x=xc, y=yc,
-        mode='markers',
-        marker=dict(size=marker_size, color=color_cut, opacity=0.75, symbol='square'),
-        name=f'Cutting ({elem_x} vs {elem_y})',
-        hovertemplate=f"<b>Cutting</b><br>Tramo: %{{customdata[0]:.1f}}-%{{customdata[1]:.1f}}m<br>{elem_x}: %{{x:.4f}} {unit_x}<br>{elem_y}: %{{y:.4f}} {unit_y}<extra></extra>",
-        customdata=sub[['From', 'To']].values
-    ))
+    if has_cut:
+        cols_c = [c for c in ['From', 'To', f"{elem_x}_Cut", f"{elem_y}_Cut"] if c in df.columns]
+        sub_c = df[cols_c].dropna().copy()
+        if not sub_c.empty:
+            xc, yc = sub_c[f"{elem_x}_Cut"].values, sub_c[f"{elem_y}_Cut"].values
+            cdata_c = sub_c[['From', 'To']].values if 'From' in sub_c.columns and 'To' in sub_c.columns else None
+            fig.add_trace(go.Scatter(
+                x=xc, y=yc,
+                mode='markers',
+                marker=dict(size=marker_size, color=color_cut, opacity=0.75, symbol='square'),
+                name=f'Cutting ({elem_x} vs {elem_y})',
+                hovertemplate=f"<b>Cutting</b><br>{elem_x}: %{{x:.4f}} {unit_x}<br>{elem_y}: %{{y:.4f}} {unit_y}<extra></extra>" if cdata_c is None else f"<b>Cutting</b><br>Tramo: %{{customdata[0]:.1f}}-%{{customdata[1]:.1f}}m<br>{elem_x}: %{{x:.4f}} {unit_x}<br>{elem_y}: %{{y:.4f}} {unit_y}<extra></extra>",
+                customdata=cdata_c
+            ))
 
-    # Regresión Cutting
-    if len(xc) > 2 and np.std(xc) > 0:
-        sc, ic, rc, _, _ = stats.linregress(xc, yc)
-        lx_c = np.linspace(np.min(xc), np.max(xc), 50)
-        fig.add_trace(go.Scatter(
-            x=lx_c, y=sc*lx_c + ic, mode='lines',
-            line=dict(color=color_cut, width=width_cut, dash=dash_cut),
-            name=f'Tendencia Cutting (R²={rc**2:.3f})'
-        ))
+            # Regresión Cutting
+            if len(xc) > 2 and np.std(xc) > 0:
+                sc, ic, rc, _, _ = stats.linregress(xc, yc)
+                lx_c = np.linspace(np.min(xc), np.max(xc), 50)
+                fig.add_trace(go.Scatter(
+                    x=lx_c, y=sc*lx_c + ic, mode='lines',
+                    line=dict(color=color_cut, width=width_cut, dash=dash_cut),
+                    name=f'Tendencia Cutting (R²={rc**2:.3f})'
+                ))
 
     fig.update_layout(
         title=dict(
