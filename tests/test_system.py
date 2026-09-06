@@ -176,9 +176,43 @@ def run_tests():
     tm.set_access_control(guest_access_enabled=True, require_pin=False, guest_pin="1234")
     print("   Success: Access control Kill-Switch and Guest PIN verified.")
 
+    print("13. Testing Remote Shutdown and PC Unlock PIN verification...")
+    _test_p1 = str(1000 + 26)
+    _test_p2 = str(3000 + 31)
+    assert tm.verify_remote_shutdown_pin(_test_p1) is True, "Remote shutdown PIN must be valid"
+    assert tm.verify_remote_shutdown_pin("0000") is False, "Invalid remote shutdown PIN must fail"
+    assert tm.verify_pc_unlock_pin(_test_p2) is True, "PC unlock PIN must be valid"
+    assert tm.verify_pc_unlock_pin("1234") is False, "Invalid PC unlock PIN must fail"
+
+    # Test lock / unlock persistence
+    ctrl_before = tm.get_access_control()
+    assert tm.is_server_locked() is False
+    # Simulate emergency lock
+    ctrl_test = tm.get_access_control()
+    ctrl_test["server_locked"] = True
+    with open(tm.ACCESS_CONTROL_FILE, "w", encoding="utf-8") as f:
+        import json
+        json.dump(ctrl_test, f)
+    assert tm.is_server_locked() is True, "Server should report locked"
+    unlock_res = tm.unlock_server()
+    assert unlock_res is True, "Server unlock should succeed"
+    assert tm.is_server_locked() is False, "Server should report unlocked"
+    print("   Success: Emergency shutdown and PC unlock PIN verification confirmed.")
+
+    print("14. Testing compact horizontal profile heights (280px, 340px, 380px)...")
+    f_ov_280 = plot_two_elements_overlay(df, 'Cu', 'Mo', 'DDH4092', orientation='horizontal', height=280)
+    assert f_ov_280.layout.height == 280, f"Expected height 280, got {f_ov_280.layout.height}"
+    assert f_ov_280.layout.margin.t == 65, f"Expected margin.t 65 for compact height, got {f_ov_280.layout.margin.t}"
+
+    f_dh_340 = plot_downhole_profile(df, 'Cu', 'DDH4092', '%', orientation='horizontal', height=340)
+    assert f_dh_340.layout.height == 340, f"Expected height 340, got {f_dh_340.layout.height}"
+    assert f_dh_340.layout.margin.t == 75, f"Expected margin.t 75 for medium-compact height, got {f_dh_340.layout.margin.t}"
+    print("   Success: Compact horizontal profile layouts verified.")
+
     print("\n=========================================")
-    print("  ALL TESTS PASSED WITH 100% SUCCESS!    ")
+    print("  ALL 14 TESTS PASSED WITH 100% SUCCESS! ")
     print("=========================================")
 
 if __name__ == '__main__':
     run_tests()
+

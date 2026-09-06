@@ -310,8 +310,23 @@ def plot_downhole_profile(df: pd.DataFrame,
 
     # Layout unificado con separación de dos filas (Título arriba, Leyenda debajo)
     sub_title_text = "Vertical" if orientation == 'vertical' else "Horizontal"
-    margin_t = 125 if orientation == 'vertical' else 95
-    legend_y = 1.09 if orientation == 'vertical' else 1.03
+    if orientation == 'horizontal':
+        if height <= 320:
+            margin_t = 65
+            margin_b = 35
+            legend_y = 1.05
+        elif height <= 420:
+            margin_t = 75
+            margin_b = 40
+            legend_y = 1.04
+        else:
+            margin_t = 95
+            margin_b = 45
+            legend_y = 1.03
+    else:
+        margin_t = 125
+        margin_b = 45
+        legend_y = 1.09
 
     fig.update_layout(
         title=dict(
@@ -324,7 +339,7 @@ def plot_downhole_profile(df: pd.DataFrame,
             xref='container',
             font=dict(size=14, color=t['title_color'])
         ),
-        margin=dict(t=margin_t, b=45, l=65, r=45),
+        margin=dict(t=margin_t, b=margin_b, l=65, r=45),
         template=t['template'],
         paper_bgcolor=t['paper_bgcolor'],
         plot_bgcolor=t['plot_bgcolor'],
@@ -727,8 +742,23 @@ def plot_two_elements_overlay(df: pd.DataFrame,
         )
 
     sub_title_text = "Vertical" if orientation == 'vertical' else "Horizontal"
-    margin_t = 125 if orientation == 'vertical' else 95
-    legend_y = 1.09 if orientation == 'vertical' else 1.03
+    if orientation == 'horizontal':
+        if height <= 320:
+            margin_t = 65
+            margin_b = 35
+            legend_y = 1.05
+        elif height <= 420:
+            margin_t = 75
+            margin_b = 40
+            legend_y = 1.04
+        else:
+            margin_t = 95
+            margin_b = 45
+            legend_y = 1.03
+    else:
+        margin_t = 125
+        margin_b = 45
+        legend_y = 1.09
 
     fig.update_layout(
         title=dict(
@@ -741,7 +771,7 @@ def plot_two_elements_overlay(df: pd.DataFrame,
             xref='container',
             font=dict(size=14, color=t['title_color'])
         ),
-        margin=dict(t=margin_t, b=45, l=65, r=55),
+        margin=dict(t=margin_t, b=margin_b, l=65, r=55),
         template=t['template'],
         paper_bgcolor=t['paper_bgcolor'],
         plot_bgcolor=t['plot_bgcolor'],

@@ -13,6 +13,7 @@ Características:
 - Compatible 100% con Windows
 """
 
+import hashlib
 import json
 import os
 import re
@@ -381,40 +382,51 @@ def is_local_session() -> bool:
         return True
 
 
+DEFAULT_REMOTE_SHUTDOWN_HASH = "582c0168ba17eac49642bc85ae623204069e8d6ea06cf45af11e7de46ea31d18"
+DEFAULT_PC_UNLOCK_HASH = "85a915d17097bdeb601dedc2e72ce795cd1c4f480e1b34005a8046dbf6d68fec"
+
+
 def get_access_control() -> Dict[str, Any]:
     """
-    Retorna el estado de control de acceso para invitados remotos.
+    Retorna el estado de control de acceso para invitados remotos y cerrojo de emergencia.
     """
+    default_cfg = {
+        "guest_access_enabled": True,
+        "require_pin": False,
+        "guest_pin": "1234",
+        "server_locked": False,
+        "remote_shutdown_hash": DEFAULT_REMOTE_SHUTDOWN_HASH,
+        "pc_unlock_hash": DEFAULT_PC_UNLOCK_HASH
+    }
     if not ACCESS_CONTROL_FILE.is_file():
-        return {
-            "guest_access_enabled": True,
-            "require_pin": False,
-            "guest_pin": "1234"
-        }
+        return default_cfg
     try:
         with open(ACCESS_CONTROL_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
             return {
                 "guest_access_enabled": data.get("guest_access_enabled", True),
                 "require_pin": data.get("require_pin", False),
-                "guest_pin": str(data.get("guest_pin", "1234"))
+                "guest_pin": str(data.get("guest_pin", "1234")),
+                "server_locked": bool(data.get("server_locked", False)),
+                "remote_shutdown_hash": data.get("remote_shutdown_hash", DEFAULT_REMOTE_SHUTDOWN_HASH),
+                "pc_unlock_hash": data.get("pc_unlock_hash", DEFAULT_PC_UNLOCK_HASH)
             }
     except Exception:
-        return {
-            "guest_access_enabled": True,
-            "require_pin": False,
-            "guest_pin": "1234"
-        }
+        return default_cfg
 
 
 def set_access_control(guest_access_enabled: bool, require_pin: bool = False, guest_pin: str = "1234") -> Dict[str, Any]:
     """
     Actualiza la configuración del interruptor maestro de acceso remoto y PIN de invitados.
     """
+    current = get_access_control()
     state = {
         "guest_access_enabled": bool(guest_access_enabled),
         "require_pin": bool(require_pin),
-        "guest_pin": str(guest_pin).strip() or "1234"
+        "guest_pin": str(guest_pin).strip() or "1234",
+        "server_locked": bool(current.get("server_locked", False)),
+        "remote_shutdown_hash": current.get("remote_shutdown_hash", DEFAULT_REMOTE_SHUTDOWN_HASH),
+        "pc_unlock_hash": current.get("pc_unlock_hash", DEFAULT_PC_UNLOCK_HASH)
     }
     try:
         TOOLS_DIR.mkdir(parents=True, exist_ok=True)
@@ -423,6 +435,72 @@ def set_access_control(guest_access_enabled: bool, require_pin: bool = False, gu
     except Exception:
         pass
     return state
+
+
+def is_server_locked() -> bool:
+    """Verifica si el servidor se encuentra bajo bloqueo de emergencia."""
+    ctrl = get_access_control()
+    return bool(ctrl.get("server_locked", False))
+
+
+def verify_remote_shutdown_pin(pin: str) -> bool:
+    """Verifica si el PIN ingresado coincide con el hash del PIN de apagado remoto."""
+    if not pin:
+        return False
+    pin_hash = hashlib.sha256(str(pin).strip().encode("utf-8")).hexdigest()
+    ctrl = get_access_control()
+    expected = ctrl.get("remote_shutdown_hash", DEFAULT_REMOTE_SHUTDOWN_HASH)
+    return pin_hash == expected
+
+
+def verify_pc_unlock_pin(pin: str) -> bool:
+    """Verifica si el PIN ingresado coincide con el hash del PIN de desbloqueo en PC."""
+    if not pin:
+        return False
+    pin_hash = hashlib.sha256(str(pin).strip().encode("utf-8")).hexdigest()
+    ctrl = get_access_control()
+    expected = ctrl.get("pc_unlock_hash", DEFAULT_PC_UNLOCK_HASH)
+    return pin_hash == expected
+
+
+def unlock_server() -> bool:
+    """Remueve el bloqueo de emergencia del servidor y restaura el acceso."""
+    ctrl = get_access_control()
+    ctrl["server_locked"] = False
+    try:
+        TOOLS_DIR.mkdir(parents=True, exist_ok=True)
+        with open(ACCESS_CONTROL_FILE, "w", encoding="utf-8") as f:
+            json.dump(ctrl, f, indent=2)
+        return True
+    except Exception:
+        return False
+
+
+def trigger_emergency_shutdown() -> None:
+    """
+    Ejecuta el cierre de emergencia total:
+    1. Bloquea permanentemente el acceso marcando server_locked = True.
+    2. Apaga y destruye el túnel de Cloudflare.
+    3. Finaliza el proceso de Streamlit.
+    """
+    ctrl = get_access_control()
+    ctrl["server_locked"] = True
+    ctrl["guest_access_enabled"] = False
+    try:
+        TOOLS_DIR.mkdir(parents=True, exist_ok=True)
+        with open(ACCESS_CONTROL_FILE, "w", encoding="utf-8") as f:
+            json.dump(ctrl, f, indent=2)
+    except Exception:
+        pass
+
+    stop_tunnel()
+
+    def _delayed_exit():
+        time.sleep(1.2)
+        os._exit(0)
+
+    t = threading.Thread(target=_delayed_exit, daemon=True)
+    t.start()
 
 
 def emergency_lockdown() -> Tuple[bool, str]:

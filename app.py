@@ -22,7 +22,12 @@ from src.tunnel_manager import (
     is_local_session,
     get_access_control,
     set_access_control,
-    emergency_lockdown
+    emergency_lockdown,
+    is_server_locked,
+    verify_remote_shutdown_pin,
+    verify_pc_unlock_pin,
+    unlock_server,
+    trigger_emergency_shutdown
 )
 from src.config import (
     DEFAULT_PULP_PATHS,
@@ -65,9 +70,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Configuración global de barra de herramientas de Plotly (evita solapamiento con leyenda)
+# Configuración global de barra de herramientas de Plotly (Siempre visible y accesible)
 PLOTLY_CONFIG = {
     'displaylogo': False,
+    'displayModeBar': True,
     'modeBarButtonsToRemove': ['lasso2d', 'select2d']
 }
 
@@ -108,47 +114,182 @@ def cached_load_all(holes_info: dict, lod_mode: str):
 
 
 def main():
-    st.title("🔬 Comparador de Análisis FRX: Pulpas vs. Cutting")
+    # -------------------------------------------------------------------------
+    # 0. VERIFICACIÓN DE BLOQUEO DE EMERGENCIA DEL SERVIDOR
+    # -------------------------------------------------------------------------
+    if is_server_locked():
+        st.markdown("""
+        <div style="padding: 3rem 2rem; background: rgba(239, 68, 68, 0.08); border: 2px solid #ef4444; border-radius: 14px; text-align: center; max-width: 620px; margin: 4rem auto; box-shadow: 0 4px 20px rgba(239, 68, 68, 0.15);">
+            <div style="font-size: 3.5rem; margin-bottom: 0.8rem;">🛑</div>
+            <h2 style="color: #dc2626; margin-top: 0; font-weight: 700;">Servidor Bloqueado por Emergencia Remota</h2>
+            <p style="color: var(--text-color, #334155); font-size: 1.05rem; line-height: 1.6;">
+                El servidor fue cerrado remotamente mediante el protocolo de seguridad de emergencia.<br>
+                Para reactivar la plataforma en este equipo y reanudar las operaciones geológicas,
+                ingresa el <b>PIN Maestro de Desbloqueo Físico</b>.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        col_u1, col_u2, col_u3 = st.columns([1, 2, 1])
+        with col_u2:
+            unlock_input = st.text_input("PIN Maestro de Desbloqueo (PC):", type="password", key="pc_unlock_pin_input")
+            if st.button("🔓 Reactivar Servidor", type="primary", use_container_width=True):
+                if verify_pc_unlock_pin(unlock_input):
+                    unlock_server()
+                    st.success("¡Servidor reactivado exitosamente!")
+                    st.rerun()
+                else:
+                    st.error("PIN incorrecto. Acceso denegado.")
+        st.stop()
+
+    # Inyección de estilos globales para soporte de Modo Oscuro y Plotly ModeBar
+    st.markdown("""
+    <style>
+    /* Soporte de alto contraste para la barra lateral en Modo Oscuro */
+    [data-testid="stSidebar"] {
+        color: var(--text-color, inherit) !important;
+    }
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] label p,
+    [data-testid="stSidebar"] .stMarkdown,
+    [data-testid="stSidebar"] .stMarkdown p,
+    [data-testid="stSidebar"] .stMarkdown span,
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] h4 {
+        color: var(--text-color, inherit) !important;
+    }
+    [data-testid="stSidebar"] .stCaption,
+    [data-testid="stSidebar"] small {
+        color: var(--text-color, #94a3b8) !important;
+        opacity: 0.85 !important;
+    }
+    [data-testid="stSidebar"] .stSelectbox label p,
+    [data-testid="stSidebar"] .stNumberInput label p,
+    [data-testid="stSidebar"] .stMultiSelect label p,
+    [data-testid="stSidebar"] .stColorPicker label p,
+    [data-testid="stSidebar"] .stSlider label p,
+    [data-testid="stSidebar"] .stRadio label p {
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        white-space: normal !important;
+        line-height: 1.3 !important;
+        margin-bottom: 3px !important;
+    }
+    [data-testid="stSidebar"] div[data-baseweb="select"] {
+        min-height: 38px !important;
+    }
+    [data-testid="stSidebar"] div[data-baseweb="input"] {
+        min-height: 38px !important;
+    }
+    [data-testid="stSidebar"] div.stButton > button {
+        border-radius: 6px !important;
+        font-weight: 600 !important;
+    }
+
+    /* Barra de herramientas Plotly siempre visible y con iconos ampliados */
+    .modebar-container {
+        opacity: 0.92 !important;
+    }
+    .modebar-container:hover {
+        opacity: 1 !important;
+    }
+    .modebar-btn {
+        padding: 5px 7px !important;
+        margin: 0 2px !important;
+    }
+    .modebar-btn svg {
+        width: 19px !important;
+        height: 19px !important;
+    }
+    /* BOTÓN HOME DE PLOTLY: Agrandado, realzado en azul y fácil de presionar */
+    .modebar-btn[data-title*="Reset"],
+    .modebar-btn[data-title*="reset"],
+    .modebar-btn[data-title*="Restablecer"],
+    .modebar-btn[data-title*="axes"],
+    .modebar-btn[data-title*="ejes"],
+    .modebar-btn[data-val="reset"] {
+        transform: scale(1.42) !important;
+        transform-origin: center right !important;
+        background: rgba(37, 99, 235, 0.18) !important;
+        border: 1.5px solid #2563eb !important;
+        border-radius: 6px !important;
+        margin-right: 8px !important;
+        padding: 3px 6px !important;
+    }
+    .modebar-btn[data-title*="Reset"] svg path,
+    .modebar-btn[data-title*="reset"] svg path,
+    .modebar-btn[data-title*="Restablecer"] svg path,
+    .modebar-btn[data-title*="axes"] svg path,
+    .modebar-btn[data-title*="ejes"] svg path,
+    .modebar-btn[data-val="reset"] svg path {
+        fill: #2563eb !important;
+    }
+
+    /* Botón discreto e integrado del microscopio en la portada */
+    button[data-testid="baseButton-secondary"]:has(p:contains("🔬")),
+    div[data-testid="stButton"] > button:has(p:contains("🔬")) {
+        background: transparent !important;
+        border: none !important;
+        font-size: 2.3rem !important;
+        padding: 0 !important;
+        line-height: 1 !important;
+        box-shadow: none !important;
+        cursor: pointer !important;
+    }
+
+    /* Contenedores de gráficos Plotly */
+    div[data-testid="stPlotlyChart"] {
+        border-radius: 8px !important;
+        overflow: hidden !important;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12) !important;
+        margin-bottom: 1.2rem !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # DIÁLOGO MODAL: CIERRE DE EMERGENCIA REMOTO (EASTER EGG 5 TOQUES)
+    # -------------------------------------------------------------------------
+    @st.dialog("🔒 Cierre de Emergencia Remoto")
+    def show_shutdown_dialog():
+        st.write("Has activado el protocolo de cierre seguro del servidor.")
+        st.write("Ingresa el código de autorización para proceder con el apagado inmediato:")
+        code_input = st.text_input("Código de Autorización:", type="password", key="dialog_shutdown_pin_input")
+        col_sh1, col_sh2 = st.columns(2)
+        with col_sh1:
+            if st.button("🛑 Apagar Servidor Ahora", type="primary", use_container_width=True):
+                if verify_remote_shutdown_pin(code_input):
+                    st.error("⚠️ Código validado. Desconectando accesos y apagando servidor...")
+                    trigger_emergency_shutdown()
+                else:
+                    st.error("Código incorrecto.")
+        with col_sh2:
+            if st.button("Cancelar", use_container_width=True):
+                st.session_state['show_shutdown_dialog'] = False
+                st.rerun()
+
+    if st.session_state.get('show_shutdown_dialog', False):
+        show_shutdown_dialog()
+
+    # Cabecera interactiva con gatillo oculto de 5 toques en el microscopio
+    col_icon, col_hdr = st.columns([0.06, 0.94])
+    with col_icon:
+        st.write("")
+        if st.button("🔬", key="btn_microscope_trigger", help="Ct-Pp QA/QC"):
+            st.session_state['microscope_clicks'] = st.session_state.get('microscope_clicks', 0) + 1
+            if st.session_state['microscope_clicks'] >= 5:
+                st.session_state['microscope_clicks'] = 0
+                st.session_state['show_shutdown_dialog'] = True
+                st.rerun()
+    with col_hdr:
+        st.title("Comparador de Análisis FRX: Pulpas vs. Cutting")
     st.caption("Control de Calidad Geológico (QA/QC), Calibración y Comparación Multi-Elemento en Sondajes")
 
     st.info("🔒 **Modo de Lectura Segura**: Tus archivos maestros en OneDrive se abren únicamente en modo de lectura estricta. Ningún dato original es modificado ni sobrescrito.")
 
     # --- BARRA LATERAL ---
     with st.sidebar:
-        # Homogeneización visual de controles en la barra lateral
-        st.markdown("""
-        <style>
-        [data-testid="stSidebar"] .stSelectbox label p,
-        [data-testid="stSidebar"] .stNumberInput label p,
-        [data-testid="stSidebar"] .stMultiSelect label p,
-        [data-testid="stSidebar"] .stColorPicker label p,
-        [data-testid="stSidebar"] .stSlider label p,
-        [data-testid="stSidebar"] .stRadio label p {
-            font-size: 13px !important;
-            font-weight: 600 !important;
-            white-space: normal !important;
-            line-height: 1.3 !important;
-            margin-bottom: 3px !important;
-        }
-        [data-testid="stSidebar"] div[data-baseweb="select"] {
-            min-height: 38px !important;
-        }
-        [data-testid="stSidebar"] div[data-baseweb="input"] {
-            min-height: 38px !important;
-        }
-        [data-testid="stSidebar"] div.stButton > button {
-            border-radius: 6px !important;
-            font-weight: 600 !important;
-        }
-        /* Contenedores de gráficos Plotly: bordes limpios, sombra sutil y legibilidad garantizada */
-        div[data-testid="stPlotlyChart"] {
-            border-radius: 8px !important;
-            overflow: hidden !important;
-            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12) !important;
-            margin-bottom: 1.2rem !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
         st.header("⚙️ Configuración y Filtros")
 
         # Determinar nivel de privilegios (Servidor Local vs Usuario Remoto)
@@ -378,312 +519,237 @@ def main():
         lod_mode = 'exclude' if lod_choice == "Excluir valores <LOD" else ('lod_half' if lod_choice == "Imputar a LOD / 2" else 'lod_sqrt2')
 
         # Cargar datos según modo
-        if mode == "Sondaje Individual":
-            if selected_hole is None:
-                # Pantalla inicial limpia cuando no hay pozo seleccionado
-                st.markdown("---")
-                st.markdown(f"""
-                <div style="padding: 2.2rem 2.5rem; background: linear-gradient(135deg, rgba(37, 99, 235, 0.07) 0%, rgba(59, 130, 246, 0.02) 100%); border-radius: 12px; border: 1px solid rgba(59, 130, 246, 0.22); margin-bottom: 2rem;">
-                    <h2 style="margin-top: 0; color: #1d4ed8; font-weight: 700;">🏔️ Bienvenido a Ct-Pp QA/QC Analytics</h2>
-                    <p style="font-size: 1.05rem; line-height: 1.6; color: #334155;">
-                        Plataforma especializada en reconciliación geológica y control de calidad analítico entre lecturas de 
-                        <b>FRX Portátil (Cutting)</b> y ensayos químicos de laboratorio oficial <b>(Pulpa)</b>.
-                    </p>
-                    <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1.2rem;">
-                        <div style="background: white; padding: 0.8rem 1.2rem; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                            <span style="font-size: 0.85rem; color: #64748b; font-weight: 600; text-transform: uppercase;">Sondajes Pareados</span><br>
-                            <span style="font-size: 1.4rem; font-weight: 700; color: #0f172a;">{len(common_holes)}</span>
-                        </div>
-                        <div style="background: white; padding: 0.8rem 1.2rem; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                            <span style="font-size: 0.85rem; color: #64748b; font-weight: 600; text-transform: uppercase;">Elementos Disponibles</span><br>
-                            <span style="font-size: 1.4rem; font-weight: 700; color: #0f172a;">35</span>
-                        </div>
-                        <div style="background: white; padding: 0.8rem 1.2rem; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                            <span style="font-size: 0.85rem; color: #64748b; font-weight: 600; text-transform: uppercase;">Integridad Archivos</span><br>
-                            <span style="font-size: 1.4rem; font-weight: 700; color: #16a34a;">Solo Lectura 🔒</span>
-                        </div>
-                    </div>
-                    <div style="margin-top: 1.5rem; padding: 0.9rem 1.2rem; background: rgba(59, 130, 246, 0.08); border-left: 4px solid #2563eb; border-radius: 4px;">
-                        <span style="color: #1e40af; font-size: 1rem; font-weight: 600;">👈 Para comenzar:</span>
-                        <span style="color: #1e3a8a; font-size: 0.95rem;"> Selecciona un sondaje específico en el menú desplegable de la barra lateral izquierda o cambia el modo a <b>Consolidado Global</b>.</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                st.info("💡 **Personalización**: Puedes cambiar el tema de fondo de los gráficos (☀️ Fondo Blanco o 🌙 Fondo Oscuro), colores y estilos de línea en la sección **🎨 Estilo y Apariencia de Gráficos** del panel lateral.")
-                st.stop()
+        has_active_data = False
+        df_active = pd.DataFrame()
+        active_title = ""
 
-            df_active = cached_load_hole(active_holes_info, selected_hole, lod_mode)
-            hole_camp = holes_info[selected_hole].get('campaign', '')
-            active_title = f"Sondaje {selected_hole} ({hole_camp})"
+        if mode == "Sondaje Individual":
+            if selected_hole is not None:
+                df_active = cached_load_hole(active_holes_info, selected_hole, lod_mode)
+                hole_camp = holes_info[selected_hole].get('campaign', '')
+                active_title = f"Sondaje {selected_hole} ({hole_camp})"
+                has_active_data = True
+            else:
+                st.info("👈 Selecciona un sondaje en la lista superior para comenzar.")
         else:
             df_active = cached_load_all(active_holes_info, lod_mode)
             active_title = f"Consolidado Global — {selected_camp_label} ({len(common_holes)} Sondajes)"
+            has_active_data = True
 
-        if df_active.empty:
+        if has_active_data and df_active.empty:
             st.warning("No se encontraron registros pareados para los parámetros seleccionados.")
             st.stop()
 
-        # 4. Selector de Múltiples Elementos
-        st.subheader("📊 Elementos a Comparar")
-        avail_elements = sorted([c[:-5] for c in df_active.columns if c.endswith('_Pulp') and c[:-5] in ELEMENT_CATALOG])
+        selected_elements = ['Cu', 'Mo']
+        focus_elem = 'Cu'
+        focus_unit = '%'
+        cutoff = 0.0
 
-        # Sugerir Cu y Mo por defecto
-        default_selected = [el for el in ['Cu', 'Mo'] if el in avail_elements]
-        if not default_selected:
-            default_selected = avail_elements[:min(2, len(avail_elements))]
+        if has_active_data:
+            # 4. Selector de Múltiples Elementos
+            st.subheader("📊 Elementos a Comparar")
+            avail_elements = sorted([c[:-5] for c in df_active.columns if c.endswith('_Pulp') and c[:-5] in ELEMENT_CATALOG])
 
-        selected_elements = st.multiselect(
-            "Selecciona los elementos que deseas analizar a la vez:",
-            avail_elements,
-            default=default_selected,
-            help="Puedes elegir 2 o más elementos (ej. Cu, Mo, Fe, S, As) para ver su comportamiento conjunto a lo largo del sondaje."
-        )
+            # Sugerir Cu y Mo por defecto
+            default_selected = [el for el in ['Cu', 'Mo'] if el in avail_elements]
+            if not default_selected:
+                default_selected = avail_elements[:min(2, len(avail_elements))]
 
-        if not selected_elements:
-            st.warning("Por favor selecciona al menos un elemento.")
-            st.stop()
-
-        # Elemento enfocado para detalles específicos
-        focus_elem = st.selectbox(
-            "Elemento enfocado (para fórmulas detalladas):",
-            selected_elements,
-            index=0
-        )
-        focus_unit = get_element_unit(focus_elem)
-
-        # 5. Filtros de Muestras
-        st.subheader("🔍 Filtros")
-        
-        cutoff = st.number_input(
-            f"Ley de corte mínima ({focus_elem} en {focus_unit}):",
-            min_value=0.0,
-            value=0.0,
-            step=0.01 if focus_unit == '%' else 1.0,
-            format="%.4f" if focus_unit == '%' else "%.1f",
-            help=f"Filtra las muestras y gráficos mostrando únicamente los tramos que cumplen con este umbral de ley económica ({focus_unit})."
-        )
-        
-        cutoff_target = st.selectbox(
-            "Criterio de corte:",
-            ["Pulpa o Cut (Cualquiera)", "Solo Pulpa (Laboratorio)", "Solo Cutting (FRX)"],
-            index=0,
-            help="Define si el umbral de ley de corte se exige en Pulpa (Lab), en Cutting (FRX) o en cualquiera de las dos."
-        )
-
-        if mode == "Sondaje Individual" and 'From' in df_active.columns and not df_active.empty:
-            min_depth = float(df_active['From'].min())
-            max_depth = float(df_active['To'].max())
-            if min_depth < max_depth:
-                depth_range = st.slider(
-                    "Rango de Profundidad (m):",
-                    min_value=min_depth,
-                    max_value=max_depth,
-                    value=(min_depth, max_depth),
-                    step=1.0
-                )
-                df_active = df_active[(df_active['From'] >= depth_range[0]) & (df_active['To'] <= depth_range[1])].copy()
-
-        # Aplicar filtro de Ley de Corte si es mayor a 0
-        if cutoff > 0.0:
-            p_c = f"{focus_elem}_Pulp"
-            c_c = f"{focus_elem}_Cut"
-            if p_c in df_active.columns and c_c in df_active.columns:
-                n_before = len(df_active)
-                if cutoff_target.startswith("Solo Pulpa"):
-                    cond = (df_active[p_c] >= cutoff)
-                elif cutoff_target.startswith("Solo Cutting"):
-                    cond = (df_active[c_c] >= cutoff)
-                else: # "Pulpa o Cut (Cualquiera)"
-                    cond = (df_active[p_c] >= cutoff) | (df_active[c_c] >= cutoff)
-
-                df_active = df_active[cond].copy()
-                n_after = len(df_active)
-
-                if df_active.empty:
-                    st.warning(f"⚠️ Ninguna muestra alcanza la ley de corte de **{cutoff:.4f} {focus_unit}** para **{focus_elem}** ({cutoff_target}) en el rango seleccionado.")
-                    st.stop()
-                else:
-                    st.caption(f"🎯 **Filtro Cutoff Activo ({cutoff_target})**: Mostrando **{n_after} de {n_before}** muestras ({n_after/n_before*100:.1f}%) con {focus_elem} ≥ {cutoff:.4f} {focus_unit}.")
-
-        # 6. Personalización de Estilos, Colores y Líneas
-        st.subheader("🎨 Estilo y Apariencia")
-        with st.expander("Ajustar colores, líneas y puntos", expanded=False):
-            # Inyección CSS para nivelación uniforme y prevención de saltos de línea asimétricos
-            st.markdown("""
-            <style>
-            [data-testid="stSidebar"] .stSelectbox label p,
-            [data-testid="stSidebar"] .stColorPicker label p,
-            [data-testid="stSidebar"] .stSlider label p {
-                font-size: 13px !important;
-                font-weight: 600 !important;
-                white-space: nowrap !important;
-                overflow: hidden !important;
-                text-overflow: ellipsis !important;
-                margin-bottom: 2px !important;
-            }
-            [data-testid="stSidebar"] div[data-baseweb="select"] {
-                min-height: 38px !important;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-
-            dash_options = [
-                "── Sólida",
-                "··· Punteada",
-                "-- Segmentada",
-                "-·- Trazo-Punto",
-                "— Trazos Largos"
-            ]
-
-            def reset_custom_styles():
-                st.session_state['theme_choice_radio'] = "☀️ Fondo Blanco"
-                st.session_state['color_pulp'] = '#1f77b4'
-                st.session_state['color_cut'] = '#ff7f0e'
-                st.session_state['color_e2_pulp'] = '#2ca02c'
-                st.session_state['color_e2_cut'] = '#d62728'
-                st.session_state['dash_pulp_choice'] = "── Sólida"
-                st.session_state['dash_cut_choice'] = "── Sólida"
-                st.session_state['dash_e2_pulp_choice'] = "── Sólida"
-                st.session_state['dash_e2_cut_choice'] = "··· Punteada"
-                st.session_state['line_mode_choice'] = "Línea + Puntos"
-                st.session_state['width_pulp'] = 2.5
-                st.session_state['width_cut'] = 2.0
-                st.session_state['marker_size'] = 4
-
-            if 'dash_cut_choice_v3' not in st.session_state:
-                st.session_state['dash_cut_choice'] = "── Sólida"
-                st.session_state['dash_cut_choice_v3'] = True
-
-            if 'theme_choice_radio' not in st.session_state: st.session_state['theme_choice_radio'] = "☀️ Fondo Blanco"
-            if 'color_pulp' not in st.session_state: st.session_state['color_pulp'] = '#1f77b4'
-            if 'color_cut' not in st.session_state: st.session_state['color_cut'] = '#ff7f0e'
-            if 'color_e2_pulp' not in st.session_state: st.session_state['color_e2_pulp'] = '#2ca02c'
-            if 'color_e2_cut' not in st.session_state: st.session_state['color_e2_cut'] = '#d62728'
-            if st.session_state.get('dash_pulp_choice') not in dash_options: st.session_state['dash_pulp_choice'] = "── Sólida"
-            if st.session_state.get('dash_cut_choice') not in dash_options: st.session_state['dash_cut_choice'] = "── Sólida"
-            if st.session_state.get('dash_e2_pulp_choice') not in dash_options: st.session_state['dash_e2_pulp_choice'] = "── Sólida"
-            if st.session_state.get('dash_e2_cut_choice') not in dash_options: st.session_state['dash_e2_cut_choice'] = "··· Punteada"
-            if 'line_mode_choice' not in st.session_state: st.session_state['line_mode_choice'] = "Línea + Puntos"
-            if 'width_pulp' not in st.session_state: st.session_state['width_pulp'] = 2.5
-            if 'width_cut' not in st.session_state: st.session_state['width_cut'] = 2.0
-            if 'marker_size' not in st.session_state: st.session_state['marker_size'] = 4
-
-            # --- SECCIÓN 0: TEMA DE FONDO (BLANCO PURO / OSCURO) ---
-            st.markdown("##### 🎨 Tema de Fondo de Gráficos")
-            st.radio(
-                "Fondo de los Gráficos:",
-                ["☀️ Fondo Blanco", "🌙 Fondo Oscuro"],
-                index=0,
-                horizontal=True,
-                key="theme_choice_radio",
-                help="El modo '☀️ Fondo Blanco' establece un lienzo 100% blanco puro (#ffffff) sin bordes ni recuadros oscuros."
+            selected_elements = st.multiselect(
+                "Selecciona los elementos que deseas analizar a la vez:",
+                avail_elements,
+                default=default_selected,
+                help="Puedes elegir 2 o más elementos (ej. Cu, Mo, Fe, S, As) para ver su comportamiento conjunto a lo largo del sondaje."
             )
-            st.markdown("---")
 
-            # --- SECCIÓN 1: CURVAS PRINCIPALES ---
-            st.markdown("##### 📍 Curvas Principales")
-            # Fila 1: Colores principales (exactamente al mismo nivel)
-            col_c1, col_c2 = st.columns(2)
-            with col_c1:
-                st.color_picker("Pulpa (Lab):", value=st.session_state.get('color_pulp', '#1f77b4'), key="color_pulp")
-            with col_c2:
-                st.color_picker("Cutting (FRX):", value=st.session_state.get('color_cut', '#ff7f0e'), key="color_cut")
+            if not selected_elements:
+                st.warning("Por favor selecciona al menos un elemento.")
+                st.stop()
 
-            # Fila 2: Trazos principales (exactamente al mismo nivel)
-            col_t1, col_t2 = st.columns(2)
-            with col_t1:
-                st.selectbox("Trazo Pulpa:", dash_options, key="dash_pulp_choice")
-            with col_t2:
-                st.selectbox("Trazo Cutting:", dash_options, key="dash_cut_choice")
+            # Elemento enfocado para detalles específicos
+            focus_elem = st.selectbox(
+                "Elemento enfocado (para fórmulas detalladas):",
+                selected_elements,
+                index=0
+            )
+            focus_unit = get_element_unit(focus_elem)
 
-            # Fila 3: Grosores de línea (exactamente al mismo nivel)
-            col_w1, col_w2 = st.columns(2)
-            with col_w1:
-                st.slider("Grosor Pulpa:", min_value=1.0, max_value=5.0, step=0.5, key="width_pulp")
-            with col_w2:
-                st.slider("Grosor Cutting:", min_value=1.0, max_value=5.0, step=0.5, key="width_cut")
+            # 5. Filtros de Muestras
+            st.subheader("🔍 Filtros")
+            
+            cutoff = st.number_input(
+                f"Ley de corte mínima ({focus_elem} en {focus_unit}):",
+                min_value=0.0,
+                value=0.0,
+                step=0.01 if focus_unit == '%' else 1.0,
+                format="%.4f" if focus_unit == '%' else "%.1f",
+                help=f"Filtra las muestras y gráficos mostrando únicamente los tramos que cumplen con este umbral de ley económica ({focus_unit})."
+            )
+            
+            cutoff_target = st.selectbox(
+                "Criterio de corte:",
+                ["Pulpa o Cut (Cualquiera)", "Solo Pulpa (Laboratorio)", "Solo Cutting (FRX)"],
+                index=0,
+                help="Define si el umbral de ley de corte se exige en Pulpa (Lab), en Cutting (FRX) o en cualquiera de las dos."
+            )
 
-            # --- SECCIÓN 2: CURVAS ELEMENTO 2 (SUPERPOSICIÓN) ---
-            st.markdown("---")
-            st.markdown("##### 🔀 Elemento 2 (Superposición)")
-            # Fila 4: Colores Elem 2 (exactamente al mismo nivel)
-            col_c3, col_c4 = st.columns(2)
-            with col_c3:
-                st.color_picker("Elem 2 Pulpa:", value=st.session_state.get('color_e2_pulp', '#2ca02c'), key="color_e2_pulp")
-            with col_c4:
-                st.color_picker("Elem 2 Cutting:", value=st.session_state.get('color_e2_cut', '#d62728'), key="color_e2_cut")
+            if mode == "Sondaje Individual" and 'From' in df_active.columns and not df_active.empty:
+                min_depth = float(df_active['From'].min())
+                max_depth = float(df_active['To'].max())
+                if min_depth < max_depth:
+                    depth_range = st.slider(
+                        "Rango de Profundidad (m):",
+                        min_value=min_depth,
+                        max_value=max_depth,
+                        value=(min_depth, max_depth),
+                        step=1.0
+                    )
+                    df_active = df_active[(df_active['From'] >= depth_range[0]) & (df_active['To'] <= depth_range[1])].copy()
 
-            # Fila 5: Trazos Elem 2 (exactamente al mismo nivel)
-            col_t3, col_t4 = st.columns(2)
-            with col_t3:
-                st.selectbox("Trazo E2 Pulpa:", dash_options, key="dash_e2_pulp_choice")
-            with col_t4:
-                st.selectbox("Trazo E2 Cutting:", dash_options, key="dash_e2_cut_choice")
+            # Aplicar filtro de Ley de Corte si es mayor a 0
+            if cutoff > 0.0:
+                p_c = f"{focus_elem}_Pulp"
+                c_c = f"{focus_elem}_Cut"
+                if p_c in df_active.columns and c_c in df_active.columns:
+                    n_before = len(df_active)
+                    if cutoff_target.startswith("Solo Pulpa"):
+                        cond = (df_active[p_c] >= cutoff)
+                    elif cutoff_target.startswith("Solo Cutting"):
+                        cond = (df_active[c_c] >= cutoff)
+                    else: # "Pulpa o Cut (Cualquiera)"
+                        cond = (df_active[p_c] >= cutoff) | (df_active[c_c] >= cutoff)
 
-            # --- SECCIÓN 3: PUNTOS Y MODO GLOBAL ---
-            st.markdown("---")
-            st.markdown("##### 🔘 Modo y Marcadores")
-            st.selectbox("Modo de trazado:", ["Línea + Puntos", "Solo Línea", "Solo Puntos"], key="line_mode_choice")
-            st.slider("Tamaño de Puntos:", min_value=1, max_value=10, step=1, key="marker_size")
+                    df_active = df_active[cond].copy()
+                    n_after = len(df_active)
 
-            st.button("🔄 Restablecer Estilos por Defecto", on_click=reset_custom_styles, use_container_width=True)
+                    if df_active.empty:
+                        st.warning(f"⚠️ Ninguna muestra alcanza la ley de corte de **{cutoff:.4f} {focus_unit}** para **{focus_elem}** ({cutoff_target}) en el rango seleccionado.")
+                        st.stop()
+                    else:
+                        st.caption(f"🎯 **Filtro Cutoff Activo ({cutoff_target})**: Mostrando **{n_after} de {n_before}** muestras ({n_after/n_before*100:.1f}%) con {focus_elem} ≥ {cutoff:.4f} {focus_unit}.")
 
-        # 7. Compartición Remota Temporal
-        st.subheader("🌐 Acceso Remoto Temporal")
-        with st.expander("Compartir con usuarios remotos", expanded=False):
-            tunnel_stat = get_tunnel_status()
-
-            st.markdown("""
-            Permite que colegas o supervisores fuera de tu red accedan a este programa en tiempo real
-            mientras esté abierto en este PC, durante el tiempo que tú decidas.
-            """)
-
-            if tunnel_stat["is_active"]:
-                st.success("🟢 **Enlace Remoto Activo**")
-                url = tunnel_stat["url"]
-                st.markdown(f"**URL Pública Segura (HTTPS):**\n[{url}]({url})")
-                st.code(url, language="text")
-
-                rem_sec = tunnel_stat.get("remaining_seconds", 0)
-                if rem_sec > 0:
-                    mins = rem_sec // 60
-                    secs = rem_sec % 60
-                    st.info(f"⏳ **Tiempo restante de acceso:** {mins:02d}m {secs:02d}s")
-                else:
-                    st.info("⏳ **Modo Manual activo** (sin límite de tiempo programado).")
-
-                if st.button("⏹️ Desconectar Acceso Remoto Ahora", type="primary", use_container_width=True):
-                    stop_tunnel()
-                    st.rerun()
-            else:
-                if tunnel_stat.get("status") == "EXPIRED":
-                    st.warning("⏱️ El enlace remoto anterior expiró y fue desconectado automáticamente.")
-
-                dur_choice = st.selectbox(
-                    "⏱️ Duración del acceso:",
-                    ["15 minutos", "30 minutos", "1 hora (60 min)", "2 horas (120 min)", "4 horas (240 min)", "Manual (hasta que yo lo detenga)"],
-                    index=1,
-                    help="Al cumplirse el tiempo seleccionado, el enlace se desconectará automáticamente."
-                )
-                dur_map = {
-                    "15 minutos": 15,
-                    "30 minutos": 30,
-                    "1 hora (60 min)": 60,
-                    "2 horas (120 min)": 120,
-                    "4 horas (240 min)": 240,
-                    "Manual (hasta que yo lo detenga)": 0
+            # 6. Personalización de Estilos, Colores y Líneas
+            st.subheader("🎨 Estilo y Apariencia")
+            with st.expander("Ajustar colores, líneas y puntos", expanded=False):
+                # Inyección CSS para nivelación uniforme y prevención de saltos de línea asimétricos
+                st.markdown("""
+                <style>
+                [data-testid="stSidebar"] .stSelectbox label p,
+                [data-testid="stSidebar"] .stColorPicker label p,
+                [data-testid="stSidebar"] .stSlider label p {
+                    font-size: 13px !important;
+                    font-weight: 600 !important;
+                    white-space: nowrap !important;
+                    overflow: hidden !important;
+                    text-overflow: ellipsis !important;
+                    margin-bottom: 2px !important;
                 }
+                [data-testid="stSidebar"] div[data-baseweb="select"] {
+                    min-height: 38px !important;
+                }
+                </style>
+                """, unsafe_allow_html=True)
 
-                if st.button("🚀 Activar Enlace Remoto Temporal", type="primary", use_container_width=True):
-                    with st.spinner("Iniciando túnel seguro de Cloudflare..."):
-                        ok, msg, url = start_tunnel(8501, dur_map[dur_choice])
-                        if ok:
-                            st.success("¡Enlace generado exitosamente!")
-                            st.rerun()
-                        else:
-                            st.error(f"Error al conectar: {msg}")
+                dash_options = [
+                    "── Sólida",
+                    "··· Punteada",
+                    "-- Segmentada",
+                    "-·- Trazo-Punto",
+                    "— Trazos Largos"
+                ]
 
-            st.caption(f"🏠 **IP Red Local (LAN):** `http://{tunnel_stat.get('local_ip', 'localhost')}:8501`")
+                def reset_custom_styles():
+                    st.session_state['theme_choice_radio'] = "☀️ Fondo Blanco"
+                    st.session_state['color_pulp'] = '#1f77b4'
+                    st.session_state['color_cut'] = '#ff7f0e'
+                    st.session_state['color_e2_pulp'] = '#2ca02c'
+                    st.session_state['color_e2_cut'] = '#d62728'
+                    st.session_state['dash_pulp_choice'] = "── Sólida"
+                    st.session_state['dash_cut_choice'] = "── Sólida"
+                    st.session_state['dash_e2_pulp_choice'] = "── Sólida"
+                    st.session_state['dash_e2_cut_choice'] = "··· Punteada"
+                    st.session_state['line_mode_choice'] = "Línea + Puntos"
+                    st.session_state['width_pulp'] = 2.5
+                    st.session_state['width_cut'] = 2.0
+                    st.session_state['marker_size'] = 4
+
+                if 'dash_cut_choice_v3' not in st.session_state:
+                    st.session_state['dash_cut_choice'] = "── Sólida"
+                    st.session_state['dash_cut_choice_v3'] = True
+
+                if 'theme_choice_radio' not in st.session_state: st.session_state['theme_choice_radio'] = "☀️ Fondo Blanco"
+                if 'color_pulp' not in st.session_state: st.session_state['color_pulp'] = '#1f77b4'
+                if 'color_cut' not in st.session_state: st.session_state['color_cut'] = '#ff7f0e'
+                if 'color_e2_pulp' not in st.session_state: st.session_state['color_e2_pulp'] = '#2ca02c'
+                if 'color_e2_cut' not in st.session_state: st.session_state['color_e2_cut'] = '#d62728'
+                if st.session_state.get('dash_pulp_choice') not in dash_options: st.session_state['dash_pulp_choice'] = "── Sólida"
+                if st.session_state.get('dash_cut_choice') not in dash_options: st.session_state['dash_cut_choice'] = "── Sólida"
+                if st.session_state.get('dash_e2_pulp_choice') not in dash_options: st.session_state['dash_e2_pulp_choice'] = "── Sólida"
+                if st.session_state.get('dash_e2_cut_choice') not in dash_options: st.session_state['dash_e2_cut_choice'] = "··· Punteada"
+                if 'line_mode_choice' not in st.session_state: st.session_state['line_mode_choice'] = "Línea + Puntos"
+                if 'width_pulp' not in st.session_state: st.session_state['width_pulp'] = 2.5
+                if 'width_cut' not in st.session_state: st.session_state['width_cut'] = 2.0
+                if 'marker_size' not in st.session_state: st.session_state['marker_size'] = 4
+
+                # --- SECCIÓN 0: TEMA DE FONDO (BLANCO PURO / OSCURO) ---
+                st.markdown("##### 🎨 Tema de Fondo de Gráficos")
+                st.radio(
+                    "Fondo de los Gráficos:",
+                    ["☀️ Fondo Blanco", "🌙 Fondo Oscuro"],
+                    index=0,
+                    horizontal=True,
+                    key="theme_choice_radio",
+                    help="El modo '☀️ Fondo Blanco' establece un lienzo 100% blanco puro (#ffffff) sin bordes ni recuadros oscuros."
+                )
+                st.markdown("---")
+
+                # --- SECCIÓN 1: CURVAS PRINCIPALES ---
+                st.markdown("##### 📍 Curvas Principales")
+                # Fila 1: Colores principales (exactamente al mismo nivel)
+                col_c1, col_c2 = st.columns(2)
+                with col_c1:
+                    st.color_picker("Pulpa (Lab):", value=st.session_state.get('color_pulp', '#1f77b4'), key="color_pulp")
+                with col_c2:
+                    st.color_picker("Cutting (FRX):", value=st.session_state.get('color_cut', '#ff7f0e'), key="color_cut")
+
+                # Fila 2: Trazos principales (exactamente al mismo nivel)
+                col_t1, col_t2 = st.columns(2)
+                with col_t1:
+                    st.selectbox("Trazo Pulpa:", dash_options, key="dash_pulp_choice")
+                with col_t2:
+                    st.selectbox("Trazo Cutting:", dash_options, key="dash_cut_choice")
+
+                # Fila 3: Grosores de línea (exactamente al mismo nivel)
+                col_w1, col_w2 = st.columns(2)
+                with col_w1:
+                    st.slider("Grosor Pulpa:", min_value=1.0, max_value=5.0, step=0.5, key="width_pulp")
+                with col_w2:
+                    st.slider("Grosor Cutting:", min_value=1.0, max_value=5.0, step=0.5, key="width_cut")
+
+                # --- SECCIÓN 2: CURVAS ELEMENTO 2 (SUPERPOSICIÓN) ---
+                st.markdown("---")
+                st.markdown("##### 🔀 Elemento 2 (Superposición)")
+                # Fila 4: Colores Elem 2 (exactamente al mismo nivel)
+                col_c3, col_c4 = st.columns(2)
+                with col_c3:
+                    st.color_picker("Elem 2 Pulpa:", value=st.session_state.get('color_e2_pulp', '#2ca02c'), key="color_e2_pulp")
+                with col_c4:
+                    st.color_picker("Elem 2 Cutting:", value=st.session_state.get('color_e2_cut', '#d62728'), key="color_e2_cut")
+
+                # Fila 5: Trazos Elem 2 (exactamente al mismo nivel)
+                col_t3, col_t4 = st.columns(2)
+                with col_t3:
+                    st.selectbox("Trazo E2 Pulpa:", dash_options, key="dash_e2_pulp_choice")
+                with col_t4:
+                    st.selectbox("Trazo E2 Cutting:", dash_options, key="dash_e2_cut_choice")
+
+                # --- SECCIÓN 3: PUNTOS Y MODO GLOBAL ---
+                st.markdown("---")
+                st.markdown("##### 🔘 Modo y Marcadores")
+                st.selectbox("Modo de trazado:", ["Línea + Puntos", "Solo Línea", "Solo Puntos"], key="line_mode_choice")
+                st.slider("Tamaño de Puntos:", min_value=1, max_value=10, step=1, key="marker_size")
+
+                st.button("🔄 Restablecer Estilos por Defecto", on_click=reset_custom_styles, use_container_width=True)
 
     dash_map = {
         "── Sólida": "solid",
@@ -727,6 +793,38 @@ def main():
     pt_size = int(st.session_state.get('marker_size', 4))
 
     theme_param = 'dark' if st.session_state.get('theme_choice_radio', "☀️ Fondo Blanco") == "🌙 Fondo Oscuro" else 'light'
+
+    # Si no hay sondaje seleccionado, mostrar la tarjeta de bienvenida en el cuerpo principal
+    if not has_active_data:
+        st.markdown(f"""
+        <div style="padding: 2.2rem 2.5rem; background: rgba(37, 99, 235, 0.08); border-radius: 12px; border: 1px solid rgba(59, 130, 246, 0.25); margin: 1.5rem 0 2rem 0;">
+            <h2 style="margin-top: 0; color: #3b82f6; font-weight: 700;">🏔️ Bienvenido a Ct-Pp QA/QC Analytics</h2>
+            <p style="font-size: 1.05rem; line-height: 1.6; color: var(--text-color, #e2e8f0);">
+                Plataforma especializada en reconciliación geológica y control de calidad analítico entre lecturas de 
+                <b>FRX Portátil (Cutting)</b> y ensayos químicos de laboratorio oficial <b>(Pulpa)</b>.
+            </p>
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1.2rem;">
+                <div style="background: rgba(255, 255, 255, 0.06); padding: 0.8rem 1.2rem; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <span style="font-size: 0.85rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Sondajes Pareados</span><br>
+                    <span style="font-size: 1.4rem; font-weight: 700; color: var(--text-color, #f8fafc);">{len(common_holes)}</span>
+                </div>
+                <div style="background: rgba(255, 255, 255, 0.06); padding: 0.8rem 1.2rem; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <span style="font-size: 0.85rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Elementos Disponibles</span><br>
+                    <span style="font-size: 1.4rem; font-weight: 700; color: var(--text-color, #f8fafc);">35</span>
+                </div>
+                <div style="background: rgba(255, 255, 255, 0.06); padding: 0.8rem 1.2rem; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <span style="font-size: 0.85rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Integridad Archivos</span><br>
+                    <span style="font-size: 1.4rem; font-weight: 700; color: #22c55e;">Solo Lectura 🔒</span>
+                </div>
+            </div>
+            <div style="margin-top: 1.5rem; padding: 0.9rem 1.2rem; background: rgba(59, 130, 246, 0.12); border-left: 4px solid #2563eb; border-radius: 4px;">
+                <span style="color: #60a5fa; font-size: 1rem; font-weight: 600;">👈 Para comenzar:</span>
+                <span style="color: var(--text-color, #e2e8f0); font-size: 0.95rem;"> Selecciona un sondaje específico en el menú desplegable de la barra lateral izquierda o cambia el modo a <b>Consolidado Global</b>.</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.info("💡 **Personalización**: Puedes cambiar el tema de fondo de los gráficos (☀️ Fondo Blanco o 🌙 Fondo Oscuro), colores y estilos de línea en la sección **🎨 Estilo y Apariencia de Gráficos** del panel lateral una vez cargado un sondaje.")
+        st.stop()
 
     # --- TABLA RESUMEN MULTIELEMENTO PARA ESTE POZO (ENCABEZADO) ---
     st.markdown(f"### 📍 {active_title} — Comparación de Elementos: **{', '.join(selected_elements)}**")
@@ -851,8 +949,39 @@ def main():
 
                 use_scroll_box = st.checkbox("🪟 Bloquear en ventana con scroll vertical (mantiene la página fija en pantalla)", value=False)
             else:
-                profile_height = 580 if not dh_view.startswith("📊") else 660
-                st.caption("💡 **Modo Horizontal**: La profundidad se despliega en el eje X continuo de izquierda a derecha. Utiliza el **control deslizante inferior (rangeslider)** dentro del gráfico para ampliar y recorrer cualquier tramo del pozo en alta resolución.")
+                def reset_dh_height_h():
+                    st.session_state['slider_dh_horizontal_height'] = 340
+
+                col_h_slider, col_h_btn = st.columns([0.70, 0.30])
+                with col_h_slider:
+                    if 'slider_dh_horizontal_height' not in st.session_state:
+                        st.session_state['slider_dh_horizontal_height'] = 340
+
+                    profile_height = st.select_slider(
+                        "↕️ Dimensión Vertical del Gráfico (Eje Y):",
+                        options=[220, 280, 340, 380, 450, 550, 680],
+                        key="slider_dh_horizontal_height",
+                        format_func=lambda h: {
+                            220: "Ultra Bajo y Panorámico (220px)",
+                            280: "Bajo y Ancho (280px)",
+                            340: "Compacto / Recomendado (340px)",
+                            380: "Estándar Horizontal (380px)",
+                            450: "Medio (450px)",
+                            550: "Alto (550px)",
+                            680: "Máxima Altura (680px)"
+                        }.get(h, f"{h}px"),
+                        help="Ajusta la altura vertical del gráfico (Eje Y). Selecciona alturas menores (ej. 220px–340px) para que el gráfico se vea más bajo y alargado/ancho, facilitando el análisis visual horizontal a lo largo del pozo."
+                    )
+
+                with col_h_btn:
+                    st.write("")
+                    st.write("")
+                    st.button("🔄 Altura por Defecto (340px)", key="btn_reset_height_h", on_click=reset_dh_height_h, use_container_width=True)
+
+                if dh_view.startswith("📊"):
+                    profile_height = max(profile_height, len(selected_elements) * 180)
+
+                st.caption("💡 **Modo Horizontal**: La profundidad se despliega a lo largo del pozo en el eje X de izquierda a derecha. Usa el deslizador superior para hacer el gráfico más bajo o alto y navega cualquier tramo con el **control deslizante inferior (rangeslider)**.")
                 use_scroll_box = False
 
             if dh_view.startswith("📊"):
