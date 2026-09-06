@@ -19,7 +19,10 @@ from src.tunnel_manager import (
     stop_tunnel,
     get_tunnel_status,
     get_local_ip,
-    is_local_session
+    is_local_session,
+    get_access_control,
+    set_access_control,
+    emergency_lockdown
 )
 from src.config import (
     DEFAULT_PULP_PATHS,
@@ -151,7 +154,77 @@ def main():
         # Determinar nivel de privilegios (Servidor Local vs Usuario Remoto)
         is_server_host = is_local_session()
         is_admin = is_server_host or st.session_state.get('admin_authenticated', False)
+        
+        # Consultar estado de control de acceso persistido
+        access_ctrl = get_access_control()
+        guest_allowed = access_ctrl.get("guest_access_enabled", True)
+        require_guest_pin = access_ctrl.get("require_pin", False)
+        guest_pin_val = access_ctrl.get("guest_pin", "1234")
 
+        # =========================================================================
+        # 1. VERIFICACIÓN DE ACCESO PARA USUARIOS REMOTOS (KILL-SWITCH & PIN GATE)
+        # =========================================================================
+        if not is_admin:
+            # A) Si el Administrador activó el Cerrojo Maestro (Kill-Switch)
+            if not guest_allowed:
+                st.markdown("""
+                <div style="padding: 3rem 2rem; background: rgba(239, 68, 68, 0.05); border: 2px solid #ef4444; border-radius: 12px; text-align: center; margin: 3rem auto; max-width: 650px;">
+                    <div style="font-size: 3.5rem; margin-bottom: 1rem;">🔒</div>
+                    <h2 style="color: #b91c1c; margin-top: 0; font-weight: 700;">Acceso Remoto Suspendido</h2>
+                    <p style="color: #334155; font-size: 1.05rem; line-height: 1.6;">
+                        La visualización remota de esta plataforma ha sido <b>pausada o revocada</b> por el geólogo administrador.
+                    </p>
+                    <p style="color: #64748b; font-size: 0.9rem; margin-top: 1rem;">
+                        Por razones de confidencialidad y control de calidad, los datos geológicos no están disponibles en este momento.
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                with st.expander("🔐 ¿Eres el Administrador? (PIN Maestro)", expanded=False):
+                    pin_admin = st.text_input("PIN Maestro:", type="password", key="lock_screen_admin_pin")
+                    if st.button("Desbloquear como Administrador", key="btn_unlock_admin"):
+                        if pin_admin == ADMIN_PIN:
+                            st.session_state['admin_authenticated'] = True
+                            st.rerun()
+                        else:
+                            st.error("PIN incorrecto.")
+                st.stop()
+
+            # B) Si se exige PIN de Invitado y aún no se ha validado
+            if require_guest_pin and not st.session_state.get('guest_pin_authenticated', False):
+                st.markdown("""
+                <div style="padding: 2.5rem 2rem; background: rgba(37, 99, 235, 0.04); border: 1px solid rgba(37, 99, 235, 0.3); border-radius: 12px; text-align: center; margin: 2.5rem auto; max-width: 550px;">
+                    <div style="font-size: 3rem; margin-bottom: 0.8rem;">🔐</div>
+                    <h2 style="color: #1d4ed8; margin-top: 0; font-weight: 700;">Plataforma QA/QC Ct-Pp</h2>
+                    <p style="color: #475569; font-size: 0.95rem;">
+                        Esta sesión requiere una <b>Clave de Acceso Temporal</b> autorizada por el administrador.
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                col_g1, col_g2, col_g3 = st.columns([1, 2, 1])
+                with col_g2:
+                    entered_gpin = st.text_input("Ingresa la clave de invitado:", type="password", key="guest_pin_input_field")
+                    if st.button("🔓 Ingresar a la Plataforma", key="btn_enter_guest", use_container_width=True):
+                        if entered_gpin.strip() == guest_pin_val:
+                            st.session_state['guest_pin_authenticated'] = True
+                            st.rerun()
+                        else:
+                            st.error("Clave de invitado incorrecta.")
+                            
+                with st.expander("Soy el Administrador (PIN Maestro)", expanded=False):
+                    pin_admin_fallback = st.text_input("PIN Maestro:", type="password", key="admin_pin_fallback")
+                    if st.button("Entrar como Administrador", key="btn_admin_fallback"):
+                        if pin_admin_fallback == ADMIN_PIN:
+                            st.session_state['admin_authenticated'] = True
+                            st.rerun()
+                        else:
+                            st.error("PIN incorrecto.")
+                st.stop()
+
+        # =========================================================================
+        # 2. PANELES DE CONTROL ADMINISTRATIVO (LOCAL HOST O PIN MAESTRO)
+        # =========================================================================
         if is_admin:
             # 1. Configuración de Directorios y Campañas (Solo Administrador)
             with st.expander("📁 Rutas de Datos y Campañas (OneDrive)", expanded=False):
@@ -165,7 +238,7 @@ def main():
                     st.cache_data.clear()
                     st.rerun()
 
-            # Control de Compartir Acceso Remoto (Solo Administrador)
+            # 2. Control de Compartir Acceso Remoto (Solo Administrador)
             with st.expander("🌐 Compartir Acceso Remoto Temporal", expanded=False):
                 t_state = get_tunnel_status()
                 if t_state["is_active"]:
@@ -203,29 +276,47 @@ def main():
                             else:
                                 st.error(f"Error: {msg}")
 
+            # 3. Cerrojo Maestro / Kill-Switch de Invitados (Solo Administrador)
+            with st.expander("🛡️ Cerrojo Maestro de Acceso (Kill-Switch)", expanded=False):
+                st.markdown("**Controla en tiempo real la entrada de invitados:**")
+                sw_val = st.toggle(
+                    "🟢 Permitir Visualización a Invitados",
+                    value=guest_allowed,
+                    help="Si apagas este interruptor, cualquier persona remota verá de inmediato la pantalla roja de bloqueo."
+                )
+                if sw_val != guest_allowed:
+                    set_access_control(sw_val, require_guest_pin, guest_pin_val)
+                    st.rerun()
+
+                st.markdown("---")
+                st.markdown("**Clave de Acceso para Invitados:**")
+                req_pin_chk = st.checkbox("Exigir Clave/PIN a invitados remotos", value=require_guest_pin)
+                new_g_pin = st.text_input("PIN de Invitado (para compartir con tu jefe):", value=guest_pin_val, type="password")
+                
+                col_save_ctrl, col_panic_ctrl = st.columns([1, 1])
+                with col_save_ctrl:
+                    if st.button("💾 Guardar Permisos", use_container_width=True):
+                        set_access_control(sw_val, req_pin_chk, new_g_pin)
+                        st.success("Permisos guardados.")
+                        st.rerun()
+                with col_panic_ctrl:
+                    if st.button("🚨 EXPULSAR A TODOS", use_container_width=True):
+                        emergency_lockdown()
+                        st.warning("Túnel cerrado y acceso revocado inmediatamente.")
+                        st.rerun()
+
             if not is_server_host and st.session_state.get('admin_authenticated'):
                 if st.button("🔒 Cerrar Modo Administrador", key="btn_logout_admin"):
                     st.session_state['admin_authenticated'] = False
                     st.rerun()
         else:
-            # Para usuarios remotos (Invitados / Jefe / Supervisores)
+            # Para usuarios remotos con acceso activo (Invitados / Jefe / Supervisores)
             st.markdown("""
             <div style="background: rgba(37, 99, 235, 0.07); border-left: 4px solid #2563eb; padding: 0.6rem 1rem; border-radius: 4px; margin-bottom: 1.2rem;">
                 <span style="font-size: 0.88rem; color: #1e40af; font-weight: 700;">👁️ Sesión Remota (Modo Consulta)</span><br>
                 <span style="font-size: 0.8rem; color: #3b82f6;">Vista interactiva de exploración geológica QA/QC. Las funciones del servidor y control de enlace están protegidas en el equipo local.</span>
             </div>
             """, unsafe_allow_html=True)
-
-            # Opción discreta para desbloqueo con PIN si el dueño entra desde su propio teléfono o laptop
-            with st.expander("🔐 ¿Eres el Administrador? (Desbloquear con PIN)", expanded=False):
-                pin_try = st.text_input("Ingresa el PIN maestro:", type="password", key="auth_pin_input")
-                if st.button("Validar PIN", key="btn_validate_pin"):
-                    if pin_try == ADMIN_PIN:
-                        st.session_state['admin_authenticated'] = True
-                        st.success("¡Identidad verificada! Modo Administrador activado.")
-                        st.rerun()
-                    else:
-                        st.error("PIN incorrecto.")
 
         # Escanear carpetas
         try:

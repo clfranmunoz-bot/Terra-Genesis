@@ -28,6 +28,7 @@ TOOLS_DIR = ROOT_DIR / "tools"
 CLOUDFLARED_BIN = TOOLS_DIR / "cloudflared.exe"
 STATE_FILE = TOOLS_DIR / "tunnel_state.json"
 LOG_FILE = TOOLS_DIR / "tunnel.log"
+ACCESS_CONTROL_FILE = TOOLS_DIR / "access_control.json"
 
 # Lock para sincronizar acceso al estado
 _STATE_LOCK = threading.Lock()
@@ -228,6 +229,7 @@ def start_tunnel(port: int = 8501, duration_minutes: int = 30) -> Tuple[bool, st
 
     cmd = [
         cloudflared_path,
+        "--logfile", str(LOG_FILE),
         "tunnel",
         "--edge-ip-version", "4",
         "--url", f"http://127.0.0.1:{port}",
@@ -236,18 +238,22 @@ def start_tunnel(port: int = 8501, duration_minutes: int = 30) -> Tuple[bool, st
 
     try:
         TOOLS_DIR.mkdir(parents=True, exist_ok=True)
-        # Redirigir la salida a archivo para evitar desbordamiento del buffer de tubería en Windows
-        log_write = open(LOG_FILE, "w", encoding="utf-8")
-        creationflags = 0x08000000 if os.name == 'nt' else 0
+        # Truncar/crear archivo de log limpio para esta sesión
+        with open(LOG_FILE, "w", encoding="utf-8") as f:
+            pass
+
+        # DETACHED_PROCESS (0x8) + CREATE_NEW_PROCESS_GROUP (0x200) + CREATE_NO_WINDOW (0x8000000)
+        # Asegura que cloudflared no dependa de descriptores de tubería de Python y sobreviva en segundo plano
+        creationflags = (0x08000000 | 0x00000008 | 0x00000200) if os.name == 'nt' else 0
         proc = subprocess.Popen(
             cmd,
-            stdout=log_write,
-            stderr=subprocess.STDOUT,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
             creationflags=creationflags
         )
         _ACTIVE_PROC = proc
 
-        # Cloudflare Tunnel escribe la URL pública en su salida estándar/error
+        # Cloudflare Tunnel escribe la URL pública en el archivo de log
         tunnel_url = None
         start_wait = time.time()
         url_regex = re.compile(r"https://[a-zA-Z0-9-]+\.trycloudflare\.com")
@@ -373,3 +379,58 @@ def is_local_session() -> bool:
         return True
     except Exception:
         return True
+
+
+def get_access_control() -> Dict[str, Any]:
+    """
+    Retorna el estado de control de acceso para invitados remotos.
+    """
+    if not ACCESS_CONTROL_FILE.is_file():
+        return {
+            "guest_access_enabled": True,
+            "require_pin": False,
+            "guest_pin": "1234"
+        }
+    try:
+        with open(ACCESS_CONTROL_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return {
+                "guest_access_enabled": data.get("guest_access_enabled", True),
+                "require_pin": data.get("require_pin", False),
+                "guest_pin": str(data.get("guest_pin", "1234"))
+            }
+    except Exception:
+        return {
+            "guest_access_enabled": True,
+            "require_pin": False,
+            "guest_pin": "1234"
+        }
+
+
+def set_access_control(guest_access_enabled: bool, require_pin: bool = False, guest_pin: str = "1234") -> Dict[str, Any]:
+    """
+    Actualiza la configuración del interruptor maestro de acceso remoto y PIN de invitados.
+    """
+    state = {
+        "guest_access_enabled": bool(guest_access_enabled),
+        "require_pin": bool(require_pin),
+        "guest_pin": str(guest_pin).strip() or "1234"
+    }
+    try:
+        TOOLS_DIR.mkdir(parents=True, exist_ok=True)
+        with open(ACCESS_CONTROL_FILE, "w", encoding="utf-8") as f:
+            json.dump(state, f, indent=2)
+    except Exception:
+        pass
+    return state
+
+
+def emergency_lockdown() -> Tuple[bool, str]:
+    """
+    Bloqueo de emergencia total:
+    1. Apaga y destruye el túnel de Cloudflare.
+    2. Pone el cerrojo maestro en falso (bloquea cualquier sesión remota que siga viva).
+    """
+    set_access_control(guest_access_enabled=False)
+    stop_tunnel()
+    return True, "Bloqueo de emergencia activado: el túnel fue apagado y todo acceso remoto fue revocado."

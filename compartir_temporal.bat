@@ -20,17 +20,23 @@ echo.
 python -c "import src.tunnel_manager as tm, time; ok, msg, url = tm.start_tunnel(8501, float('%DURATION%')); print('RESULTADO:', msg); print('\n>>> ENLACE PÚBLICO TEMPORAL:\n' + str(url) + '\n') if ok else None; print('IP Local (LAN): http://' + tm.get_local_ip() + ':8501\n')"
 
 echo ====================================================================
-echo  El enlace permanecerá activo durante el tiempo configurado.
-echo  Para cancelarlo en cualquier momento, puedes usar el botón en la app
-echo  o presionar una tecla en esta ventana para cerrarlo.
+echo  [✓] ENLACE ACTIVO Y PROTEGIDO.
+echo      El enlace permanecerá activo durante el tiempo configurado.
+echo      (Se apagará automáticamente cuando termine el temporizador).
+echo.
+echo  - Para cerrar esta ventana y DEJAR EL ACCESO ACTIVO en segundo plano:
+echo    Simplemente presiona ENTER o cierra esta ventana con la [X].
+echo.
+echo  - Para APAGAR el enlace remoto ahora mismo:
+echo    Escribe 'D' y presiona ENTER.
 echo ====================================================================
 echo.
-set /p OP="Presiona ENTER para detener el enlace remoto ahora, o escribe 'M' para mantenerlo en segundo plano: "
-if /i "%OP%"=="M" (
-    echo Manteniendo acceso en segundo plano según el temporizador.
-) else (
+set /p OP="Tu elección (ENTER para mantener activo / 'D' para detener): "
+if /i "%OP%"=="D" (
     echo Desconectando enlace remoto...
     python -c "import src.tunnel_manager as tm; ok, msg = tm.stop_tunnel(); print(msg)"
+) else (
+    echo Enlace activo y seguro en segundo plano. Puedes monitorearlo en la app.
 )
 echo.
 pause

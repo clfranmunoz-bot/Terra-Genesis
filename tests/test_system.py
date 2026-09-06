@@ -162,6 +162,20 @@ def run_tests():
     assert stop_ok is True
     print("   Success: Tunnel manager verified and ready.")
 
+    print("12. Testing Access Control Kill-Switch and Guest PIN...")
+    ctrl = tm.get_access_control()
+    assert "guest_access_enabled" in ctrl and "guest_pin" in ctrl
+    tm.set_access_control(guest_access_enabled=False, require_pin=True, guest_pin="9999")
+    c2 = tm.get_access_control()
+    assert c2["guest_access_enabled"] is False
+    assert c2["require_pin"] is True
+    assert c2["guest_pin"] == "9999"
+    lock_ok, lock_msg = tm.emergency_lockdown()
+    assert lock_ok is True
+    # Restore default
+    tm.set_access_control(guest_access_enabled=True, require_pin=False, guest_pin="1234")
+    print("   Success: Access control Kill-Switch and Guest PIN verified.")
+
     print("\n=========================================")
     print("  ALL TESTS PASSED WITH 100% SUCCESS!    ")
     print("=========================================")
