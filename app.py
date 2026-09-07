@@ -55,7 +55,8 @@ from src.gyro_loader import (
 )
 from src.spatial_3d import (
     plot_collar_map_2d,
-    plot_drillholes_3d
+    plot_drillholes_3d,
+    compute_topography_grid
 )
 from src.visualizer import (
     plot_downhole_profile,
@@ -1546,6 +1547,7 @@ def main():
         has_hole_gyro = (selected_hole in gyro_map)
         cert_data = None
         df_hole_3d = pd.DataFrame()
+        topo_data = cached_topography_grid(df_all_collars.to_json()) if not df_all_collars.empty else None
 
         if has_hole_gyro:
             try:
@@ -1619,11 +1621,17 @@ def main():
                 )
 
             if has_hole_gyro and not df_hole_3d.empty:
-                col_3d_opt1, col_3d_opt2 = st.columns([0.55, 0.45])
+                col_3d_opt1, col_3d_opt2, col_3d_opt3 = st.columns([0.38, 0.32, 0.30])
                 with col_3d_opt1:
-                    include_neighbors = st.checkbox("🔍 Incluir sondajes vecinos georreferenciados en el visor 3D", value=False)
+                    include_neighbors = st.checkbox("🔍 Incluir sondajes vecinos", value=False)
                 with col_3d_opt2:
-                    show_3d_legend = st.checkbox("Mostrar lista de nombres de pozos en el visor", value=True)
+                    show_3d_legend = st.checkbox("Mostrar nombres de pozos", value=True)
+                with col_3d_opt3:
+                    show_topography = st.checkbox("⛰️ Topografía 3D (Rajo)", value=True, help="Muestra la superficie continua del terreno del rajo minero en 3D")
+
+                topo_opacity = 0.45
+                if show_topography:
+                    topo_opacity = st.slider("Opacidad de la Superficie Topográfica:", min_value=0.20, max_value=0.85, value=0.45, step=0.05, format="%.2f", help="Controla la transparencia del terreno para ver las leyes y trazas en el interior de la roca.")
 
                 spatial_dataset_dict = {selected_hole: df_hole_3d}
 
@@ -1647,7 +1655,10 @@ def main():
                     color_by=sel_elem_3d,
                     selected_hole=selected_hole,
                     theme=theme_param,
-                    show_legend=show_3d_legend
+                    show_legend=show_3d_legend,
+                    show_topography=show_topography,
+                    topo_opacity=topo_opacity,
+                    topo_data=topo_data
                 )
                 st.plotly_chart(fig_3d, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
                 st.caption("💡 **Interacción 3D**: Arrastra con clic izquierdo para rotar en 360°, clic derecho para desplazar (pan) y rueda del ratón para zoom. La escala de ley se ubica a la derecha y los pozos a la izquierda sin solaparse.")
@@ -1657,19 +1668,26 @@ def main():
         else:
             # PLANO EN PLANTA 2D CON ENFOQUE LOCAL Y TRAZAS HORIZONTALES
             with col_sp_ctl:
-                plan_focus = st.radio(
-                    "Enfoque del Plano:",
-                    ["🎯 Entorno Local del Sondaje Activo (con proyección de rumbo/azimut)", "🗺️ Plano General del Yacimiento (Todos los collares)"],
-                    index=0 if has_hole_gyro else 1,
-                    horizontal=True
-                )
+                col_pf1, col_pf2 = st.columns([0.65, 0.35])
+                with col_pf1:
+                    plan_focus = st.radio(
+                        "Enfoque del Plano:",
+                        ["🎯 Entorno Local (con vectores)", "🗺️ Plano General (Todos los collares)"],
+                        index=0 if has_hole_gyro else 1,
+                        horizontal=True
+                    )
+                with col_pf2:
+                    st.write("")
+                    show_contours_2d = st.checkbox("🗺️ Curvas de nivel (50m)", value=True, help="Muestra curvas de nivel topográficas generadas a partir de los collares")
                 v_mode = 'local' if plan_focus.startswith("🎯") else 'global'
 
             fig_map = plot_collar_map_2d(
                 df_all_collars,
                 selected_hole=selected_hole,
                 view_mode=v_mode,
-                theme=theme_param
+                theme=theme_param,
+                show_contours=show_contours_2d,
+                topo_data=topo_data
             )
             st.plotly_chart(fig_map, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
             st.caption("💡 **Plano Geológico**: Las líneas continuas/punteadas indican la proyección horizontal del sondaje hacia donde avanza la perforación (según su azimut e inclinación).")

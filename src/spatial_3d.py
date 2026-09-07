@@ -1,23 +1,79 @@
 """
 Módulo de Visualización Espacial 2D y 3D para Sondajes Mineros.
-Genera planos locales de collares con proyección de azimut y visores tridimensionales con Plotly.
+Genera planos locales de collares con proyección de azimut, visores tridimensionales
+y superficies topográficas del rajo minero con Plotly.
 """
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+from scipy.interpolate import griddata
+from scipy.ndimage import gaussian_filter
 from typing import Dict, List, Optional, Any, Tuple
 from src.config import ELEMENT_CATALOG
+
+
+def compute_topography_grid(df_collars: pd.DataFrame,
+                            grid_res: int = 65) -> Optional[Dict[str, Any]]:
+    """
+    Calcula una malla topográfica regular interpolada (DEM) a partir de las
+    coordenadas de collares en superficie (X, Y, Z).
+    Retorna gx, gy, grid_x, grid_y, grid_z y rangos de elevación.
+    """
+    if df_collars.empty:
+        return None
+
+    valid = df_collars[
+        (df_collars['East'] > 56000) & (df_collars['East'] < 61000) &
+        (df_collars['North'] > 88000) & (df_collars['North'] < 93500) &
+        (df_collars['Elevation'] > 2500) & (df_collars['Elevation'] < 4500)
+    ].dropna(subset=['East', 'North', 'Elevation']).copy()
+
+    if len(valid) < 10:
+        return None
+
+    x = valid['East'].values
+    y = valid['North'].values
+    z = valid['Elevation'].values
+
+    gx = np.linspace(float(x.min()) - 40.0, float(x.max()) + 40.0, grid_res)
+    gy = np.linspace(float(y.min()) - 40.0, float(y.max()) + 40.0, grid_res)
+    grid_x, grid_y = np.meshgrid(gx, gy)
+
+    grid_z = griddata((x, y), z, (grid_x, grid_y), method='linear')
+    grid_z_near = griddata((x, y), z, (grid_x, grid_y), method='nearest')
+    grid_z = np.where(np.isnan(grid_z), grid_z_near, grid_z)
+
+    # Suavizado gaussiano leve para morfología de ladera natural
+    grid_z = gaussian_filter(grid_z, sigma=1.0)
+
+    z_min = float(np.nanmin(grid_z))
+    z_max = float(np.nanmax(grid_z))
+    c_levels = np.arange(int(z_min // 50) * 50, int(z_max // 50 + 1) * 50, 50).tolist()
+
+    return {
+        'gx': gx,
+        'gy': gy,
+        'grid_x': grid_x,
+        'grid_y': grid_y,
+        'grid_z': grid_z,
+        'z_min': z_min,
+        'z_max': z_max,
+        'c_levels': c_levels
+    }
 
 
 def plot_collar_map_2d(df_collars: pd.DataFrame,
                        selected_hole: Optional[str] = None,
                        view_mode: str = 'local',
-                       theme: str = 'dark') -> go.Figure:
+                       theme: str = 'dark',
+                       show_contours: bool = True,
+                       topo_data: Optional[Dict[str, Any]] = None) -> go.Figure:
     """
     Genera un plano geológico en planta interactivo (Este vs Norte).
     - En modo 'local': Se enfoca en el sondaje activo y sus vecinos cercanos,
       dibujando la proyección horizontal de la trayectoria (vector Azimut/Inclinación).
     - En modo 'global': Muestra todos los collares del yacimiento agrupados por fase.
+    - Soporta curvas de nivel topográficas maestras cada 50m.
     """
     fig = go.Figure()
     if df_collars.empty:
@@ -44,11 +100,30 @@ def plot_collar_map_2d(df_collars: pd.DataFrame,
 
     # Filtrar según modo
     if view_mode == 'local' and c_sel is not None:
-        # Mostrar pozo activo y vecinos en un radio de 450m (o mínimo 12 vecinos)
         df_local = df_plot[df_plot['Dist_Active_m'] <= 450.0]
         if len(df_local) < 8:
             df_local = df_plot.sort_values(by='Dist_Active_m').head(12)
         df_plot = df_local.copy()
+
+    # 0. Capa de Fondo: Curvas de Nivel Topográficas (si está habilitada y disponible)
+    if show_contours and topo_data is not None:
+        fig.add_trace(go.Contour(
+            x=topo_data['gx'],
+            y=topo_data['gy'],
+            z=topo_data['grid_z'],
+            colorscale='Earth',
+            showscale=False,
+            opacity=0.30 if is_dark else 0.40,
+            contours=dict(
+                start=topo_data['z_min'],
+                end=topo_data['z_max'],
+                size=50,
+                showlabels=True,
+                labelfont=dict(size=9, color=text_color)
+            ),
+            hoverinfo='skip',
+            name='Curvas de Nivel'
+        ))
 
     # 1. Dibujar trazas proyectadas en superficie (stick horizontal según Azimut y Dip)
     for _, row in df_plot.iterrows():
@@ -163,7 +238,7 @@ def plot_collar_map_2d(df_collars: pd.DataFrame,
             x=1,
             bgcolor='rgba(15,23,42,0.6)' if is_dark else 'rgba(255,255,255,0.85)'
         ),
-        height=620,
+        height=640,
         margin=dict(l=60, r=40, t=80, b=50)
     )
 
@@ -175,15 +250,19 @@ def plot_drillholes_3d(spatial_datasets: Dict[str, pd.DataFrame],
                        selected_hole: Optional[str] = None,
                        elev_range: Optional[Tuple[float, float]] = None,
                        theme: str = 'dark',
-                       show_legend: bool = True) -> go.Figure:
+                       show_legend: bool = True,
+                       show_topography: bool = False,
+                       topo_opacity: float = 0.45,
+                       topo_data: Optional[Dict[str, Any]] = None) -> go.Figure:
     """
     Genera un visor 3D interactivo con Plotly.
+    - Soporta visualización opcional de la Superficie Topográfica 3D (Rajo).
     - Resuelve el choque de leyendas: la lista de pozos se sitúa a la izquierda
       y la barra de escala de ley queda aislada a la derecha.
     - Soporta cualquier elemento químico de los 35 elementos en Cutting o Pulpa.
     """
     fig = go.Figure()
-    if not spatial_datasets:
+    if not spatial_datasets and (not show_topography or topo_data is None):
         fig.add_annotation(text="No hay datos espaciales 3D disponibles", showarrow=False, font=dict(size=16))
         return fig
 
@@ -192,6 +271,29 @@ def plot_drillholes_3d(spatial_datasets: Dict[str, pd.DataFrame],
     paper_color = '#0e1117' if is_dark else '#f8fafc'
     grid_color = '#334155' if is_dark else '#e2e8f0'
     text_color = '#f8fafc' if is_dark else '#0f172a'
+
+    # 0. Superficie Topográfica 3D (Rajo / Montaña)
+    if show_topography and topo_data is not None:
+        fig.add_trace(go.Surface(
+            x=topo_data['gx'],
+            y=topo_data['gy'],
+            z=topo_data['grid_z'],
+            name="Topografía Rajo (Terreno)",
+            colorscale='Earth',
+            cmin=topo_data['z_min'],
+            cmax=topo_data['z_max'],
+            opacity=float(topo_opacity),
+            showscale=False,
+            contours_z=dict(
+                show=True,
+                usecolormap=False,
+                project_z=False,
+                color='#94a3b8' if is_dark else '#475569',
+                size=50,
+                width=1
+            ),
+            hoverinfo='skip'
+        ))
 
     # Calcular min y max del elemento para escala de color unificada
     all_vals = []
@@ -214,7 +316,7 @@ def plot_drillholes_3d(spatial_datasets: Dict[str, pd.DataFrame],
     source_tag = 'Cutting (Terreno)' if color_by.endswith('_Cut') else ('Pulpa (Lab)' if color_by.endswith('_Pulp') else '')
     title_elem_desc = f"{base_sym} [{elem_name}] — {source_tag}"
 
-    first_hole = list(spatial_datasets.keys())[0]
+    first_hole = list(spatial_datasets.keys())[0] if spatial_datasets else None
 
     for h_id, df_h in spatial_datasets.items():
         if df_h.empty or 'Mid_X' not in df_h.columns:
@@ -281,7 +383,7 @@ def plot_drillholes_3d(spatial_datasets: Dict[str, pd.DataFrame],
 
     fig.update_layout(
         title=dict(
-            text=f"🌐 Visor 3D de Sondajes — Ley {title_elem_desc}",
+            text=f"🌐 Visor 3D de Sondajes — Ley {title_elem_desc}" + (" + Topografía Rajo" if (show_topography and topo_data) else ""),
             font=dict(size=17, color=text_color)
         ),
         scene=dict(

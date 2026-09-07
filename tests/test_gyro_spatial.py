@@ -1,10 +1,11 @@
 import os
 import sys
+import pandas as pd
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 from src.gyro_loader import scan_gyro_directory, parse_gyro_certificate, desurvey_assay_intervals, extract_all_collars
-from src.spatial_3d import plot_collar_map_2d, plot_drillholes_3d
+from src.spatial_3d import plot_collar_map_2d, plot_drillholes_3d, compute_topography_grid
 from src.data_loader import scan_directories, load_dataset_for_hole
 
 def test_gyro_and_spatial():
@@ -42,10 +43,36 @@ def test_gyro_and_spatial():
     fig_2d = plot_collar_map_2d(df_collars, selected_hole='DDH4092')
     assert len(fig_2d.data) >= 1
 
-    # 6. 3D Plot
+    # 6. Topography Grid Computation & 3D Surface
+    collars_cache_path = os.path.join(ROOT_DIR, 'src', 'collars_cache.csv')
+    if os.path.exists(collars_cache_path):
+        df_all_c = pd.read_csv(collars_cache_path)
+        topo_data = compute_topography_grid(df_all_c, grid_res=50)
+        assert topo_data is not None, "Topography data should be computed"
+        assert 'grid_z' in topo_data
+        assert topo_data['z_min'] >= 2500 and topo_data['z_max'] <= 4500
+
+        # Test 2D map with contours
+        fig_2d_topo = plot_collar_map_2d(df_all_c.head(20), selected_hole='DDH3866', show_contours=True, topo_data=topo_data)
+        assert len(fig_2d_topo.data) >= 2
+
+        # Test 3D with topography
+        fig_3d_topo = plot_drillholes_3d(
+            {'DDH4092': df_4092_3d},
+            color_by='Cu_Cut',
+            selected_hole='DDH4092',
+            show_topography=True,
+            topo_opacity=0.45,
+            topo_data=topo_data
+        )
+        assert len(fig_3d_topo.data) >= 2
+        # Verify surface trace is present
+        assert any(t.type == 'surface' for t in fig_3d_topo.data)
+
+    # 7. Standard 3D Plot
     fig_3d = plot_drillholes_3d({'DDH4092': df_4092_3d}, color_by='Cu_Cut', selected_hole='DDH4092')
     assert len(fig_3d.data) >= 1
-    print('All test_gyro_and_spatial assertions passed!')
+    print('All test_gyro_and_spatial assertions passed with 3D topography verified!')
 
 if __name__ == '__main__':
     test_gyro_and_spatial()
