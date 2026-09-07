@@ -103,7 +103,7 @@ DEFAULT_STYLE_SETTINGS = {
     'width_pulp': 2.5,
     'width_cut': 2.0,
     'marker_size': 4,
-    'theme_choice_radio': "☀️ Fondo Blanco"
+    'theme_choice_radio': "Fondo Blanco"
 }
 for _k, _v in DEFAULT_STYLE_SETTINGS.items():
     if _k not in st.session_state or st.session_state[_k] in [None, '#000000', '', 'None']:
@@ -155,7 +155,7 @@ def main():
     if is_server_locked():
         st.markdown("""
         <div style="padding: 3rem 2rem; background: rgba(239, 68, 68, 0.08); border: 2px solid #ef4444; border-radius: 14px; text-align: center; max-width: 620px; margin: 4rem auto; box-shadow: 0 4px 20px rgba(239, 68, 68, 0.15);">
-            <div style="font-size: 3.5rem; margin-bottom: 0.8rem;">🛑</div>
+            <div style="font-size: 3.5rem; margin-bottom: 0.8rem;">🔒</div>
             <h2 style="color: #dc2626; margin-top: 0; font-weight: 700;">Servidor Bloqueado por Emergencia Remota</h2>
             <p style="color: var(--text-color, #334155); font-size: 1.05rem; line-height: 1.6;">
                 El servidor fue cerrado remotamente mediante el protocolo de seguridad de emergencia.<br>
@@ -167,7 +167,7 @@ def main():
         col_u1, col_u2, col_u3 = st.columns([1, 2, 1])
         with col_u2:
             unlock_input = st.text_input("PIN Maestro de Desbloqueo (PC):", type="password", key="pc_unlock_pin_input")
-            if st.button("🔓 Reactivar Servidor", type="primary", use_container_width=True):
+            if st.button("Reactivar Servidor", type="primary", use_container_width=True):
                 if verify_pc_unlock_pin(unlock_input):
                     unlock_server()
                     st.success("¡Servidor reactivado exitosamente!")
@@ -346,9 +346,9 @@ def main():
         code_input = st.text_input("Código de Autorización:", type="password", key="dialog_shutdown_pin_input")
         col_sh1, col_sh2 = st.columns(2)
         with col_sh1:
-            if st.button("🛑 Apagar Servidor Ahora", type="primary", use_container_width=True):
+            if st.button("Apagar Servidor Ahora", type="primary", use_container_width=True):
                 if verify_remote_shutdown_pin(code_input):
-                    st.error("⚠️ Código validado. Desconectando accesos y apagando servidor...")
+                    st.error("Código validado. Desconectando accesos y apagando servidor...")
                     trigger_emergency_shutdown()
                 else:
                     st.error("Código incorrecto.")
@@ -374,11 +374,11 @@ def main():
         st.title("Comparador FRX: Pulpas vs. Cutting & Visor Espacial 3D")
     st.caption("Control de Calidad Geológico (QA/QC), Calibración, Giroscopía y Visor 3D | **Desarrollado por Claudio Muñoz Rubilar**")
 
-    st.info("🔒 **Modo de Lectura Segura**: Tus archivos maestros en OneDrive se abren únicamente en modo de lectura estricta. Ningún dato original es modificado ni sobrescrito.")
+    st.info("**Modo de Lectura Segura**: Tus archivos maestros en OneDrive se abren únicamente en modo de lectura estricta. Ningún dato original es modificado ni sobrescrito.")
 
     # --- BARRA LATERAL ---
     with st.sidebar:
-        st.header("📍 Explorador Geológico")
+        st.header("Explorador Geológico")
 
         # Determinar nivel de privilegios (Servidor Local vs Usuario Remoto)
         is_server_host = is_local_session()
@@ -409,7 +409,7 @@ def main():
                 </div>
                 """, unsafe_allow_html=True)
                 
-                with st.expander("🔐 ¿Eres el Administrador? (PIN Maestro)", expanded=False):
+                with st.expander("¿Eres el Administrador? (PIN Maestro)", expanded=False):
                     pin_admin = st.text_input("PIN Maestro:", type="password", key="lock_screen_admin_pin")
                     if st.button("Desbloquear como Administrador", key="btn_unlock_admin"):
                         if pin_admin == ADMIN_PIN:
@@ -423,7 +423,7 @@ def main():
             if require_guest_pin and not st.session_state.get('guest_pin_authenticated', False):
                 st.markdown("""
                 <div style="padding: 2.5rem 2rem; background: rgba(37, 99, 235, 0.04); border: 1px solid rgba(37, 99, 235, 0.3); border-radius: 12px; text-align: center; margin: 2.5rem auto; max-width: 550px;">
-                    <div style="font-size: 3rem; margin-bottom: 0.8rem;">🔐</div>
+                    <div style="font-size: 3rem; margin-bottom: 0.8rem;"></div>
                     <h2 style="color: #1d4ed8; margin-top: 0; font-weight: 700;">Plataforma QA/QC Ct-Pp</h2>
                     <p style="color: #475569; font-size: 0.95rem;">
                         Esta sesión requiere una <b>Clave de Acceso Temporal</b> autorizada por el administrador.
@@ -434,7 +434,7 @@ def main():
                 col_g1, col_g2, col_g3 = st.columns([1, 2, 1])
                 with col_g2:
                     entered_gpin = st.text_input("Ingresa la clave de invitado:", type="password", key="guest_pin_input_field")
-                    if st.button("🔓 Ingresar a la Plataforma", key="btn_enter_guest", use_container_width=True):
+                    if st.button("Ingresar a la Plataforma", key="btn_enter_guest", use_container_width=True):
                         if entered_gpin.strip() == guest_pin_val:
                             st.session_state['guest_pin_authenticated'] = True
                             st.rerun()
@@ -465,8 +465,18 @@ def main():
             st.error(f"Error accediendo a las carpetas: {e}")
             st.stop()
 
+        # --- MÓDULO PRINCIPAL DEL SISTEMA ---
+        st.subheader("Módulo del Sistema")
+        app_module = st.radio(
+            "Módulo del Sistema:",
+            ["Análisis QA/QC y Perfiles Geológicos", "Visualización Espacial 3D y Giroscopía"],
+            index=0,
+            label_visibility="collapsed"
+        )
+        st.markdown("---")
+
         # 1. Filtro por Campaña
-        st.subheader("🗓️ Selección de Campaña")
+        st.subheader("Selección de Campaña")
         campaign_opts = ["Todas las Campañas"] + [c for c in campaigns if c != "Todas las Campañas"]
         selected_camp_label = st.selectbox(
             "Campaña a explorar:",
@@ -484,12 +494,12 @@ def main():
             ]
 
         # 2. Filtro por Tipo de Fuente (Pareado, Solo Cutting o Solo Pulpa)
-        st.subheader("🔍 Tipo de Fuente")
+        st.subheader("Tipo de Fuente")
         source_opts = [
-            "Todos los Sondajes (🟢 + 🟡 + 🔵)",
-            "🟢 Pareados (Pulpa + Cutting)",
-            "🟡 Solo Cutting (Terreno)",
-            "🔵 Solo Pulpa (Laboratorio)"
+            "Todos los Sondajes (Pareados y Únicos)",
+            "Pareados (Pulpa + Cutting)",
+            "Solo Cutting (Terreno)",
+            "Solo Pulpa (Laboratorio)"
         ]
         source_filter = st.selectbox(
             "Filtrar por Fuente Disponible:",
@@ -498,29 +508,28 @@ def main():
             help="Permite aislar rápidamente sondajes que solo tienen datos de una fuente (ej. solo Cutting de terreno o solo Pulpa de laboratorio)."
         )
 
-        if "🟢" in source_filter:
+        if source_filter == "Pareados (Pulpa + Cutting)":
             available_holes = [h for h in camp_filtered_holes if holes_info.get(h, {}).get('source_type') == 'both']
-        elif "🟡" in source_filter:
+        elif source_filter == "Solo Cutting (Terreno)":
             available_holes = [h for h in camp_filtered_holes if holes_info.get(h, {}).get('source_type') == 'only_cutting']
-        elif "🔵" in source_filter:
+        elif source_filter == "Solo Pulpa (Laboratorio)":
             available_holes = [h for h in camp_filtered_holes if holes_info.get(h, {}).get('source_type') == 'only_pulp']
         else:
             available_holes = camp_filtered_holes
 
         # 3. Selección de Sondaje
-        st.subheader("📍 Selección de Sondaje")
+        st.subheader("Selección de Sondaje")
         hole_options = ["— Selecciona un sondaje para comenzar —"] + available_holes
 
         def format_hole_item(h):
             if h.startswith("—"):
                 return h
-            # Si el usuario ya filtró por una fuente específica, mostrar solo el nombre del sondaje
-            if source_filter != "Todos los Sondajes (🟢 + 🟡 + 🔵)":
+            if source_filter != "Todos los Sondajes (Pareados y Únicos)":
                 return h
             info = holes_info.get(h, {})
             stype = info.get('source_type', 'both')
-            badge = "🟢" if stype == 'both' else ("🟡" if stype == 'only_cutting' else "🔵")
-            return f"{badge}  {h}"
+            badge = "[PP+CT]" if stype == 'both' else ("[CT]" if stype == 'only_cutting' else "[PP]")
+            return f"{badge} {h}"
 
         hole_choice = st.selectbox(
             "Seleccione Sondaje:",
@@ -533,10 +542,10 @@ def main():
         n_both = sum(1 for h in available_holes if holes_info.get(h, {}).get('source_type') == 'both')
         n_cut = sum(1 for h in available_holes if holes_info.get(h, {}).get('source_type') == 'only_cutting')
         n_pulp = sum(1 for h in available_holes if holes_info.get(h, {}).get('source_type') == 'only_pulp')
-        st.caption(f"📊 **{len(available_holes)} sondajes listados** (🟢 {n_both} pareados, 🟡 {n_cut} cutting, 🔵 {n_pulp} pulpa).")
+        st.caption(f"**{len(available_holes)} sondajes listados** ({n_both} pareados, {n_cut} cutting, {n_pulp} pulpa).")
 
         # 3. Tratamiento de <LOD
-        st.subheader("🧪 Límite de Detección (<LOD)")
+        st.subheader("Límite de Detección (<LOD)")
         lod_choice = st.selectbox(
             "Criterio para valores <LOD:",
             ["Excluir valores <LOD", "Imputar a LOD / 2", "Imputar a LOD / √2"],
@@ -561,7 +570,7 @@ def main():
             active_title = f"Sondaje {selected_hole} ({hole_camp})"
             has_active_data = True
         else:
-            st.info("👈 Selecciona un sondaje en la lista superior para comenzar.")
+            st.info("Selecciona un sondaje en la lista superior para comenzar.")
 
         if has_active_data and df_active.empty:
             st.warning("No se encontraron registros para el sondaje seleccionado.")
@@ -574,7 +583,7 @@ def main():
 
         if has_active_data:
             # 4. Selector de Múltiples Elementos
-            st.subheader("📊 Elementos a Comparar")
+            st.subheader("Elementos a Comparar")
             p_elems = [c[:-5] for c in df_active.columns if c.endswith('_Pulp') and c[:-5] in ELEMENT_CATALOG]
             c_elems = [c[:-4] for c in df_active.columns if c.endswith('_Cut') and c[:-4] in ELEMENT_CATALOG]
             avail_elements = sorted(list(set(p_elems + c_elems)))
@@ -606,7 +615,7 @@ def main():
             focus_unit = get_element_unit(focus_elem)
 
             # 5. Filtros de Muestras
-            st.subheader("🔍 Filtros")
+            st.subheader("Filtros")
             
             cutoff = st.number_input(
                 f"Ley de corte mínima ({focus_elem} en {focus_unit}):",
@@ -660,13 +669,13 @@ def main():
                 n_after = len(df_active)
 
                 if df_active.empty:
-                    st.warning(f"⚠️ Ninguna muestra alcanza la ley de corte de **{cutoff:.4f} {focus_unit}** para **{focus_elem}** en el rango seleccionado.")
+                    st.warning(f"Ninguna muestra alcanza la ley de corte de **{cutoff:.4f} {focus_unit}** para **{focus_elem}** en el rango seleccionado.")
                     st.stop()
                 else:
-                    st.caption(f"🎯 **Filtro Cutoff Activo**: Mostrando **{n_after} de {n_before}** muestras ({n_after/n_before*100:.1f}%) con {focus_elem} ≥ {cutoff:.4f} {focus_unit}.")
+                    st.caption(f"**Filtro Cutoff Activo**: Mostrando **{n_after} de {n_before}** muestras ({n_after/n_before*100:.1f}%) con {focus_elem} ≥ {cutoff:.4f} {focus_unit}.")
 
             # 6. Personalización de Estilos, Colores y Líneas
-            st.subheader("🎨 Estilo y Apariencia")
+            st.subheader("Estilo y Apariencia")
             with st.expander("Ajustar colores, líneas y puntos", expanded=False):
                 # Inyección CSS para nivelación uniforme y prevención de saltos de línea asimétricos
                 st.markdown("""
@@ -696,7 +705,7 @@ def main():
                 ]
 
                 def reset_custom_styles():
-                    st.session_state['theme_choice_radio'] = "☀️ Fondo Blanco"
+                    st.session_state['theme_choice_radio'] = "Fondo Blanco"
                     st.session_state['color_pulp'] = '#1f77b4'
                     st.session_state['color_cut'] = '#ff7f0e'
                     st.session_state['color_e2_pulp'] = '#2ca02c'
@@ -714,7 +723,7 @@ def main():
                     st.session_state['dash_cut_choice'] = "── Sólida"
                     st.session_state['dash_cut_choice_v3'] = True
 
-                if 'theme_choice_radio' not in st.session_state: st.session_state['theme_choice_radio'] = "☀️ Fondo Blanco"
+                if 'theme_choice_radio' not in st.session_state: st.session_state['theme_choice_radio'] = "Fondo Blanco"
                 if 'color_pulp' not in st.session_state: st.session_state['color_pulp'] = '#1f77b4'
                 if 'color_cut' not in st.session_state: st.session_state['color_cut'] = '#ff7f0e'
                 if 'color_e2_pulp' not in st.session_state: st.session_state['color_e2_pulp'] = '#2ca02c'
@@ -729,19 +738,19 @@ def main():
                 if 'marker_size' not in st.session_state: st.session_state['marker_size'] = 4
 
                 # --- SECCIÓN 0: TEMA DE FONDO (BLANCO PURO / OSCURO) ---
-                st.markdown("##### 🎨 Tema de Fondo de Gráficos")
+                st.markdown("##### Tema de Fondo de Gráficos")
                 st.radio(
                     "Fondo de los Gráficos:",
-                    ["☀️ Fondo Blanco", "🌙 Fondo Oscuro"],
+                    ["Fondo Blanco", "Fondo Oscuro"],
                     index=0,
                     horizontal=True,
                     key="theme_choice_radio",
-                    help="El modo '☀️ Fondo Blanco' establece un lienzo 100% blanco puro (#ffffff) sin bordes ni recuadros oscuros."
+                    help="El modo 'Fondo Blanco' establece un lienzo 100% blanco puro (#ffffff) sin bordes ni recuadros oscuros."
                 )
                 st.markdown("---")
 
                 # --- SECCIÓN 1: CURVAS PRINCIPALES ---
-                st.markdown("##### 📍 Curvas Principales")
+                st.markdown("##### Curvas Principales")
                 # Fila 1: Colores principales (exactamente al mismo nivel)
                 col_c1, col_c2 = st.columns(2)
                 with col_c1:
@@ -765,7 +774,7 @@ def main():
 
                 # --- SECCIÓN 2: CURVAS ELEMENTO 2 (SUPERPOSICIÓN) ---
                 st.markdown("---")
-                st.markdown("##### 🔀 Elemento 2 (Superposición)")
+                st.markdown("##### Elemento 2 (Superposición)")
                 # Fila 4: Colores Elem 2 (exactamente al mismo nivel)
                 col_c3, col_c4 = st.columns(2)
                 with col_c3:
@@ -782,43 +791,43 @@ def main():
 
                 # --- SECCIÓN 3: PUNTOS Y MODO GLOBAL ---
                 st.markdown("---")
-                st.markdown("##### 🔘 Modo y Marcadores")
+                st.markdown("##### Modo y Marcadores")
                 st.selectbox("Modo de trazado:", ["Línea + Puntos", "Solo Línea", "Solo Puntos"], key="line_mode_choice")
                 st.slider("Tamaño de Puntos:", min_value=1, max_value=10, step=1, key="marker_size")
 
-                st.button("🔄 Restablecer Estilos por Defecto", on_click=reset_custom_styles, use_container_width=True)
+                st.button("Restablecer Estilos por Defecto", on_click=reset_custom_styles, use_container_width=True)
 
         # =========================================================================
         # SECCIÓN AL FONDO: CONFIGURACIÓN DEL SISTEMA Y ACCESO REMOTO
         # =========================================================================
         st.markdown("---")
-        with st.expander("⚙️ Configuración del Sistema", expanded=False):
+        with st.expander("Configuración del Sistema", expanded=False):
             if is_admin:
                 # 1. Configuración de Directorios y Campañas (Solo Administrador)
-                with st.expander("📁 Rutas de Datos y Campañas (OneDrive)", expanded=False):
+                with st.expander("Rutas de Datos y Campañas (OneDrive)", expanded=False):
                     st.markdown("**Carpetas de Pulpas Configurada(s):**")
                     for p in DEFAULT_PULP_PATHS:
                         st.code(p, language="text")
                     st.markdown("**Carpetas de Cutting Configurada(s):**")
                     for c in DEFAULT_CUTTING_PATHS:
                         st.code(c, language="text")
-                    if st.button("🔄 Re-escanear Carpetas"):
+                    if st.button("Re-escanear Carpetas"):
                         st.cache_data.clear()
                         st.rerun()
 
                 # 2. Control de Compartir Acceso Remoto (Solo Administrador)
-                with st.expander("🌐 Compartir Acceso Remoto Temporal", expanded=False):
+                with st.expander("Compartir Acceso Remoto Temporal", expanded=False):
                     t_state = get_tunnel_status()
                     if t_state["is_active"]:
-                        st.success("🟢 **Acceso Remoto Activo**")
+                        st.success("**Acceso Remoto Activo**")
                         st.markdown(f"**Enlace Público (Internet):**\n[{t_state['url']}]({t_state['url']})")
                         st.code(t_state["url"], language="text")
                         st.markdown(f"**Enlace Red Local (Misma Wi-Fi):**\n`{t_state.get('local_url', 'http://127.0.0.1:8501')}`")
                         rem = t_state.get("remaining_seconds", 0)
                         mins = rem // 60
                         secs = rem % 60
-                        st.caption(f"⏱️ Tiempo restante de acceso: **{mins}m {secs}s**")
-                        if st.button("🛑 Desconectar y Bloquear Acceso"):
+                        st.caption(f"Tiempo restante de acceso: **{mins}m {secs}s**")
+                        if st.button("Desconectar y Bloquear Acceso"):
                             stop_tunnel()
                             st.rerun()
                     else:
@@ -834,7 +843,7 @@ def main():
                         with c_dur2:
                             st.write("")
                             st.write("")
-                            start_btn = st.button("🚀 Iniciar Enlace", use_container_width=True)
+                            start_btn = st.button("Iniciar Enlace", use_container_width=True)
                         if start_btn:
                             with st.spinner("Generando enlace seguro..."):
                                 ok, msg, u = start_tunnel(8501, dur_min)
@@ -845,10 +854,10 @@ def main():
                                     st.error(f"Error: {msg}")
 
                 # 3. Cerrojo Maestro / Kill-Switch de Invitados (Solo Administrador)
-                with st.expander("🛡️ Cerrojo Maestro de Acceso (Kill-Switch)", expanded=False):
+                with st.expander("Cerrojo Maestro de Acceso (Kill-Switch)", expanded=False):
                     st.markdown("**Controla en tiempo real la entrada de invitados:**")
                     sw_val = st.toggle(
-                        "🟢 Permitir Visualización a Invitados",
+                        "Permitir Visualización a Invitados",
                         value=guest_allowed,
                         help="Si apagas este interruptor, cualquier persona remota verá de inmediato la pantalla roja de bloqueo."
                     )
@@ -863,12 +872,12 @@ def main():
                     
                     col_save_ctrl, col_panic_ctrl = st.columns([1, 1])
                     with col_save_ctrl:
-                        if st.button("💾 Guardar Permisos", use_container_width=True):
+                        if st.button("Guardar Permisos", use_container_width=True):
                             set_access_control(sw_val, req_pin_chk, new_g_pin)
                             st.success("Permisos guardados.")
                             st.rerun()
                     with col_panic_ctrl:
-                        if st.button("🚨 EXPULSAR A TODOS", use_container_width=True):
+                        if st.button("EXPULSAR A TODOS", use_container_width=True):
                             emergency_lockdown()
                             st.warning("Túnel cerrado y acceso revocado inmediatamente.")
                             st.rerun()
@@ -880,7 +889,7 @@ def main():
             else:
                 st.markdown("""
                 <div style="background: rgba(37, 99, 235, 0.07); border-left: 4px solid #2563eb; padding: 0.6rem 1rem; border-radius: 4px; margin-bottom: 0.8rem;">
-                    <span style="font-size: 0.88rem; color: #1e40af; font-weight: 700;">👁️ Sesión Remota (Modo Consulta)</span><br>
+                    <span style="font-size: 0.88rem; color: #1e40af; font-weight: 700;">Sesión Remota (Modo Consulta)</span><br>
                     <span style="font-size: 0.8rem; color: #94a3b8;">La administración de red y carpetas maestras está disponible exclusivamente en la estación local.</span>
                 </div>
                 """, unsafe_allow_html=True)
@@ -936,7 +945,7 @@ def main():
     w_cut = float(st.session_state.get('width_cut', 2.0))
     pt_size = int(st.session_state.get('marker_size', 4))
 
-    theme_param = 'dark' if st.session_state.get('theme_choice_radio', "☀️ Fondo Blanco") == "🌙 Fondo Oscuro" else 'light'
+    theme_param = 'dark' if st.session_state.get('theme_choice_radio', "Fondo Blanco") == "Fondo Oscuro" else 'light'
 
     # Si no hay sondaje seleccionado, mostrar la tarjeta de bienvenida en el cuerpo principal
     if not has_active_data:
@@ -945,7 +954,7 @@ def main():
         tot_pulp = sum(1 for h in all_holes_list if holes_info.get(h, {}).get('source_type') == 'only_pulp')
         st.markdown(f"""
         <div style="padding: 2.2rem 2.5rem; background: rgba(30, 41, 59, 0.7); border-radius: 12px; border: 1px solid #334155; margin: 1.5rem 0 2rem 0; box-shadow: 0 4px 16px rgba(0,0,0,0.2);">
-            <h2 style="margin-top: 0; color: #38bdf8; font-weight: 700;">🏔️ Bienvenido a Ct-Pp QA/QC Analytics</h2>
+            <h2 style="margin-top: 0; color: #38bdf8; font-weight: 700;">Bienvenido a Ct-Pp QA/QC Analytics</h2>
             <p style="font-size: 1.05rem; line-height: 1.6; color: #f1f5f9;">
                 Plataforma especializada en reconciliación geológica y control de calidad analítico entre lecturas de 
                 <b>FRX Portátil (Cutting)</b> y ensayos químicos de laboratorio oficial <b>(Pulpa)</b>.
@@ -954,7 +963,7 @@ def main():
                 <div style="background: #1e293b; padding: 0.9rem 1.4rem; border-radius: 8px; border: 1px solid #334155; box-shadow: 0 2px 8px rgba(0,0,0,0.3); min-width: 170px;">
                     <span style="font-size: 0.82rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Sondajes Totales</span><br>
                     <span style="font-size: 1.6rem; font-weight: 700; color: #ffffff;">{len(all_holes_list)}</span><br>
-                    <span style="font-size: 0.78rem; color: #60a5fa; font-weight: 500;">🟢 {tot_both} PP+CT | 🟡 {tot_cut} CT | 🔵 {tot_pulp} PP</span>
+                    <span style="font-size: 0.78rem; color: #60a5fa; font-weight: 500;">{tot_both} PP+CT | {tot_cut} CT | {tot_pulp} PP</span>
                 </div>
                 <div style="background: #1e293b; padding: 0.9rem 1.4rem; border-radius: 8px; border: 1px solid #334155; box-shadow: 0 2px 8px rgba(0,0,0,0.3); min-width: 170px;">
                     <span style="font-size: 0.82rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Elementos Disponibles</span><br>
@@ -963,26 +972,26 @@ def main():
                 </div>
                 <div style="background: #1e293b; padding: 0.9rem 1.4rem; border-radius: 8px; border: 1px solid #334155; box-shadow: 0 2px 8px rgba(0,0,0,0.3); min-width: 170px;">
                     <span style="font-size: 0.82rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Integridad Archivos</span><br>
-                    <span style="font-size: 1.6rem; font-weight: 700; color: #22c55e;">Solo Lectura 🔒</span><br>
+                    <span style="font-size: 1.6rem; font-weight: 700; color: #22c55e;">Solo Lectura</span><br>
                     <span style="font-size: 0.78rem; color: #94a3b8; font-weight: 500;">OneDrive Seguro</span>
                 </div>
             </div>
             <div style="margin-top: 1.6rem; padding: 0.9rem 1.2rem; background: rgba(30, 58, 138, 0.35); border-left: 4px solid #3b82f6; border-radius: 4px;">
-                <span style="color: #93c5fd; font-size: 1rem; font-weight: 600;">👈 Para comenzar:</span>
+                <span style="color: #93c5fd; font-size: 1rem; font-weight: 600;">Para comenzar:</span>
                 <span style="color: #f1f5f9; font-size: 0.95rem;"> Selecciona un sondaje específico en el menú desplegable de la barra lateral izquierda.</span>
             </div>
             <div style="margin-top: 1.6rem; padding-top: 1rem; border-top: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-                <span style="color: #cbd5e1; font-size: 0.92rem;">👨‍💻 Software diseñado y desarrollado por <b>Claudio Muñoz Rubilar</b></span>
+                <span style="color: #cbd5e1; font-size: 0.92rem;">Software diseñado y desarrollado por <b>Claudio Muñoz Rubilar</b></span>
                 <span style="color: #94a3b8; font-size: 0.82rem;">Ct-Pp QA/QC Analytics &bull; Geología & Reconciliación Minera</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
-        st.info("💡 **Personalización**: Puedes cambiar el tema de fondo de los gráficos (☀️ Fondo Blanco o 🌙 Fondo Oscuro), colores y estilos de línea en la sección **🎨 Estilo y Apariencia de Gráficos** del panel lateral una vez cargado un sondaje.")
+        st.info("**Personalización**: Puedes cambiar el tema de fondo de los gráficos (Fondo Blanco o Fondo Oscuro), colores y estilos de línea en la sección **Estilo y Apariencia de Gráficos** del panel lateral una vez cargado un sondaje.")
         st.stop()
 
     # --- TABLA RESUMEN MULTIELEMENTO PARA ESTE POZO (ENCABEZADO) ---
     header_subtitle = "Comparación de Elementos" if is_paired_hole else f"Monitoreo ({'Cutting FRX' if hole_source_type == 'only_cutting' else 'Pulpa Laboratorio'})"
-    st.markdown(f"### 📍 {active_title} — {header_subtitle}: **{', '.join(selected_elements)}**")
+    st.markdown(f"### {active_title} — {header_subtitle}: **{', '.join(selected_elements)}**")
 
     # Generar tabla rápida para los elementos seleccionados
     summary_selected_rows = []
@@ -1024,7 +1033,7 @@ def main():
         )
     elif not is_paired_hole:
         source_label = "Solo Cutting (FRX en terreno)" if hole_source_type == 'only_cutting' else "Solo Pulpa (Laboratorio oficial)"
-        st.info(f"ℹ️ Este sondaje dispone de datos de **{source_label}**. La tabla de comparación estadística pareada (R², RMA, HARD) se activa cuando existen ambas fuentes disponibles.")
+        st.info(f"Este sondaje dispone de datos de **{source_label}**. La tabla de comparación estadística pareada (R², RMA, HARD) se activa cuando existen ambas fuentes disponibles.")
 
     # Generar tabla resumen multielemento (si aplica)
     summary_table = pd.DataFrame()
@@ -1035,519 +1044,519 @@ def main():
     gyro_map = cached_gyro_scan()
     df_all_collars = cached_all_collars(tuple(sorted(gyro_map.items())))
 
-    # --- PESTAÑAS PRINCIPALES MULTIELEMENTO ---
-    tab_downhole, tab_scatter, tab_cross, tab_qaqc, tab_all_matrix, tab_data, tab_spatial = st.tabs([
-        "📉 1. Perfil en Profundidad (Multi-Track & Superpuesto)",
-        "🎯 2. Dispersión 1:1 Simultánea (Multi-Scatter)",
-        "🔀 3. Correlación Cruzada (ej. Cu vs Mo)",
-        "⚖️ 4. Control QA/QC (Bland-Altman & HARD)",
-        "🧪 5. Matriz Completa (35 Elementos)",
-        "📄 6. Tabla de Datos & Exportación",
-        "🌐 7. Visor Espacial 3D & Giroscopía (Herramienta Adicional)"
-    ])
+    # --- CONTROL DE MÓDULOS DEL SISTEMA ---
+    if app_module == "Análisis QA/QC y Perfiles Geológicos":
+        tab_downhole, tab_scatter, tab_cross, tab_qaqc, tab_all_matrix, tab_data = st.tabs([
+            "1. Perfil en Profundidad (Multi-Track & Superpuesto)",
+            "2. Dispersión 1:1 Simultánea (Multi-Scatter)",
+            "3. Correlación Cruzada (ej. Cu vs Mo)",
+            "4. Control QA/QC (Bland-Altman & HARD)",
+            "5. Matriz Completa (35 Elementos)",
+            "6. Tabla de Datos & Exportación"
+        ])
 
-    # =========================================================================
-    # PESTAÑA 1: PERFILES EN PROFUNDIDAD
-    # =========================================================================
-    with tab_downhole:
-        with st.expander("📖 Guía Didáctica: ¿Cómo interpretar los Perfiles en Profundidad?", expanded=False):
-            st.markdown("""
-            * **¿Qué muestra este gráfico?**: La trayectoria tramo a tramo (cada 2 metros) de las concentraciones químicas a medida que el pozo penetra en profundidad (desde la superficie $0\\,\\text{m}$ hasta el fondo del pozo).
-            * **Curva Azul (Pulpa - Referencia)**: Análisis de laboratorio químico sobre roca finamente pulverizada ($<75\\,\\mu\\text{m}$). Es el estándar oficial de máxima confiabilidad del proyecto.
-            * **Curva Naranja (Cutting - FRX)**: Lectura directa instrumental con equipo FRX sobre los detritos gruesos de perforación analizados en terreno.
-            * **Barras de Discrepancia ($\\Delta = \\text{Cutting} - \\text{Pulpa}$)**:
-              * 🟧 **Naranja ($\\Delta \\ge 0$)**: El Cutting reportó una ley superior a la Pulpa (sobreestimación).
-              * 🟦 **Azul ($\\Delta < 0$)**: La Pulpa reportó una ley superior al Cutting (subestimación).
-            * **¿Para qué sirve?**: Permite validar si las zonas de enriquecimiento y los picos de Cobre (Cu) coinciden en profundidad con otros elementos guías (ej. Molibdeno Mo, Hierro Fe, Azufre S) y detectar tramos anómalos que requieran re-muestreo.
-            """)
+        # =========================================================================
+        # PESTAÑA 1: PERFILES EN PROFUNDIDAD
+        # =========================================================================
+        with tab_downhole:
+            with st.expander("Guía Didáctica: ¿Cómo interpretar los Perfiles en Profundidad?", expanded=False):
+                st.markdown("""
+                * **¿Qué muestra este gráfico?**: La trayectoria tramo a tramo (cada 2 metros) de las concentraciones químicas a medida que el pozo penetra en profundidad (desde la superficie $0\\,\\text{m}$ hasta el fondo del pozo).
+                * **Curva Azul (Pulpa - Referencia)**: Análisis de laboratorio químico sobre roca finamente pulverizada ($<75\\,\\mu\\text{m}$). Es el estándar oficial de máxima confiabilidad del proyecto.
+                * **Curva Naranja (Cutting - FRX)**: Lectura directa instrumental con equipo FRX sobre los detritos gruesos de perforación analizados en terreno.
+                * **Barras de Discrepancia ($\\Delta = \\text{Cutting} - \\text{Pulpa}$)**:
+                  * **Naranja ($\\Delta \\ge 0$)**: El Cutting reportó una ley superior a la Pulpa (sobreestimación).
+                  * **Azul ($\\Delta < 0$)**: La Pulpa reportó una ley superior al Cutting (subestimación).
+                * **¿Para qué sirve?**: Permite validar si las zonas de enriquecimiento y los picos de Cobre (Cu) coinciden en profundidad con otros elementos guías (ej. Molibdeno Mo, Hierro Fe, Azufre S) y detectar tramos anómalos que requieran re-muestreo.
+                """)
 
-        # Selectores de modalidad y orientación
-        col_view_mode, col_orient = st.columns([0.58, 0.42])
-        with col_view_mode:
-            dh_view = st.radio(
-                "Modalidad de Perfil:",
-                [
-                    f"📊 Multi-Track en Paralelo ({', '.join(selected_elements)})",
-                    f"🔀 Superposición en un Mismo Gráfico",
-                    f"🔍 Perfil Detallado de 1 Elemento con Barras Δ"
-                ],
-                horizontal=True
-            )
-        with col_orient:
-            orient_choice = st.radio(
-                "📐 Orientación del Perfil:",
-                ["↔️ Horizontal (A lo largo del Sondaje)", "↕️ Vertical"],
-                index=0,
-                horizontal=True,
-                help="↔️ Horizontal: Eje X continuo con rangeslider para navegar a lo largo de todo el sondaje. ↕️ Vertical: Eje Y hacia abajo (profundidad del pozo)."
-            )
+            # Selectores de modalidad y orientación
+            col_view_mode, col_orient = st.columns([0.58, 0.42])
+            with col_view_mode:
+                dh_view = st.radio(
+                    "Modalidad de Perfil:",
+                    [
+                        f"Multi-Track en Paralelo ({', '.join(selected_elements)})",
+                        f"Superposición en un Mismo Gráfico",
+                        f"Perfil Detallado de 1 Elemento con Barras Δ"
+                    ],
+                    horizontal=True
+                )
+            with col_orient:
+                orient_choice = st.radio(
+                    "Orientación del Perfil:",
+                    ["↔️ Horizontal (A lo largo del Sondaje)", "↕️ Vertical"],
+                    index=0,
+                    horizontal=True,
+                    help="↔️ Horizontal: Eje X continuo con rangeslider para navegar a lo largo de todo el sondaje. ↕️ Vertical: Eje Y hacia abajo (profundidad del pozo)."
+                )
 
-        orientation_param = 'horizontal' if "Horizontal" in orient_choice else 'vertical'
+            orientation_param = 'horizontal' if "Horizontal" in orient_choice else 'vertical'
 
-        # Controles de escala y altura según orientación
-        if orientation_param == 'vertical':
-            def reset_dh_height():
-                st.session_state['slider_dh_profile_height'] = 750
-
-            col_sc_slider, col_sc_btn = st.columns([0.70, 0.30])
-            with col_sc_slider:
-                if 'slider_dh_profile_height' not in st.session_state:
+            # Controles de escala y altura según orientación
+            if orientation_param == 'vertical':
+                def reset_dh_height():
                     st.session_state['slider_dh_profile_height'] = 750
 
-                profile_height = st.select_slider(
-                    "↕️ Escala Vertical de Profundidad (Eje Y):",
-                    options=[600, 750, 1000, 1400, 1800, 2400, 3200],
-                    key="slider_dh_profile_height",
-                    format_func=lambda h: {
-                        600: "Comprimido (600px)",
-                        750: "Estándar / Por Defecto (750px)",
-                        1000: "Intermedio (1.000px)",
-                        1400: "Expandido (1.400px)",
-                        1800: "Alta Resolución (1.800px)",
-                        2400: "Detalle Fino (2.400px)",
-                        3200: "Máximo Estiramiento (3.200px)"
-                    }.get(h, f"{h}px"),
-                    help="Estira el eje vertical de profundidad para separar visualmente las barras de 2m y leer cómodamente cada muestra. Ideal para pozos profundos de más de 400m."
-                )
+                col_sc_slider, col_sc_btn = st.columns([0.70, 0.30])
+                with col_sc_slider:
+                    if 'slider_dh_profile_height' not in st.session_state:
+                        st.session_state['slider_dh_profile_height'] = 750
 
-            with col_sc_btn:
-                st.write("")  # Alineación vertical
-                st.write("")
-                c_vb1, c_vb2 = st.columns(2)
-                with c_vb1:
-                    st.button("🔄 Altura (750px)", key="btn_reset_height", on_click=reset_dh_height, use_container_width=True)
-                with c_vb2:
-                    if st.button("🏠 Home (Reset)", key="btn_reset_zoom_v", use_container_width=True, help="Restaura la escala y el zoom completo del sondaje (0m a fondo de pozo)"):
-                        st.rerun()
+                    profile_height = st.select_slider(
+                        "↕️ Escala Vertical de Profundidad (Eje Y):",
+                        options=[600, 750, 1000, 1400, 1800, 2400, 3200],
+                        key="slider_dh_profile_height",
+                        format_func=lambda h: {
+                            600: "Comprimido (600px)",
+                            750: "Estándar / Por Defecto (750px)",
+                            1000: "Intermedio (1.000px)",
+                            1400: "Expandido (1.400px)",
+                            1800: "Alta Resolución (1.800px)",
+                            2400: "Detalle Fino (2.400px)",
+                            3200: "Máximo Estiramiento (3.200px)"
+                        }.get(h, f"{h}px"),
+                        help="Estira el eje vertical de profundidad para separar visualmente las barras de 2m y leer cómodamente cada muestra. Ideal para pozos profundos de más de 400m."
+                    )
 
-            use_scroll_box = st.checkbox("🪟 Bloquear en ventana con scroll vertical (mantiene la página fija en pantalla)", value=False)
-        else:
-            def reset_dh_height_h():
-                st.session_state['slider_dh_horizontal_height'] = 340
+                with col_sc_btn:
+                    st.write("")  # Alineación vertical
+                    st.write("")
+                    c_vb1, c_vb2 = st.columns(2)
+                    with c_vb1:
+                        st.button("Restablecer Altura (750px)", key="btn_reset_height", on_click=reset_dh_height, use_container_width=True)
+                    with c_vb2:
+                        if st.button("Restablecer Ejes (Home)", key="btn_reset_zoom_v", use_container_width=True, help="Restaura la escala y el zoom completo del sondaje (0m a fondo de pozo)"):
+                            st.rerun()
 
-            col_h_slider, col_h_btn = st.columns([0.70, 0.30])
-            with col_h_slider:
-                if 'slider_dh_horizontal_height' not in st.session_state:
+                use_scroll_box = st.checkbox("Bloquear en ventana con scroll vertical (mantiene la página fija en pantalla)", value=False)
+            else:
+                def reset_dh_height_h():
                     st.session_state['slider_dh_horizontal_height'] = 340
 
-                profile_height = st.select_slider(
-                    "↕️ Dimensión Vertical del Gráfico (Eje Y):",
-                    options=[220, 280, 340, 380, 450, 550, 680],
-                    key="slider_dh_horizontal_height",
-                    format_func=lambda h: {
-                        220: "Ultra Bajo y Panorámico (220px)",
-                        280: "Bajo y Ancho (280px)",
-                        340: "Compacto / Recomendado (340px)",
-                        380: "Estándar Horizontal (380px)",
-                        450: "Medio (450px)",
-                        550: "Alto (550px)",
-                        680: "Máxima Altura (680px)"
-                    }.get(h, f"{h}px"),
-                    help="Ajusta la altura vertical del gráfico (Eje Y). Selecciona alturas menores (ej. 220px–340px) para que el gráfico se vea más bajo y alargado/ancho, facilitando el análisis visual horizontal a lo largo del pozo."
-                )
+                col_h_slider, col_h_btn = st.columns([0.70, 0.30])
+                with col_h_slider:
+                    if 'slider_dh_horizontal_height' not in st.session_state:
+                        st.session_state['slider_dh_horizontal_height'] = 340
 
-            with col_h_btn:
-                st.write("")
-                st.write("")
-                c_hb1, c_hb2 = st.columns(2)
-                with c_hb1:
-                    st.button("🔄 Altura (340px)", key="btn_reset_height_h", on_click=reset_dh_height_h, use_container_width=True)
-                with c_hb2:
-                    if st.button("🏠 Home (Reset)", key="btn_reset_zoom_h", use_container_width=True, help="Restaura la escala y el zoom completo del sondaje (0m a fondo de pozo)"):
-                        st.rerun()
+                    profile_height = st.select_slider(
+                        "↕️ Dimensión Vertical del Gráfico (Eje Y):",
+                        options=[220, 280, 340, 380, 450, 550, 680],
+                        key="slider_dh_horizontal_height",
+                        format_func=lambda h: {
+                            220: "Ultra Bajo y Panorámico (220px)",
+                            280: "Bajo y Ancho (280px)",
+                            340: "Compacto / Recomendado (340px)",
+                            380: "Estándar Horizontal (380px)",
+                            450: "Medio (450px)",
+                            550: "Alto (550px)",
+                            680: "Máxima Altura (680px)"
+                        }.get(h, f"{h}px"),
+                        help="Ajusta la altura vertical del gráfico (Eje Y). Selecciona alturas menores (ej. 220px–340px) para que el gráfico se vea más bajo y alargado/ancho, facilitando el análisis visual horizontal a lo largo del pozo."
+                    )
 
-            if dh_view.startswith("📊"):
-                profile_height = max(profile_height, len(selected_elements) * 180)
+                with col_h_btn:
+                    st.write("")
+                    st.write("")
+                    c_hb1, c_hb2 = st.columns(2)
+                    with c_hb1:
+                        st.button("Restablecer Altura (340px)", key="btn_reset_height_h", on_click=reset_dh_height_h, use_container_width=True)
+                    with c_hb2:
+                        if st.button("Restablecer Ejes (Home)", key="btn_reset_zoom_h", use_container_width=True, help="Restaura la escala y el zoom completo del sondaje (0m a fondo de pozo)"):
+                            st.rerun()
 
-            st.caption("💡 **Modo Horizontal**: La profundidad se despliega a lo largo del pozo en el eje X. Puedes hacer zoom seleccionando cualquier tramo y regresar a la vista general completa con el botón **🏠 Home (Reset)** o el icono de casa en la barra del gráfico.")
-            use_scroll_box = False
+                if dh_view.startswith("Multi-Track"):
+                    profile_height = max(profile_height, len(selected_elements) * 180)
 
-        if dh_view.startswith("📊"):
-            st.markdown(f"#### 📊 Perfil Sincronizado para {selected_hole}")
-            fig_mt = plot_multi_track_downhole(
-                df_active, selected_elements, selected_hole,
-                orientation=orientation_param, height=profile_height,
-                color_pulp=c_pulp, color_cut=c_cut,
-                dash_pulp=dash_pulp, dash_cut=dash_cut,
-                width_pulp=w_pulp, width_cut=w_cut,
-                plot_mode=plot_mode, marker_size=pt_size,
-                theme=theme_param
-            )
-            if use_scroll_box:
-                with st.container(height=720):
-                    st.plotly_chart(fig_mt, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
-            else:
-                st.plotly_chart(fig_mt, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
+                st.caption("**Modo Horizontal**: La profundidad se despliega a lo largo del pozo en el eje X. Puedes hacer zoom seleccionando cualquier tramo y regresar a la vista general completa con el botón **Restablecer Ejes (Reset)** o el icono de casa en la barra del gráfico.")
+                use_scroll_box = False
 
-        elif dh_view.startswith("🔀"):
-            st.markdown(f"#### 🔀 Superposición de Elementos en {selected_hole}")
-            st.caption("Superpone pares de elementos en el mismo perfil (con doble escala). Puedes agregar múltiples gráficos comparativos independientes a tu antojo (ej. **S vs Ca** y **S vs K**) para evaluar su comportamiento conjunto.")
-
-            if 'overlay_pairs' not in st.session_state or not st.session_state['overlay_pairs']:
-                default_e1 = selected_elements[0] if selected_elements else avail_elements[0]
-                candidates_e2 = [el for el in selected_elements if el != default_e1] or [el for el in avail_elements if el != default_e1]
-                default_e2 = candidates_e2[0] if candidates_e2 else default_e1
-                st.session_state['overlay_pairs'] = [{'e1': default_e1, 'e2': default_e2}]
-
-            def add_overlay_pair():
-                e1_def = avail_elements[0]
-                e2_def = avail_elements[1] if len(avail_elements) > 1 else avail_elements[0]
-                st.session_state['overlay_pairs'].append({'e1': e1_def, 'e2': e2_def})
-
-            col_add_btn, _ = st.columns([0.4, 0.6])
-            with col_add_btn:
-                st.button("➕ Agregar Gráfico de Superposición", on_click=add_overlay_pair, use_container_width=True)
-
-            pairs_to_remove = []
-            for idx, pair in enumerate(st.session_state['overlay_pairs']):
-                st.markdown("---")
-                col_t, col_del = st.columns([0.82, 0.18])
-                with col_t:
-                    st.markdown(f"##### 📈 Gráfico #{idx + 1}: **{pair['e1']}** vs **{pair['e2']}**")
-                with col_del:
-                    if len(st.session_state['overlay_pairs']) > 1:
-                        if st.button("🗑️ Quitar", key=f"btn_del_overlay_{idx}", use_container_width=True):
-                            pairs_to_remove.append(idx)
-
-                col_sel1, col_sel2 = st.columns(2)
-                with col_sel1:
-                    idx_e1 = avail_elements.index(pair['e1']) if pair['e1'] in avail_elements else 0
-                    pair['e1'] = st.selectbox(f"Elemento 1 (Gráfico #{idx + 1}):", avail_elements, index=idx_e1, key=f"overlay_pair_e1_{idx}")
-                with col_sel2:
-                    idx_e2 = avail_elements.index(pair['e2']) if pair['e2'] in avail_elements else (1 if len(avail_elements) > 1 else 0)
-                    pair['e2'] = st.selectbox(f"Elemento 2 (Gráfico #{idx + 1}):", avail_elements, index=idx_e2, key=f"overlay_pair_e2_{idx}")
-
-                if pair['e1'] == pair['e2']:
-                    st.info(f"💡 Ambos ejes tienen el mismo elemento (**{pair['e1']}**). Elige otro elemento secundario para analizar la relación.")
-
-                fig_ov = plot_two_elements_overlay(
-                    df_active, pair['e1'], pair['e2'], selected_hole,
+            if dh_view.startswith("Multi-Track"):
+                st.markdown(f"#### Perfil Sincronizado para {selected_hole}")
+                fig_mt = plot_multi_track_downhole(
+                    df_active, selected_elements, selected_hole,
                     orientation=orientation_param, height=profile_height,
                     color_pulp=c_pulp, color_cut=c_cut,
-                    color_e2_pulp=c_e2_pulp, color_e2_cut=c_e2_cut,
                     dash_pulp=dash_pulp, dash_cut=dash_cut,
-                    dash_e2_pulp=dash_e2_pulp, dash_e2_cut=dash_e2_cut,
                     width_pulp=w_pulp, width_cut=w_cut,
-                    width_e2_pulp=w_pulp, width_e2_cut=w_cut,
                     plot_mode=plot_mode, marker_size=pt_size,
                     theme=theme_param
                 )
                 if use_scroll_box:
                     with st.container(height=720):
-                        st.plotly_chart(fig_ov, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
+                        st.plotly_chart(fig_mt, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
                 else:
-                    st.plotly_chart(fig_ov, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
+                    st.plotly_chart(fig_mt, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
 
-            if pairs_to_remove:
-                for i in sorted(pairs_to_remove, reverse=True):
-                    st.session_state['overlay_pairs'].pop(i)
-                st.rerun()
+            elif dh_view.startswith("Superposición"):
+                st.markdown(f"#### Superposición de Elementos en {selected_hole}")
+                st.caption("Superpone pares de elementos en el mismo perfil (con doble escala). Puedes agregar múltiples gráficos comparativos independientes a tu antojo (ej. **S vs Ca** y **S vs K**) para evaluar su comportamiento conjunto.")
 
-        else:
-            st.markdown(f"#### 🔍 Perfil Detallado con Barras de Discrepancia: **{focus_elem}**")
-            fig_single = plot_downhole_profile(
-                df_active, focus_elem, selected_hole, focus_unit,
-                orientation=orientation_param, height=profile_height,
-                color_pulp=c_pulp, color_cut=c_cut,
-                dash_pulp=dash_pulp, dash_cut=dash_cut,
-                width_pulp=w_pulp, width_cut=w_cut,
-                plot_mode=plot_mode, marker_size=pt_size,
-                theme=theme_param
-            )
-            if use_scroll_box:
-                with st.container(height=720):
-                    st.plotly_chart(fig_single, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
+                if 'overlay_pairs' not in st.session_state or not st.session_state['overlay_pairs']:
+                    default_e1 = selected_elements[0] if selected_elements else avail_elements[0]
+                    candidates_e2 = [el for el in selected_elements if el != default_e1] or [el for el in avail_elements if el != default_e1]
+                    default_e2 = candidates_e2[0] if candidates_e2 else default_e1
+                    st.session_state['overlay_pairs'] = [{'e1': default_e1, 'e2': default_e2}]
+
+                def add_overlay_pair():
+                    e1_def = avail_elements[0]
+                    e2_def = avail_elements[1] if len(avail_elements) > 1 else avail_elements[0]
+                    st.session_state['overlay_pairs'].append({'e1': e1_def, 'e2': e2_def})
+
+                col_add_btn, _ = st.columns([0.4, 0.6])
+                with col_add_btn:
+                    st.button("Agregar Gráfico de Superposición", on_click=add_overlay_pair, use_container_width=True)
+
+                pairs_to_remove = []
+                for idx, pair in enumerate(st.session_state['overlay_pairs']):
+                    st.markdown("---")
+                    col_t, col_del = st.columns([0.82, 0.18])
+                    with col_t:
+                        st.markdown(f"##### Gráfico #{idx + 1}: **{pair['e1']}** vs **{pair['e2']}**")
+                    with col_del:
+                        if len(st.session_state['overlay_pairs']) > 1:
+                            if st.button("Quitar", key=f"btn_del_overlay_{idx}", use_container_width=True):
+                                pairs_to_remove.append(idx)
+
+                    col_sel1, col_sel2 = st.columns(2)
+                    with col_sel1:
+                        idx_e1 = avail_elements.index(pair['e1']) if pair['e1'] in avail_elements else 0
+                        pair['e1'] = st.selectbox(f"Elemento 1 (Gráfico #{idx + 1}):", avail_elements, index=idx_e1, key=f"overlay_pair_e1_{idx}")
+                    with col_sel2:
+                        idx_e2 = avail_elements.index(pair['e2']) if pair['e2'] in avail_elements else (1 if len(avail_elements) > 1 else 0)
+                        pair['e2'] = st.selectbox(f"Elemento 2 (Gráfico #{idx + 1}):", avail_elements, index=idx_e2, key=f"overlay_pair_e2_{idx}")
+
+                    if pair['e1'] == pair['e2']:
+                        st.info(f"Ambos ejes tienen el mismo elemento (**{pair['e1']}**). Elige otro elemento secundario para analizar la relación.")
+
+                    fig_ov = plot_two_elements_overlay(
+                        df_active, pair['e1'], pair['e2'], selected_hole,
+                        orientation=orientation_param, height=profile_height,
+                        color_pulp=c_pulp, color_cut=c_cut,
+                        color_e2_pulp=c_e2_pulp, color_e2_cut=c_e2_cut,
+                        dash_pulp=dash_pulp, dash_cut=dash_cut,
+                        dash_e2_pulp=dash_e2_pulp, dash_e2_cut=dash_e2_cut,
+                        width_pulp=w_pulp, width_cut=w_cut,
+                        width_e2_pulp=w_pulp, width_e2_cut=w_cut,
+                        plot_mode=plot_mode, marker_size=pt_size,
+                        theme=theme_param
+                    )
+                    if use_scroll_box:
+                        with st.container(height=720):
+                            st.plotly_chart(fig_ov, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
+                    else:
+                        st.plotly_chart(fig_ov, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
+
+                if pairs_to_remove:
+                    for i in sorted(pairs_to_remove, reverse=True):
+                        st.session_state['overlay_pairs'].pop(i)
+                    st.rerun()
+
             else:
-                st.plotly_chart(fig_single, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
-
-        # --- TABLA DE TRAMOS CON MAYOR DISCREPANCIA ---
-        if is_paired_hole:
-            st.markdown("---")
-            st.markdown("#### ⚠️ Tramos con Mayor Discrepancia (|Cutting - Pulpa|)")
-            st.caption("Intervalos del sondaje donde existe la mayor divergencia analítica entre las lecturas de Cutting y la Pulpa.")
-
-            col_disc1, col_disc2 = st.columns([0.45, 0.55])
-            with col_disc1:
-                elem_disc = st.selectbox(
-                    "Elemento a inspeccionar en la tabla:",
-                    selected_elements if selected_elements else avail_elements,
-                    index=0,
-                    key="select_elem_discrepancy"
-                )
-            with col_disc2:
-                n_disc = st.slider("Cantidad de tramos a listar:", min_value=5, max_value=25, value=10, step=5, key="slider_n_disc")
-
-            d_col = f"{elem_disc}_Diff_Abs"
-            if d_col in df_active.columns:
-                top_diff = df_active.copy()
-                top_diff['Abs_Diff_Mag'] = top_diff[d_col].abs()
-                cols_show = ['From', 'To', 'Longitud_m']
-                if 'Sample_ID_Pulp' in top_diff.columns: cols_show.append('Sample_ID_Pulp')
-                if 'Sample_ID_Cut' in top_diff.columns: cols_show.append('Sample_ID_Cut')
-                cols_show.extend([
-                    f"{elem_disc}_Pulp",
-                    f"{elem_disc}_Cut",
-                    d_col,
-                    f"{elem_disc}_Diff_Rel_%",
-                    f"{elem_disc}_HARD_%"
-                ])
-                top_table = top_diff.sort_values(by='Abs_Diff_Mag', ascending=False).head(n_disc)[cols_show]
-                unit_disc = get_element_unit(elem_disc)
-                st.dataframe(
-                    top_table.style.format({
-                        f"{elem_disc}_Pulp": "{:.4f}",
-                        f"{elem_disc}_Cut": "{:.4f}",
-                        d_col: "{:+.4f}",
-                        f"{elem_disc}_Diff_Rel_%": "{:+.2f}%",
-                        f"{elem_disc}_HARD_%": "{:.2f}%"
-                    }),
-                    use_container_width=True
-                )
-        else:
-            st.markdown("---")
-            st.info("ℹ️ La tabla de tramos con mayor discrepancia (|Cutting - Pulpa|) se activa cuando el sondaje dispone de ambas fuentes pareadas.")
-
-    # =========================================================================
-    # PESTAÑA 2: DISPERSIÓN 1:1 SIMULTÁNEA (MULTI-SCATTER GRID)
-    # =========================================================================
-    with tab_scatter:
-        if not is_paired_hole:
-            st.info("ℹ️ Los gráficos de dispersión 1:1 y las ecuaciones de calibración RMA requieren comparar muestras pareadas (Cutting vs. Pulpa) en los mismos intervalos de muestreo. Este sondaje cuenta con una sola fuente analítica.")
-        else:
-            with st.expander("📖 Guía Didáctica: ¿Cómo interpretar la Dispersión 1:1 y la Calibración RMA?", expanded=False):
-                st.markdown("""
-                * **¿Qué muestra este gráfico?**: La correlación directa muestra a muestra entre el valor evaluado de **Cutting (Eje Y)** y la referencia oficial de **Pulpa (Eje X)**.
-                * **Línea Diagonal 1:1 (Blanca continua)**: Representa la concordancia perfecta ($y = x$). Si todas las muestras estuvieran exactamente sobre esta línea, el Cutting reportaría idéntico al laboratorio.
-                * **Envolventes Sombreadas ($\pm 10\%$ y $\pm 20\%$)**: Franjas de tolerancia analítica. Mientras mayor sea la proporción de puntos concentrados dentro del área azul claro ($\pm 10\%$), mayor es la exactitud operacional.
-                * **Línea Roja (Regresión RMA - *Reduced Major Axis*)**: Ajuste geométrico estándar en minería. A diferencia de una regresión lineal común (OLS), la RMA asume que **ambas variables tienen incertidumbre analítica**.
-                * **Fórmula de Calibración**: La ecuación mostrada más abajo permite corregir las lecturas futuras de cutting a leyes equivalentes de pulpa antes de ingresarlas al modelo de bloques.
-                """)
-
-            st.markdown(f"#### 🎯 Gráficos de Dispersión 1:1 para los Elementos Seleccionados ({', '.join(selected_elements)})")
-            fig_grid = plot_multi_scatter_grid(
-                df_active, selected_elements, selected_hole if selected_hole else "Consolidado",
-                color_pulp=c_pulp, color_cut=c_cut,
-                theme=theme_param
-            )
-            st.plotly_chart(fig_grid, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
-
-            st.markdown("---")
-            st.markdown(f"#### 📐 Ecuaciones de Calibración Detalladas para **{focus_elem}**")
-            st_focus = stats_dict_map.get(focus_elem, {})
-            if st_focus.get('valid', False):
-                c_eq1, c_eq2 = st.columns(2)
-                with c_eq1:
-                    st.markdown("**Regresión RMA (*Reduced Major Axis*):**")
-                    st.latex(rf"\text{{Cut}} = {st_focus['slope_rma']:.4f} \cdot \text{{Pulp}} {st_focus['intercept_rma']:+.4f}")
-                    st.caption(f"R²: {st_focus['r2']:.4f} | Pearson r: {st_focus['r_pearson']:.4f} | Spearman ρ: {st_focus['r_spearman']:.4f}")
-                with c_eq2:
-                    st.markdown("**Fórmula de Corrección Cutting $\to$ Pulpa Estimada:**")
-                    st.latex(rf"\text{{Pulp}}_{{\text{{calibrada}}}} = \frac{{\text{{Cut}} - ({st_focus['intercept_rma']:+.4f})}}{{{st_focus['slope_rma']:.4f}}}")
-                    st.caption(f"Error Cuadrático Medio (RMSE): {st_focus['rmse']:.4f} {focus_unit} | MAE: {st_focus['mae']:.4f} {focus_unit}")
-
-    # =========================================================================
-    # PESTAÑA 3: CORRELACIÓN CRUZADA ENTRE ELEMENTOS (ej. Cu vs Mo)
-    # =========================================================================
-    with tab_cross:
-        with st.expander("📖 Guía Didáctica: ¿Cómo interpretar la Correlación Cruzada entre Elementos?", expanded=False):
-            st.markdown("""
-            * **¿Qué busca responder?**: *¿El análisis rápido de Cutting preserva la misma relación geoquímica natural que mide el laboratorio en Pulpa?*
-            * **Asociaciones Geoquímicas**: Compara simultáneamente dos variables (ej. Cobre vs Molibdeno, Cobre vs Hierro o Azufre vs Calcio) en el mismo pozo o consolidado global.
-            * **¿Cómo se interpreta visualmente?**:
-              * **Puntos y Línea Azul**: Tendencia geoquímica original de la **Pulpa (Laboratorio)**.
-              * **Puntos y Línea Naranja**: Tendencia observada con el **Cutting (FRX en terreno)**.
-            * **Criterio de Validación**:
-              * Si ambas líneas son **casi paralelas y con pendientes similares**, el Cutting reproduce con fidelidad la mineralogía y zonamiento del yacimiento.
-              * Si las líneas se cruzan o tienen pendientes opuestas, indica un **efecto de matriz o interferencia instrumental** que afecta a uno de los elementos.
-            """)
-
-        st.markdown("#### 🔀 Análisis de Relación Geoquímica Cruzada")
-        st.caption("Permite evaluar cómo se relacionan dos elementos químicos entre sí y comparar múltiples gráficos simultáneos a tu antojo (ej. **S vs Ca** y **S vs K**).")
-
-        if 'cross_pairs' not in st.session_state or not st.session_state['cross_pairs']:
-            def_x = 'Cu' if 'Cu' in avail_elements else avail_elements[0]
-            cand_y = [el for el in ['Mo', 'Fe', 'S', 'Ca'] if el in avail_elements and el != def_x]
-            def_y = cand_y[0] if cand_y else (avail_elements[1] if len(avail_elements) > 1 else def_x)
-            st.session_state['cross_pairs'] = [{'x': def_x, 'y': def_y}]
-
-        def add_cross_pair():
-            x_def = avail_elements[0]
-            y_def = avail_elements[1] if len(avail_elements) > 1 else avail_elements[0]
-            st.session_state['cross_pairs'].append({'x': x_def, 'y': y_def})
-
-        col_c_btn, _ = st.columns([0.4, 0.6])
-        with col_c_btn:
-            st.button("➕ Agregar Gráfico de Correlación Cruzada", on_click=add_cross_pair, use_container_width=True)
-
-        cross_to_remove = []
-        for idx, cp in enumerate(st.session_state['cross_pairs']):
-            st.markdown("---")
-            col_ct, col_cdel = st.columns([0.82, 0.18])
-            with col_ct:
-                st.markdown(f"##### 🎯 Gráfico Cruzado #{idx + 1}: **{cp['x']}** vs **{cp['y']}**")
-            with col_cdel:
-                if len(st.session_state['cross_pairs']) > 1:
-                    if st.button("🗑️ Quitar", key=f"btn_del_cross_{idx}", use_container_width=True):
-                        cross_to_remove.append(idx)
-
-            col_cr1, col_cr2 = st.columns(2)
-            with col_cr1:
-                idx_x = avail_elements.index(cp['x']) if cp['x'] in avail_elements else 0
-                cp['x'] = st.selectbox(f"Elemento Eje X (Gráfico #{idx + 1}):", avail_elements, index=idx_x, key=f"cross_x_{idx}")
-            with col_cr2:
-                idx_y = avail_elements.index(cp['y']) if cp['y'] in avail_elements else (1 if len(avail_elements) > 1 else 0)
-                cp['y'] = st.selectbox(f"Elemento Eje Y (Gráfico #{idx + 1}):", avail_elements, index=idx_y, key=f"cross_y_{idx}")
-
-            if cp['x'] != cp['y']:
-                fig_cross = plot_cross_element_correlation(
-                    df_active, cp['x'], cp['y'], selected_hole if selected_hole else "Consolidado",
+                st.markdown(f"#### Perfil Detallado con Barras de Discrepancia: **{focus_elem}**")
+                fig_single = plot_downhole_profile(
+                    df_active, focus_elem, selected_hole, focus_unit,
+                    orientation=orientation_param, height=profile_height,
                     color_pulp=c_pulp, color_cut=c_cut,
                     dash_pulp=dash_pulp, dash_cut=dash_cut,
                     width_pulp=w_pulp, width_cut=w_cut,
-                    marker_size=max(5, pt_size + 2),
+                    plot_mode=plot_mode, marker_size=pt_size,
                     theme=theme_param
                 )
-                st.plotly_chart(fig_cross, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
+                if use_scroll_box:
+                    with st.container(height=720):
+                        st.plotly_chart(fig_single, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
+                else:
+                    st.plotly_chart(fig_single, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
+
+            # --- TABLA DE TRAMOS CON MAYOR DISCREPANCIA ---
+            if is_paired_hole:
+                st.markdown("---")
+                st.markdown("#### Tramos con Mayor Discrepancia (|Cutting - Pulpa|)")
+                st.caption("Intervalos del sondaje donde existe la mayor divergencia analítica entre las lecturas de Cutting y la Pulpa.")
+
+                col_disc1, col_disc2 = st.columns([0.45, 0.55])
+                with col_disc1:
+                    elem_disc = st.selectbox(
+                        "Elemento a inspeccionar en la tabla:",
+                        selected_elements if selected_elements else avail_elements,
+                        index=0,
+                        key="select_elem_discrepancy"
+                    )
+                with col_disc2:
+                    n_disc = st.slider("Cantidad de tramos a listar:", min_value=5, max_value=25, value=10, step=5, key="slider_n_disc")
+
+                d_col = f"{elem_disc}_Diff_Abs"
+                if d_col in df_active.columns:
+                    top_diff = df_active.copy()
+                    top_diff['Abs_Diff_Mag'] = top_diff[d_col].abs()
+                    cols_show = ['From', 'To', 'Longitud_m']
+                    if 'Sample_ID_Pulp' in top_diff.columns: cols_show.append('Sample_ID_Pulp')
+                    if 'Sample_ID_Cut' in top_diff.columns: cols_show.append('Sample_ID_Cut')
+                    cols_show.extend([
+                        f"{elem_disc}_Pulp",
+                        f"{elem_disc}_Cut",
+                        d_col,
+                        f"{elem_disc}_Diff_Rel_%",
+                        f"{elem_disc}_HARD_%"
+                    ])
+                    top_table = top_diff.sort_values(by='Abs_Diff_Mag', ascending=False).head(n_disc)[cols_show]
+                    unit_disc = get_element_unit(elem_disc)
+                    st.dataframe(
+                        top_table.style.format({
+                            f"{elem_disc}_Pulp": "{:.4f}",
+                            f"{elem_disc}_Cut": "{:.4f}",
+                            d_col: "{:+.4f}",
+                            f"{elem_disc}_Diff_Rel_%": "{:+.2f}%",
+                            f"{elem_disc}_HARD_%": "{:.2f}%"
+                        }),
+                        use_container_width=True
+                    )
             else:
-                st.warning(f"Selecciona dos elementos diferentes para el gráfico #{idx + 1}.")
+                st.markdown("---")
+                st.info("ℹ️ La tabla de tramos con mayor discrepancia (|Cutting - Pulpa|) se activa cuando el sondaje dispone de ambas fuentes pareadas.")
 
-        if cross_to_remove:
-            for i in sorted(cross_to_remove, reverse=True):
-                st.session_state['cross_pairs'].pop(i)
-            st.rerun()
+        # =========================================================================
+        # PESTAÑA 2: DISPERSIÓN 1:1 SIMULTÁNEA (MULTI-SCATTER GRID)
+        # =========================================================================
+        with tab_scatter:
+            if not is_paired_hole:
+                st.info("ℹ️ Los gráficos de dispersión 1:1 y las ecuaciones de calibración RMA requieren comparar muestras pareadas (Cutting vs. Pulpa) en los mismos intervalos de muestreo. Este sondaje cuenta con una sola fuente analítica.")
+            else:
+                with st.expander("Guía Didáctica: ¿Cómo interpretar la Dispersión 1:1 y la Calibración RMA?", expanded=False):
+                    st.markdown("""
+                    * **¿Qué muestra este gráfico?**: La correlación directa muestra a muestra entre el valor evaluado de **Cutting (Eje Y)** y la referencia oficial de **Pulpa (Eje X)**.
+                    * **Línea Diagonal 1:1 (Blanca continua)**: Representa la concordancia perfecta ($y = x$). Si todas las muestras estuvieran exactamente sobre esta línea, el Cutting reportaría idéntico al laboratorio.
+                    * **Envolventes Sombreadas ($\pm 10\%$ y $\pm 20\%$)**: Franjas de tolerancia analítica. Mientras mayor sea la proporción de puntos concentrados dentro del área azul claro ($\pm 10\%$), mayor es la exactitud operacional.
+                    * **Línea Roja (Regresión RMA - *Reduced Major Axis*)**: Ajuste geométrico estándar en minería. A diferencia de una regresión lineal común (OLS), la RMA asume que **ambas variables tienen incertidumbre analítica**.
+                    * **Fórmula de Calibración**: La ecuación mostrada más abajo permite corregir las lecturas futuras de cutting a leyes equivalentes de pulpa antes de ingresarlas al modelo de bloques.
+                    """)
 
-    # =========================================================================
-    # PESTAÑA 4: CONTROL QA/QC (BLAND-ALTMAN & HARD)
-    # =========================================================================
-    with tab_qaqc:
-        if not is_paired_hole:
-            st.info("ℹ️ El control de calidad analítico QA/QC (Bland-Altman y Curvas de Precisión HARD) evalúa la diferencia relativa entre duplicados pareados (Cutting vs. Pulpa). Este sondaje dispone de una sola fuente.")
-        else:
-            with st.expander("📖 Guía Didáctica: ¿Cómo interpretar el Control QA/QC (Bland-Altman & HARD)?", expanded=False):
+                st.markdown(f"#### Gráficos de Dispersión 1:1 para los Elementos Seleccionados ({', '.join(selected_elements)})")
+                fig_grid = plot_multi_scatter_grid(
+                    df_active, selected_elements, selected_hole if selected_hole else "Consolidado",
+                    color_pulp=c_pulp, color_cut=c_cut,
+                    theme=theme_param
+                )
+                st.plotly_chart(fig_grid, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
+
+                st.markdown("---")
+                st.markdown(f"#### Ecuaciones de Calibración Detalladas para **{focus_elem}**")
+                st_focus = stats_dict_map.get(focus_elem, {})
+                if st_focus.get('valid', False):
+                    c_eq1, c_eq2 = st.columns(2)
+                    with c_eq1:
+                        st.markdown("**Regresión RMA (*Reduced Major Axis*):**")
+                        st.latex(rf"\text{{Cut}} = {st_focus['slope_rma']:.4f} \cdot \text{{Pulp}} {st_focus['intercept_rma']:+.4f}")
+                        st.caption(f"R²: {st_focus['r2']:.4f} | Pearson r: {st_focus['r_pearson']:.4f} | Spearman ρ: {st_focus['r_spearman']:.4f}")
+                    with c_eq2:
+                        st.markdown("**Fórmula de Corrección Cutting $\to$ Pulpa Estimada:**")
+                        st.latex(rf"\text{{Pulp}}_{{\text{{calibrada}}}} = \frac{{\text{{Cut}} - ({st_focus['intercept_rma']:+.4f})}}{{{st_focus['slope_rma']:.4f}}}")
+                        st.caption(f"Error Cuadrático Medio (RMSE): {st_focus['rmse']:.4f} {focus_unit} | MAE: {st_focus['mae']:.4f} {focus_unit}")
+
+        # =========================================================================
+        # PESTAÑA 3: CORRELACIÓN CRUZADA ENTRE ELEMENTOS (ej. Cu vs Mo)
+        # =========================================================================
+        with tab_cross:
+            with st.expander("Guía Didáctica: ¿Cómo interpretar la Correlación Cruzada entre Elementos?", expanded=False):
                 st.markdown("""
-                * **Gráfico de Bland-Altman (Izquierda - Sesgo vs Concentración)**:
-                  * Evalúa si el sesgo del Cutting cambia a medida que aumenta la ley de la muestra.
-                  * **Línea Azul Central**: Representa el sesgo relativo promedio de todo el pozo.
-                  * **Líneas Punteadas Rojas ($\pm 1.96\\,\\text{SD}$)**: Marcan los límites de acuerdo del $95\%$. Muestras fuera de estas líneas rojas representan discrepancias analíticas severas que ameritan inspección visual del testigo o duplicado.
-                * **Curva de Precisión HARD (Derecha - Frecuencia Acumulada)**:
-                  * $\\text{HARD} = \\frac{|\\text{Cutting} - \\text{Pulpa}|}{\\text{Cutting} + \\text{Pulpa}} \\times 100\\%$. Métrica estándar internacional (JORC / NI 43-101) para duplicados de control geológico.
-                  * **Regla de Decisión Minera**: Al menos el **$80\\%$** de los pares de muestras deben ubicarse bajo el **$10\\%$ de HARD** (línea roja discontinua). Si la curva morada supera este umbral, el método de Cutting califica como de alta precisión.
+                * **¿Qué busca responder?**: *¿El análisis rápido de Cutting preserva la misma relación geoquímica natural que mide el laboratorio en Pulpa?*
+                * **Asociaciones Geoquímicas**: Compara simultáneamente dos variables (ej. Cobre vs Molibdeno, Cobre vs Hierro o Azufre vs Calcio) en el mismo pozo o consolidado global.
+                * **¿Cómo se interpreta visualmente?**:
+                  * **Puntos y Línea Azul**: Tendencia geoquímica original de la **Pulpa (Laboratorio)**.
+                  * **Puntos y Línea Naranja**: Tendencia observada con el **Cutting (FRX en terreno)**.
+                * **Criterio de Validación**:
+                  * Si ambas líneas son **casi paralelas y con pendientes similares**, el Cutting reproduce con fidelidad la mineralogía y zonamiento del yacimiento.
+                  * Si las líneas se cruzan o tienen pendientes opuestas, indica un **efecto de matriz o interferencia instrumental** que afecta a uno de los elementos.
                 """)
 
-            elem_qaqc = st.selectbox("Selecciona el elemento a inspeccionar en QA/QC:", selected_elements, index=0, key="qaqc_elem")
-            st_qaqc = stats_dict_map.get(elem_qaqc, calculate_element_stats(df_active, elem_qaqc))
-            unit_qaqc = get_element_unit(elem_qaqc)
+            st.markdown("#### Análisis de Relación Geoquímica Cruzada")
+            st.caption("Permite evaluar cómo se relacionan dos elementos químicos entre sí y comparar múltiples gráficos simultáneos a tu antojo (ej. **S vs Ca** y **S vs K**).")
 
-            col_q1, col_q2 = st.columns(2)
-            with col_q1:
-                fig_ba = plot_bland_altman(df_active, elem_qaqc, st_qaqc, unit_qaqc, theme=theme_param)
-                st.plotly_chart(fig_ba, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
-                st.caption(f"💡 **Sesgo Medio**: {st_qaqc.get('ba_mean', 0.0):+.2f}% | Límites de acuerdo 95%: [{st_qaqc.get('ba_lower_limit', 0.0):+.1f}%, {st_qaqc.get('ba_upper_limit', 0.0):+.1f}%]")
+            if 'cross_pairs' not in st.session_state or not st.session_state['cross_pairs']:
+                def_x = 'Cu' if 'Cu' in avail_elements else avail_elements[0]
+                cand_y = [el for el in ['Mo', 'Fe', 'S', 'Ca'] if el in avail_elements and el != def_x]
+                def_y = cand_y[0] if cand_y else (avail_elements[1] if len(avail_elements) > 1 else def_x)
+                st.session_state['cross_pairs'] = [{'x': def_x, 'y': def_y}]
 
-            with col_q2:
-                fig_hard = plot_hard_cumulative(df_active, elem_qaqc, st_qaqc, theme=theme_param)
-                st.plotly_chart(fig_hard, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
-                st.caption(f"💡 **Muestras con HARD ≤ 10%**: {st_qaqc.get('pct_hard_le_10', 0.0):.1f}% | Criterio minero: ≥ 80%")
+            def add_cross_pair():
+                x_def = avail_elements[0]
+                y_def = avail_elements[1] if len(avail_elements) > 1 else avail_elements[0]
+                st.session_state['cross_pairs'].append({'x': x_def, 'y': y_def})
 
-    # =========================================================================
-    # PESTAÑA 5: MATRIZ COMPLETA (35 ELEMENTOS)
-    # =========================================================================
-    with tab_all_matrix:
-        if not is_paired_hole:
-            st.info("ℹ️ La matriz multielemento y su semáforo de confiabilidad instrumental evalúan la correlación pareada (R² y sesgo relativo) entre Cutting y Pulpa a lo largo de los 35 elementos. Este sondaje dispone de una sola fuente de datos.")
-        else:
-            with st.expander("📖 Guía Didáctica: ¿Cómo interpretar la Matriz de los 35 Elementos y el Semáforo?", expanded=False):
-                st.markdown("""
-                * **¿Qué muestra?**: Una evaluación integral de la confiabilidad instrumental del equipo FRX para todos los elementos analizados.
-                * **Gráficos de Barras Superiores**:
-                  * **$R^2$ por Elemento**: Muestra la consistencia lineal. Barras verdes ($R^2 \\ge 0.85$) indican excelente respuesta instrumental.
-                  * **Sesgo Relativo (%)**: Muestra si el Cutting sobreestima ($>0$) o subestima ($<0$) al laboratorio. Barras dentro de $\\pm 10\\%$ cumplen tolerancia estricta.
-                * **Semáforo y Criterios de Uso Operacional**:
-                  * 🟢 **Excelente ($R^2 \\ge 0.85$ y $|\text{Sesgo}| \\le 10\%$)**: Datos altamente confiables. Aptos para control de leyes, delimitación de mineral y estimación directa.
-                  * 🔵 **Bueno ($R^2 \\ge 0.70$ y $|\text{Sesgo}| \\le 15\%$)**: Buena respuesta. Su sesgo se puede corregir con la ecuación de regresión RMA.
-                  * 🟠 **Aceptable / Cautela ($R^2 \\ge 0.50$)**: Presenta dispersión moderada. Confiable como guía de alteración hidrotermal y litología, pero no para reconciliación de leyes finas.
-                  * 🔴 **No Confiable / Alto Sesgo**: Elementos cerca del límite de detección (LOD) o con interferencias espectrales. Utilizar solo con carácter cualitativo (presencia/ausencia).
-                """)
+            col_c_btn, _ = st.columns([0.4, 0.6])
+            with col_c_btn:
+                st.button("Agregar Gráfico de Correlación Cruzada", on_click=add_cross_pair, use_container_width=True)
 
-            st.markdown(f"#### 🧪 Evaluación Global de los 35 Elementos en {active_title}")
-            if not summary_table.empty:
-                fig_multi = plot_multielement_overview(summary_table, theme=theme_param)
-                st.plotly_chart(fig_multi, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
+            cross_to_remove = []
+            for idx, cp in enumerate(st.session_state['cross_pairs']):
+                st.markdown("---")
+                col_ct, col_cdel = st.columns([0.82, 0.18])
+                with col_ct:
+                    st.markdown(f"##### Gráfico Cruzado #{idx + 1}: **{cp['x']}** vs **{cp['y']}**")
+                with col_cdel:
+                    if len(st.session_state['cross_pairs']) > 1:
+                        if st.button("Quitar", key=f"btn_del_cross_{idx}", use_container_width=True):
+                            cross_to_remove.append(idx)
 
-                st.markdown("#### 📋 Matriz Completa y Ranking de Confiabilidad")
-                st.dataframe(
-                    summary_table.style.format({
-                        'Media Pulpa': '{:.4f}',
-                        'Media Cutting': '{:.4f}',
-                        'Sesgo Relativo (%)': '{:+.2f}%',
-                        'R²': '{:.4f}',
-                        'Pendiente RMA': '{:.3f}',
-                        'Intercepto RMA': '{:+.4f}',
-                        '% HARD ≤ 10%': '{:.1f}%',
-                        '% HARD ≤ 20%': '{:.1f}%'
-                    }),
-                    use_container_width=True
+                col_cr1, col_cr2 = st.columns(2)
+                with col_cr1:
+                    idx_x = avail_elements.index(cp['x']) if cp['x'] in avail_elements else 0
+                    cp['x'] = st.selectbox(f"Elemento Eje X (Gráfico #{idx + 1}):", avail_elements, index=idx_x, key=f"cross_x_{idx}")
+                with col_cr2:
+                    idx_y = avail_elements.index(cp['y']) if cp['y'] in avail_elements else (1 if len(avail_elements) > 1 else 0)
+                    cp['y'] = st.selectbox(f"Elemento Eje Y (Gráfico #{idx + 1}):", avail_elements, index=idx_y, key=f"cross_y_{idx}")
+
+                if cp['x'] != cp['y']:
+                    fig_cross = plot_cross_element_correlation(
+                        df_active, cp['x'], cp['y'], selected_hole if selected_hole else "Consolidado",
+                        color_pulp=c_pulp, color_cut=c_cut,
+                        dash_pulp=dash_pulp, dash_cut=dash_cut,
+                        width_pulp=w_pulp, width_cut=w_cut,
+                        marker_size=max(5, pt_size + 2),
+                        theme=theme_param
+                    )
+                    st.plotly_chart(fig_cross, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
+                else:
+                    st.warning(f"Selecciona dos elementos diferentes para el gráfico #{idx + 1}.")
+
+            if cross_to_remove:
+                for i in sorted(cross_to_remove, reverse=True):
+                    st.session_state['cross_pairs'].pop(i)
+                st.rerun()
+
+        # =========================================================================
+        # PESTAÑA 4: CONTROL QA/QC (BLAND-ALTMAN & HARD)
+        # =========================================================================
+        with tab_qaqc:
+            if not is_paired_hole:
+                st.info("ℹ️ El control de calidad analítico QA/QC (Bland-Altman y Curvas de Precisión HARD) evalúa la diferencia relativa entre duplicados pareados (Cutting vs. Pulpa). Este sondaje dispone de una sola fuente.")
+            else:
+                with st.expander("Guía Didáctica: ¿Cómo interpretar el Control QA/QC (Bland-Altman & HARD)?", expanded=False):
+                    st.markdown("""
+                    * **Gráfico de Bland-Altman (Izquierda - Sesgo vs Concentración)**:
+                      * Evalúa si el sesgo del Cutting cambia a medida que aumenta la ley de la muestra.
+                      * **Línea Azul Central**: Representa el sesgo relativo promedio de todo el pozo.
+                      * **Líneas Punteadas Rojas ($\pm 1.96\\,\\text{SD}$)**: Marcan los límites de acuerdo del $95\%$. Muestras fuera de estas líneas rojas representan discrepancias analíticas severas que ameritan inspección visual del testigo o duplicado.
+                    * **Curva de Precisión HARD (Derecha - Frecuencia Acumulada)**:
+                      * $\\text{HARD} = \\frac{|\\text{Cutting} - \\text{Pulpa}|}{\\text{Cutting} + \\text{Pulpa}} \\times 100\\%$. Métrica estándar internacional (JORC / NI 43-101) para duplicados de control geológico.
+                      * **Regla de Decisión Minera**: Al menos el **$80\\%$** de los pares de muestras deben ubicarse bajo el **$10\\%$ de HARD** (línea roja discontinua). Si la curva morada supera este umbral, el método de Cutting califica como de alta precisión.
+                    """)
+
+                elem_qaqc = st.selectbox("Selecciona el elemento a inspeccionar en QA/QC:", selected_elements, index=0, key="qaqc_elem")
+                st_qaqc = stats_dict_map.get(elem_qaqc, calculate_element_stats(df_active, elem_qaqc))
+                unit_qaqc = get_element_unit(elem_qaqc)
+
+                col_q1, col_q2 = st.columns(2)
+                with col_q1:
+                    fig_ba = plot_bland_altman(df_active, elem_qaqc, st_qaqc, unit_qaqc, theme=theme_param)
+                    st.plotly_chart(fig_ba, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
+                    st.caption(f"**Sesgo Medio**: {st_qaqc.get('ba_mean', 0.0):+.2f}% | Límites de acuerdo 95%: [{st_qaqc.get('ba_lower_limit', 0.0):+.1f}%, {st_qaqc.get('ba_upper_limit', 0.0):+.1f}%]")
+
+                with col_q2:
+                    fig_hard = plot_hard_cumulative(df_active, elem_qaqc, st_qaqc, theme=theme_param)
+                    st.plotly_chart(fig_hard, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
+                    st.caption(f"**Muestras con HARD ≤ 10%**: {st_qaqc.get('pct_hard_le_10', 0.0):.1f}% | Criterio minero: ≥ 80%")
+
+        # =========================================================================
+        # PESTAÑA 5: MATRIZ COMPLETA (35 ELEMENTOS)
+        # =========================================================================
+        with tab_all_matrix:
+            if not is_paired_hole:
+                st.info("ℹ️ La matriz multielemento y su semáforo de confiabilidad instrumental evalúan la correlación pareada (R² y sesgo relativo) entre Cutting y Pulpa a lo largo de los 35 elementos. Este sondaje dispone de una sola fuente de datos.")
+            else:
+                with st.expander("Guía Didáctica: ¿Cómo interpretar la Matriz de los 35 Elementos y el Semáforo?", expanded=False):
+                    st.markdown("""
+                    * **¿Qué muestra?**: Una evaluación integral de la confiabilidad instrumental del equipo FRX para todos los elementos analizados.
+                    * **Gráficos de Barras Superiores**:
+                      * **$R^2$ por Elemento**: Muestra la consistencia lineal. Barras verdes ($R^2 \\ge 0.85$) indican excelente respuesta instrumental.
+                      * **Sesgo Relativo (%)**: Muestra si el Cutting sobreestima ($>0$) o subestima ($<0$) al laboratorio. Barras dentro de $\\pm 10\\%$ cumplen tolerancia estricta.
+                    * **Semáforo y Criterios de Uso Operacional**:
+                      * **Excelente ($R^2 \\ge 0.85$ y $|\text{Sesgo}| \\le 10\%$)**: Datos altamente confiables. Aptos para control de leyes, delimitación de mineral y estimación directa.
+                      * **Bueno ($R^2 \\ge 0.70$ y $|\text{Sesgo}| \\le 15\%$)**: Buena respuesta. Su sesgo se puede corregir con la ecuación de regresión RMA.
+                      * **Aceptable / Cautela ($R^2 \\ge 0.50$)**: Presenta dispersión moderada. Confiable como guía de alteración hidrotermal y litología, pero no para reconciliación de leyes finas.
+                      * **No Confiable / Alto Sesgo**: Elementos cerca del límite de detección (LOD) o con interferencias espectrales. Utilizar solo con carácter cualitativo (presencia/ausencia).
+                    """)
+
+                st.markdown(f"#### Evaluación Global de los 35 Elementos en {active_title}")
+                if not summary_table.empty:
+                    fig_multi = plot_multielement_overview(summary_table, theme=theme_param)
+                    st.plotly_chart(fig_multi, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
+
+                    st.markdown("#### Matriz Completa y Ranking de Confiabilidad")
+                    st.dataframe(
+                        summary_table.style.format({
+                            'Media Pulpa': '{:.4f}',
+                            'Media Cutting': '{:.4f}',
+                            'Sesgo Relativo (%)': '{:+.2f}%',
+                            'R²': '{:.4f}',
+                            'Pendiente RMA': '{:.3f}',
+                            'Intercepto RMA': '{:+.4f}',
+                            '% HARD ≤ 10%': '{:.1f}%',
+                            '% HARD ≤ 20%': '{:.1f}%'
+                        }),
+                        use_container_width=True
+                    )
+
+        # =========================================================================
+        # PESTAÑA 6: TABLA DE DATOS & EXPORTACIÓN
+        # =========================================================================
+        with tab_data:
+            st.markdown(f"#### Datos de Muestreo Tramo a Tramo ({len(df_active):,} filas)")
+        
+            # Filtro de columnas para mostrar principalmente las seleccionadas
+            base_cols = ['Sondaje', 'From', 'To', 'Longitud_m', 'Punto_Medio_m']
+            if 'Sample_ID_Pulp' in df_active.columns: base_cols.append('Sample_ID_Pulp')
+            if 'Sample_ID_Cut' in df_active.columns: base_cols.append('Sample_ID_Cut')
+        
+            elem_cols = []
+            for el in selected_elements:
+                for suffix in ['_Pulp', '_Cut', '_Diff_Abs', '_Diff_Rel_%', '_HARD_%']:
+                    c = f"{el}{suffix}"
+                    if c in df_active.columns:
+                        elem_cols.append(c)
+
+            cols_to_display = [c for c in base_cols + elem_cols if c in df_active.columns]
+            st.dataframe(df_active[cols_to_display].head(250), use_container_width=True)
+
+            col_d1, col_d2 = st.columns(2)
+            with col_d1:
+                csv_buffer = df_active[cols_to_display].to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="Descargar Elementos Seleccionados en CSV",
+                    data=csv_buffer,
+                    file_name=f"FRX_Datos_{selected_hole if selected_hole else 'Sondaje'}_MultiElem.csv",
+                    mime="text/csv"
+                )
+            with col_d2:
+                excel_buffer = io.BytesIO()
+                with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                    df_active.to_excel(writer, index=False, sheet_name="Todos_los_Datos")
+                    if not summary_table.empty:
+                        summary_table.to_excel(writer, index=False, sheet_name="Resumen_35_Elementos")
+                    df_author = pd.DataFrame([{
+                        "Software": "Ct-Pp QA/QC Analytics",
+                        "Desarrollador": "Claudio Muñoz Rubilar",
+                        "Especialidad": "Geología & Control de Calidad Analítico (QA/QC)",
+                        "Sondaje": selected_hole if selected_hole else 'Sondaje',
+                        "Fecha Exportación": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M")
+                    }])
+                    df_author.to_excel(writer, index=False, sheet_name="Creditos_Autor")
+                excel_buffer.seek(0)
+                st.download_button(
+                    label="Descargar Informe Completo en Excel (.xlsx)",
+                    data=excel_buffer,
+                    file_name=f"FRX_Reporte_{selected_hole if selected_hole else 'Sondaje'}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
 
+
+
+        # =========================================================================
+    # MÓDULO INDEPENDIENTE: VISUALIZACIÓN ESPACIAL 3D Y GIROSCOPÍA
     # =========================================================================
-    # PESTAÑA 6: TABLA DE DATOS & EXPORTACIÓN
-    # =========================================================================
-    with tab_data:
-        st.markdown(f"#### 📄 Datos de Muestreo Tramo a Tramo ({len(df_active):,} filas)")
-        
-        # Filtro de columnas para mostrar principalmente las seleccionadas
-        base_cols = ['Sondaje', 'From', 'To', 'Longitud_m', 'Punto_Medio_m']
-        if 'Sample_ID_Pulp' in df_active.columns: base_cols.append('Sample_ID_Pulp')
-        if 'Sample_ID_Cut' in df_active.columns: base_cols.append('Sample_ID_Cut')
-        
-        elem_cols = []
-        for el in selected_elements:
-            for suffix in ['_Pulp', '_Cut', '_Diff_Abs', '_Diff_Rel_%', '_HARD_%']:
-                c = f"{el}{suffix}"
-                if c in df_active.columns:
-                    elem_cols.append(c)
-
-        cols_to_display = [c for c in base_cols + elem_cols if c in df_active.columns]
-        st.dataframe(df_active[cols_to_display].head(250), use_container_width=True)
-
-        col_d1, col_d2 = st.columns(2)
-        with col_d1:
-            csv_buffer = df_active[cols_to_display].to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 Descargar Elementos Seleccionados en CSV",
-                data=csv_buffer,
-                file_name=f"FRX_Datos_{selected_hole if selected_hole else 'Sondaje'}_MultiElem.csv",
-                mime="text/csv"
-            )
-        with col_d2:
-            excel_buffer = io.BytesIO()
-            with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-                df_active.to_excel(writer, index=False, sheet_name="Todos_los_Datos")
-                if not summary_table.empty:
-                    summary_table.to_excel(writer, index=False, sheet_name="Resumen_35_Elementos")
-                df_author = pd.DataFrame([{
-                    "Software": "Ct-Pp QA/QC Analytics",
-                    "Desarrollador": "Claudio Muñoz Rubilar",
-                    "Especialidad": "Geología & Control de Calidad Analítico (QA/QC)",
-                    "Sondaje": selected_hole if selected_hole else 'Sondaje',
-                    "Fecha Exportación": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M")
-                }])
-                df_author.to_excel(writer, index=False, sheet_name="Creditos_Autor")
-            excel_buffer.seek(0)
-            st.download_button(
-                label="📊 Descargar Informe Completo en Excel (.xlsx)",
-                data=excel_buffer,
-                file_name=f"FRX_Reporte_{selected_hole if selected_hole else 'Sondaje'}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-
-
-
-    # =========================================================================
-    # PESTAÑA 7: VISOR ESPACIAL 3D & GIROSCOPÍA (HERRAMIENTA EXTRA)
-    # =========================================================================
-    with tab_spatial:
-        st.markdown("### 🌐 Visor Espacial 3D & Trayectorias de Giroscopía")
+    else:
+        st.markdown("### Visor Espacial 3D & Trayectorias de Giroscopía")
         st.caption("Herramienta complementaria de modelamiento espacial y georreferenciación 3D a partir de Certificados Oficiales de Giroscopía.")
 
         has_hole_gyro = (selected_hole in gyro_map)
@@ -1562,7 +1571,7 @@ def main():
                 meta_c = cert_data['metadata']
 
                 st.success(
-                    f"📍 **Giroscopía Oficial Enlazada para {selected_hole}** | "
+                    f"**Giroscopía Oficial Enlazada para {selected_hole}** | "
                     f"Fase: **{meta_c.get('UBICACION', 'General')}** | "
                     f"Operador: **{meta_c.get('OPERADOR', '-')}** | "
                     f"Fecha: **{meta_c.get('FECHA', '-')}** | "
@@ -1585,7 +1594,7 @@ def main():
                 st.warning(f"Aviso al procesar giroscopía de {selected_hole}: {e}")
         else:
             st.info(
-                f"ℹ️ El sondaje **{selected_hole}** no cuenta con certificado direccional en Giroscopía. "
+                f"El sondaje **{selected_hole}** no cuenta con certificado direccional en Giroscopía. "
                 f"El **Plano en Planta** está disponible a continuación con los {len(df_all_collars)} collares disponibles en el yacimiento."
             )
 
@@ -1594,12 +1603,12 @@ def main():
         with col_sp_mode:
             spatial_mode = st.radio(
                 "Modalidad Espacial:",
-                ["🌐 Visor 3D de Sondajes & Mineralización", "🗺️ Plano Geológico en Planta (Collares & Trazas)"],
+                ["Visor 3D de Sondajes & Mineralización", "Plano Geológico en Planta (Collares & Trazas)"],
                 index=0 if has_hole_gyro else 1,
                 horizontal=True
             )
 
-        if spatial_mode.startswith("🌐"):
+        if spatial_mode.startswith("Visor 3D"):
             # VISOR 3D: SOPORTE PARA TODOS LOS 35 ELEMENTOS (CUTTING Y PULPA)
             with col_sp_ctl:
                 # Detectar todas las columnas químicas disponibles
@@ -1619,7 +1628,7 @@ def main():
 
                 def_3d_idx = all_3d_candidates.index('Cu_Cut') if 'Cu_Cut' in all_3d_candidates else 0
                 sel_elem_3d = st.selectbox(
-                    "🧪 Elemento a modelar en 3D (35 elementos disponibles):",
+                    "Elemento a modelar en 3D (35 elementos disponibles):",
                     all_3d_candidates,
                     index=def_3d_idx,
                     format_func=format_3d_elem_label,
@@ -1629,11 +1638,11 @@ def main():
             if has_hole_gyro and not df_hole_3d.empty:
                 col_3d_opt1, col_3d_opt2, col_3d_opt3 = st.columns([0.38, 0.32, 0.30])
                 with col_3d_opt1:
-                    include_neighbors = st.checkbox("🔍 Incluir sondajes vecinos", value=False)
+                    include_neighbors = st.checkbox("Incluir sondajes vecinos", value=False)
                 with col_3d_opt2:
                     show_3d_legend = st.checkbox("Mostrar nombres de pozos", value=True)
                 with col_3d_opt3:
-                    show_topography = st.checkbox("⛰️ Topografía 3D (Rajo)", value=True, help="Muestra la superficie continua del terreno del rajo minero en 3D")
+                    show_topography = st.checkbox("Topografía 3D (Rajo)", value=True, help="Muestra la superficie continua del terreno del rajo minero en 3D")
 
                 topo_opacity = 0.45
                 if show_topography:
@@ -1667,7 +1676,7 @@ def main():
                     topo_data=topo_data
                 )
                 st.plotly_chart(fig_3d, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
-                st.caption("💡 **Interacción 3D**: Arrastra con clic izquierdo para rotar en 360°, clic derecho para desplazar (pan) y rueda del ratón para zoom. La escala de ley se ubica a la derecha y los pozos a la izquierda sin solaparse.")
+                st.caption("**Interacción 3D**: Arrastra con clic izquierdo para rotar en 360°, clic derecho para desplazar (pan) y rueda del ratón para zoom. La escala de ley se ubica a la derecha y los pozos a la izquierda sin solaparse.")
             else:
                 st.warning(f"No se puede renderizar la trayectoria 3D de {selected_hole} porque no tiene certificado direccional. Selecciona un sondaje con giroscopía (ej. DDH4092, DDH3866, DDH3878).")
 
@@ -1678,14 +1687,14 @@ def main():
                 with col_pf1:
                     plan_focus = st.radio(
                         "Enfoque del Plano:",
-                        ["🎯 Entorno Local (con vectores)", "🗺️ Plano General (Todos los collares)"],
+                        ["Entorno Local (con vectores)", "Plano General (Todos los collares)"],
                         index=0 if has_hole_gyro else 1,
                         horizontal=True
                     )
                 with col_pf2:
                     st.write("")
-                    show_contours_2d = st.checkbox("🗺️ Curvas de nivel (50m)", value=True, help="Muestra curvas de nivel topográficas generadas a partir de los collares")
-                v_mode = 'local' if plan_focus.startswith("🎯") else 'global'
+                    show_contours_2d = st.checkbox("Curvas de nivel (50m)", value=True, help="Muestra curvas de nivel topográficas generadas a partir de los collares")
+                v_mode = 'local' if plan_focus.startswith("Entorno Local") else 'global'
 
             fig_map = plot_collar_map_2d(
                 df_all_collars,
@@ -1696,9 +1705,9 @@ def main():
                 topo_data=topo_data
             )
             st.plotly_chart(fig_map, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
-            st.caption("💡 **Plano Geológico**: Las líneas continuas/punteadas indican la proyección horizontal del sondaje hacia donde avanza la perforación (según su azimut e inclinación).")
+            st.caption("**Plano Geológico**: Las líneas continuas/punteadas indican la proyección horizontal del sondaje hacia donde avanza la perforación (según su azimut e inclinación).")
 
-            with st.expander("📋 Ver Tabla Completa de Coordenadas de Collares", expanded=False):
+            with st.expander("Ver Tabla Completa de Coordenadas de Collares", expanded=False):
                 st.dataframe(
                     df_all_collars.style.format({
                         'East': '{:,.2f}',
@@ -1716,7 +1725,7 @@ def main():
     st.markdown("---")
     st.markdown("""
     <div style="text-align: center; padding: 1.5rem 0 2rem 0; color: #64748b; font-size: 0.85rem;">
-        🔬 <b>Ct-Pp QA/QC Analytics</b> &bull; Software desarrollado por <b>Claudio Muñoz Rubilar</b> &bull; Reconciliación Geológica Pulpas vs. Cutting
+        <b>Ct-Pp QA/QC Analytics</b> &bull; Software desarrollado por <b>Claudio Muñoz Rubilar</b> &bull; Reconciliación Geológica Pulpas vs. Cutting
     </div>
     """, unsafe_allow_html=True)
 

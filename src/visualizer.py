@@ -531,6 +531,7 @@ def plot_multi_track_downhole(df: pd.DataFrame,
                         y=sub[p_col],
                         mode=plot_mode,
                         name='Pulpa (Ref)',
+                        legendgroup='Pulpa',
                         line=dict(color=color_pulp, width=width_pulp, dash=dash_pulp),
                         marker=dict(size=marker_size, color=color_pulp),
                         showlegend=show_leg,
@@ -552,6 +553,7 @@ def plot_multi_track_downhole(df: pd.DataFrame,
                         y=sub[c_col],
                         mode=plot_mode,
                         name='Cutting (FRX)',
+                        legendgroup='Cutting',
                         line=dict(color=color_cut, width=width_cut, dash=dash_cut),
                         marker=dict(size=marker_size, color=color_cut, symbol='square'),
                         showlegend=show_leg,
@@ -610,6 +612,7 @@ def plot_multi_track_downhole(df: pd.DataFrame,
                         y=sub['Punto_Medio_m'],
                         mode=plot_mode,
                         name='Pulpa (Ref)',
+                        legendgroup='Pulpa',
                         line=dict(color=color_pulp, width=width_pulp, dash=dash_pulp),
                         marker=dict(size=marker_size, color=color_pulp),
                         showlegend=show_leg,
@@ -631,6 +634,7 @@ def plot_multi_track_downhole(df: pd.DataFrame,
                         y=sub['Punto_Medio_m'],
                         mode=plot_mode,
                         name='Cutting (FRX)',
+                        legendgroup='Cutting',
                         line=dict(color=color_cut, width=width_cut, dash=dash_cut),
                         marker=dict(size=marker_size, color=color_cut, symbol='square'),
                         showlegend=show_leg,
@@ -1614,11 +1618,11 @@ def render_sticky_ruler_html(df: pd.DataFrame, elem: str, unit: Optional[str] = 
         '">'
         '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">'
         '<div style="width: 66%; display: flex; justify-content: space-between; align-items: center; padding-right: 15px;">'
-        f'<span style="font-weight: 700; color: #63b3ed; font-size: 11px;">📌 EJE X FIJO (LEY): {elem} ({unit})</span>'
+        f'<span style="font-weight: 700; color: #63b3ed; font-size: 11px;">EJE X FIJO (LEY): {elem} ({unit})</span>'
         '<span style="font-size: 10px; color: #a0aec0;">Pulpa (Azul) / Cutting (Naranja)</span>'
         '</div>'
         '<div style="width: 32%; display: flex; justify-content: space-between; align-items: center; padding-left: 10px; border-left: 2px solid rgba(255,255,255,0.25);">'
-        f'<span style="font-weight: 700; color: #fc8181; font-size: 11px;">📌 EJE X FIJO (DISCREPANCIA): Δ {elem} ({unit})</span>'
+        f'<span style="font-weight: 700; color: #fc8181; font-size: 11px;">EJE X FIJO (DISCREPANCIA): Δ {elem} ({unit})</span>'
         '<span style="font-size: 10px; color: #a0aec0;">Cutting - Pulpa</span>'
         '</div>'
         '</div>'
@@ -1674,7 +1678,7 @@ def render_sticky_multitrack_html(df: pd.DataFrame, elements: list) -> str:
         'padding: 6px 12px; margin: 6px 0 12px 0; box-shadow: 0 4px 14px rgba(0,0,0,0.35);'
         '">'
         '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">'
-        '<span style="font-size: 11px; font-weight: 700; color: #90cdf4;">📌 REGLA FLOTANTE — ESCALAS EJE X (FIJAS AL HACER SCROLL):</span>'
+        '<span style="font-size: 11px; font-weight: 700; color: #90cdf4;">REGLA FLOTANTE — ESCALAS EJE X (FIJAS AL HACER SCROLL):</span>'
         '<span style="font-size: 10px; color: #a0aec0;">Pulpa (Azul) / Cutting (Naranja)</span>'
         '</div>'
         f'<div style="display: flex; justify-content: space-between; width: 100%;">{all_cols}</div>'

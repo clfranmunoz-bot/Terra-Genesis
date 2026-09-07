@@ -194,7 +194,7 @@ def plot_collar_map_2d(df_collars: pd.DataFrame,
             x=[c_sel['East']],
             y=[c_sel['North']],
             mode='markers',
-            name=f"⭐ Activo: {selected_hole}",
+            name=f"Activo: {selected_hole}",
             marker=dict(
                 size=20,
                 color='#ef4444',
@@ -205,9 +205,9 @@ def plot_collar_map_2d(df_collars: pd.DataFrame,
         ))
 
     title_text = (
-        f"🗺️ Plano Local de Sondajes — Centrado en {selected_hole} ({len(df_plot)} pozos con proyección horizontal)"
+        f"Plano Local de Sondajes — Centrado en {selected_hole} ({len(df_plot)} pozos con proyección horizontal)"
         if (view_mode == 'local' and selected_hole)
-        else f"🗺️ Plano General de Collares en Superficie ({len(df_plot)} Sondajes Georreferenciados)"
+        else f"Plano General de Collares en Superficie ({len(df_plot)} Sondajes Georreferenciados)"
     )
 
     fig.update_layout(
@@ -352,7 +352,7 @@ def plot_drillholes_3d(spatial_datasets: Dict[str, pd.DataFrame],
             y=sub['Mid_Y'],
             z=sub['Mid_Z'],
             mode='lines+markers',
-            name=f"{h_id}" + (" (⭐ Activo)" if is_selected else ""),
+            name=f"{h_id}" + (" (Activo)" if is_selected else ""),
             showlegend=show_legend,
             line=dict(
                 color=vals,
@@ -383,7 +383,7 @@ def plot_drillholes_3d(spatial_datasets: Dict[str, pd.DataFrame],
 
     fig.update_layout(
         title=dict(
-            text=f"🌐 Visor 3D de Sondajes — Ley {title_elem_desc}" + (" + Topografía Rajo" if (show_topography and topo_data) else ""),
+            text=f"Visor 3D de Sondajes — Ley {title_elem_desc}" + (" + Topografía Rajo" if (show_topography and topo_data) else ""),
             font=dict(size=17, color=text_color)
         ),
         scene=dict(
