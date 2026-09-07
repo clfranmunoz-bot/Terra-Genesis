@@ -141,6 +141,12 @@ def cached_hole_spatial(fpath: str, df_active_json: str):
     return cert, df_3d
 
 
+@st.cache_data(show_spinner="Calculando superficie topográfica del rajo minero...")
+def cached_topography_grid(df_collars_json: str):
+    df_c = pd.read_json(io.StringIO(df_collars_json))
+    return compute_topography_grid(df_c)
+
+
 
 def main():
     # -------------------------------------------------------------------------
