@@ -64,6 +64,10 @@ def run_tests():
     f6_horiz = plot_multi_track_downhole(df, ['Cu', 'Mo', 'Fe'], 'DDH4092', orientation='horizontal')
     f7_vert = plot_two_elements_overlay(df, 'Cu', 'Mo', 'DDH4092', orientation='vertical')
     f7_horiz = plot_two_elements_overlay(df, 'Cu', 'Mo', 'DDH4092', orientation='horizontal')
+    f7_3e_horiz = plot_two_elements_overlay(df, 'Cu', 'Mo', 'DDH4092', elem3='Fe', orientation='horizontal')
+    assert 'yaxis3' in f7_3e_horiz.layout, "yaxis3 must be in 3-element horizontal overlay"
+    f7_3e_vert = plot_two_elements_overlay(df, 'Cu', 'Mo', 'DDH4092', elem3='Fe', orientation='vertical')
+    assert 'xaxis3' in f7_3e_vert.layout, "xaxis3 must be in 3-element vertical overlay"
     f8 = plot_multi_scatter_grid(df, ['Cu', 'Mo', 'Fe', 'S'], 'DDH4092')
     f9 = plot_cross_element_correlation(df, 'Cu', 'Mo', 'DDH4092')
     print("   Success: All Plotly figures generated successfully in both Vertical and Horizontal modes.")

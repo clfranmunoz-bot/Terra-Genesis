@@ -95,10 +95,14 @@ DEFAULT_STYLE_SETTINGS = {
     'color_cut': '#ff7f0e',
     'color_e2_pulp': '#2ca02c',
     'color_e2_cut': '#d62728',
+    'color_e3_pulp': '#9467bd',
+    'color_e3_cut': '#8c564b',
     'dash_pulp_choice': "── Sólida",
     'dash_cut_choice': "── Sólida",
     'dash_e2_pulp_choice': "── Sólida",
     'dash_e2_cut_choice': "··· Punteada",
+    'dash_e3_pulp_choice': "── Sólida",
+    'dash_e3_cut_choice': "-- Segmentada",
     'line_mode_choice': "Línea + Puntos",
     'width_pulp': 2.5,
     'width_cut': 2.0,
@@ -710,10 +714,14 @@ def main():
                     st.session_state['color_cut'] = '#ff7f0e'
                     st.session_state['color_e2_pulp'] = '#2ca02c'
                     st.session_state['color_e2_cut'] = '#d62728'
+                    st.session_state['color_e3_pulp'] = '#9467bd'
+                    st.session_state['color_e3_cut'] = '#8c564b'
                     st.session_state['dash_pulp_choice'] = "── Sólida"
                     st.session_state['dash_cut_choice'] = "── Sólida"
                     st.session_state['dash_e2_pulp_choice'] = "── Sólida"
                     st.session_state['dash_e2_cut_choice'] = "··· Punteada"
+                    st.session_state['dash_e3_pulp_choice'] = "── Sólida"
+                    st.session_state['dash_e3_cut_choice'] = "-- Segmentada"
                     st.session_state['line_mode_choice'] = "Línea + Puntos"
                     st.session_state['width_pulp'] = 2.5
                     st.session_state['width_cut'] = 2.0
@@ -728,10 +736,14 @@ def main():
                 if 'color_cut' not in st.session_state: st.session_state['color_cut'] = '#ff7f0e'
                 if 'color_e2_pulp' not in st.session_state: st.session_state['color_e2_pulp'] = '#2ca02c'
                 if 'color_e2_cut' not in st.session_state: st.session_state['color_e2_cut'] = '#d62728'
+                if 'color_e3_pulp' not in st.session_state: st.session_state['color_e3_pulp'] = '#9467bd'
+                if 'color_e3_cut' not in st.session_state: st.session_state['color_e3_cut'] = '#8c564b'
                 if st.session_state.get('dash_pulp_choice') not in dash_options: st.session_state['dash_pulp_choice'] = "── Sólida"
                 if st.session_state.get('dash_cut_choice') not in dash_options: st.session_state['dash_cut_choice'] = "── Sólida"
                 if st.session_state.get('dash_e2_pulp_choice') not in dash_options: st.session_state['dash_e2_pulp_choice'] = "── Sólida"
                 if st.session_state.get('dash_e2_cut_choice') not in dash_options: st.session_state['dash_e2_cut_choice'] = "··· Punteada"
+                if st.session_state.get('dash_e3_pulp_choice') not in dash_options: st.session_state['dash_e3_pulp_choice'] = "── Sólida"
+                if st.session_state.get('dash_e3_cut_choice') not in dash_options: st.session_state['dash_e3_cut_choice'] = "-- Segmentada"
                 if 'line_mode_choice' not in st.session_state: st.session_state['line_mode_choice'] = "Línea + Puntos"
                 if 'width_pulp' not in st.session_state: st.session_state['width_pulp'] = 2.5
                 if 'width_cut' not in st.session_state: st.session_state['width_cut'] = 2.0
@@ -788,6 +800,21 @@ def main():
                     st.selectbox("Trazo E2 Pulpa:", dash_options, key="dash_e2_pulp_choice")
                 with col_t4:
                     st.selectbox("Trazo E2 Cutting:", dash_options, key="dash_e2_cut_choice")
+
+                # --- SECCIÓN 2.5: CURVAS ELEMENTO 3 (SUPERPOSICIÓN) ---
+                st.markdown("---")
+                st.markdown("##### Elemento 3 (Superposición)")
+                col_c5, col_c6 = st.columns(2)
+                with col_c5:
+                    st.color_picker("Elem 3 Pulpa:", value=st.session_state.get('color_e3_pulp', '#9467bd'), key="color_e3_pulp")
+                with col_c6:
+                    st.color_picker("Elem 3 Cutting:", value=st.session_state.get('color_e3_cut', '#8c564b'), key="color_e3_cut")
+
+                col_t5, col_t6 = st.columns(2)
+                with col_t5:
+                    st.selectbox("Trazo E3 Pulpa:", dash_options, key="dash_e3_pulp_choice")
+                with col_t6:
+                    st.selectbox("Trazo E3 Cutting:", dash_options, key="dash_e3_cut_choice")
 
                 # --- SECCIÓN 3: PUNTOS Y MODO GLOBAL ---
                 st.markdown("---")
@@ -934,11 +961,15 @@ def main():
 
     c_e2_pulp = st.session_state.get('color_e2_pulp') or '#2ca02c'
     c_e2_cut = st.session_state.get('color_e2_cut') or '#d62728'
+    c_e3_pulp = st.session_state.get('color_e3_pulp') or '#9467bd'
+    c_e3_cut = st.session_state.get('color_e3_cut') or '#8c564b'
 
     dash_pulp = dash_map.get(st.session_state.get('dash_pulp_choice', "── Sólida"), "solid")
     dash_cut = dash_map.get(st.session_state.get('dash_cut_choice', "── Sólida"), "solid")
     dash_e2_pulp = dash_map.get(st.session_state.get('dash_e2_pulp_choice', "── Sólida"), "solid")
     dash_e2_cut = dash_map.get(st.session_state.get('dash_e2_cut_choice', "··· Punteada"), "dot")
+    dash_e3_pulp = dash_map.get(st.session_state.get('dash_e3_pulp_choice', "── Sólida"), "solid")
+    dash_e3_cut = dash_map.get(st.session_state.get('dash_e3_cut_choice', "-- Segmentada"), "dash")
 
     plot_mode = mode_map.get(st.session_state.get('line_mode_choice', "Línea + Puntos"), "lines+markers")
     w_pulp = float(st.session_state.get('width_pulp', 2.5))
@@ -1190,18 +1221,23 @@ def main():
 
             elif dh_view.startswith("Superposición"):
                 st.markdown(f"#### Superposición de Elementos en {selected_hole}")
-                st.caption("Superpone pares de elementos en el mismo perfil (con doble escala). Puedes agregar múltiples gráficos comparativos independientes a tu antojo (ej. **S vs Ca** y **S vs K**) para evaluar su comportamiento conjunto.")
+                st.caption("Superpone hasta tres elementos en el mismo perfil (con escalas múltiples). Puedes agregar múltiples gráficos comparativos independientes a tu antojo (ej. **Cu vs Mo vs Fe** o **S vs Ca**) para evaluar su comportamiento y zonamiento conjunto.")
+
+                elem3_options = ["(Ninguno)"] + avail_elements
 
                 if 'overlay_pairs' not in st.session_state or not st.session_state['overlay_pairs']:
                     default_e1 = selected_elements[0] if selected_elements else avail_elements[0]
                     candidates_e2 = [el for el in selected_elements if el != default_e1] or [el for el in avail_elements if el != default_e1]
                     default_e2 = candidates_e2[0] if candidates_e2 else default_e1
-                    st.session_state['overlay_pairs'] = [{'e1': default_e1, 'e2': default_e2}]
+                    candidates_e3 = [el for el in selected_elements if el not in [default_e1, default_e2]] or [el for el in avail_elements if el not in [default_e1, default_e2]]
+                    default_e3 = candidates_e3[0] if candidates_e3 else "(Ninguno)"
+                    st.session_state['overlay_pairs'] = [{'e1': default_e1, 'e2': default_e2, 'e3': default_e3}]
 
                 def add_overlay_pair():
                     e1_def = avail_elements[0]
                     e2_def = avail_elements[1] if len(avail_elements) > 1 else avail_elements[0]
-                    st.session_state['overlay_pairs'].append({'e1': e1_def, 'e2': e2_def})
+                    e3_def = avail_elements[2] if len(avail_elements) > 2 else "(Ninguno)"
+                    st.session_state['overlay_pairs'].append({'e1': e1_def, 'e2': e2_def, 'e3': e3_def})
 
                 col_add_btn, _ = st.columns([0.4, 0.6])
                 with col_add_btn:
@@ -1209,35 +1245,49 @@ def main():
 
                 pairs_to_remove = []
                 for idx, pair in enumerate(st.session_state['overlay_pairs']):
+                    if 'e3' not in pair:
+                        pair['e3'] = "(Ninguno)"
+
+                    e3_title_str = f" vs **{pair['e3']}**" if pair['e3'] != "(Ninguno)" else ""
                     st.markdown("---")
                     col_t, col_del = st.columns([0.82, 0.18])
                     with col_t:
-                        st.markdown(f"##### Gráfico #{idx + 1}: **{pair['e1']}** vs **{pair['e2']}**")
+                        st.markdown(f"##### Gráfico #{idx + 1}: **{pair['e1']}** vs **{pair['e2']}**{e3_title_str}")
                     with col_del:
                         if len(st.session_state['overlay_pairs']) > 1:
                             if st.button("Quitar", key=f"btn_del_overlay_{idx}", use_container_width=True):
                                 pairs_to_remove.append(idx)
 
-                    col_sel1, col_sel2 = st.columns(2)
+                    col_sel1, col_sel2, col_sel3 = st.columns(3)
                     with col_sel1:
                         idx_e1 = avail_elements.index(pair['e1']) if pair['e1'] in avail_elements else 0
                         pair['e1'] = st.selectbox(f"Elemento 1 (Gráfico #{idx + 1}):", avail_elements, index=idx_e1, key=f"overlay_pair_e1_{idx}")
                     with col_sel2:
                         idx_e2 = avail_elements.index(pair['e2']) if pair['e2'] in avail_elements else (1 if len(avail_elements) > 1 else 0)
                         pair['e2'] = st.selectbox(f"Elemento 2 (Gráfico #{idx + 1}):", avail_elements, index=idx_e2, key=f"overlay_pair_e2_{idx}")
+                    with col_sel3:
+                        idx_e3 = elem3_options.index(pair['e3']) if pair['e3'] in elem3_options else 0
+                        pair['e3'] = st.selectbox(f"Elemento 3 (Opcional #{idx + 1}):", elem3_options, index=idx_e3, key=f"overlay_pair_e3_{idx}")
 
-                    if pair['e1'] == pair['e2']:
-                        st.info(f"Ambos ejes tienen el mismo elemento (**{pair['e1']}**). Elige otro elemento secundario para analizar la relación.")
+                    active_chosen = [pair['e1'], pair['e2']]
+                    if pair['e3'] != "(Ninguno)":
+                        active_chosen.append(pair['e3'])
+                    if len(active_chosen) != len(set(active_chosen)):
+                        st.info("Has seleccionado elementos repetidos en este gráfico. Te sugerimos seleccionar elementos distintos para una visualización óptima.")
 
                     fig_ov = plot_two_elements_overlay(
                         df_active, pair['e1'], pair['e2'], selected_hole,
+                        elem3=pair['e3'],
                         orientation=orientation_param, height=profile_height,
                         color_pulp=c_pulp, color_cut=c_cut,
                         color_e2_pulp=c_e2_pulp, color_e2_cut=c_e2_cut,
+                        color_e3_pulp=c_e3_pulp, color_e3_cut=c_e3_cut,
                         dash_pulp=dash_pulp, dash_cut=dash_cut,
                         dash_e2_pulp=dash_e2_pulp, dash_e2_cut=dash_e2_cut,
+                        dash_e3_pulp=dash_e3_pulp, dash_e3_cut=dash_e3_cut,
                         width_pulp=w_pulp, width_cut=w_cut,
                         width_e2_pulp=w_pulp, width_e2_cut=w_cut,
+                        width_e3_pulp=w_pulp, width_e3_cut=w_cut,
                         plot_mode=plot_mode, marker_size=pt_size,
                         theme=theme_param
                     )

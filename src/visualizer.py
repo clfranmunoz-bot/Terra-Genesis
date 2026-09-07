@@ -13,6 +13,7 @@ __all__ = [
     'plot_downhole_profile',
     'plot_multi_track_downhole',
     'plot_two_elements_overlay',
+    'plot_three_elements_overlay',
     'plot_scatter_1to1',
     'plot_multi_scatter_grid',
     'plot_cross_element_correlation',
@@ -706,32 +707,52 @@ def plot_two_elements_overlay(df: pd.DataFrame,
                               elem1: str,
                               elem2: str,
                               hole_id: str,
+                              elem3: Optional[str] = None,
                               orientation: str = 'vertical',
                               height: int = 750,
                               color_pulp: str = '#1f77b4',
                               color_cut: str = '#ff7f0e',
                               color_e2_pulp: str = '#2ca02c',
                               color_e2_cut: str = '#d62728',
+                              color_e3_pulp: str = '#9467bd',
+                              color_e3_cut: str = '#8c564b',
                               dash_pulp: str = 'solid',
                               dash_cut: str = 'solid',
                               dash_e2_pulp: str = 'solid',
                               dash_e2_cut: str = 'dot',
+                              dash_e3_pulp: str = 'solid',
+                              dash_e3_cut: str = 'dash',
                               width_pulp: float = 2.5,
                               width_cut: float = 2.0,
                               width_e2_pulp: float = 2.5,
                               width_e2_cut: float = 2.0,
+                              width_e3_pulp: float = 2.5,
+                              width_e3_cut: float = 2.0,
                               plot_mode: str = 'lines+markers',
                               marker_size: int = 4,
                               theme: str = 'light') -> go.Figure:
     """
-    Superpone dos elementos (ej. Cu y Mo, o S y Ca) en el mismo perfil de profundidad
-    usando doble eje (X1/X2 en vertical o Y1/Y2 en horizontal) para analizar zonamiento y co-ocurrencia.
-    Soporta colores y estilos de línea totalmente configurables por el usuario.
+    Superpone hasta tres elementos (ej. Cu, Mo y Fe) en el mismo perfil de profundidad
+    usando ejes múltiples (X1/X2/X3 en vertical o Y1/Y2/Y3 en horizontal) para analizar
+    zonamiento y co-ocurrencia geoquímica tramo a tramo.
+    Si elem3 es None o '(Ninguno)', opera limpiamente en modo de dos elementos (doble eje).
     """
     unit1 = get_element_unit(elem1)
     unit2 = get_element_unit(elem2)
 
-    req_cols = list(dict.fromkeys(['From', 'To', 'Punto_Medio_m', f"{elem1}_Pulp", f"{elem1}_Cut", f"{elem2}_Pulp", f"{elem2}_Cut"]))
+    has_e3 = False
+    if elem3 and str(elem3).strip() not in ['(Ninguno)', 'Ninguno', 'None', '', 'none']:
+        c_e3_p_chk = f"{elem3}_Pulp"
+        c_e3_c_chk = f"{elem3}_Cut"
+        if c_e3_p_chk in df.columns or c_e3_c_chk in df.columns:
+            has_e3 = True
+            unit3 = get_element_unit(elem3)
+
+    req_cols = ['From', 'To', 'Punto_Medio_m', f"{elem1}_Pulp", f"{elem1}_Cut", f"{elem2}_Pulp", f"{elem2}_Cut"]
+    if has_e3:
+        req_cols.extend([f"{elem3}_Pulp", f"{elem3}_Cut"])
+    req_cols = list(dict.fromkeys(req_cols))
+
     cols_to_use = [c for c in req_cols if c in df.columns]
     sub = df[cols_to_use].dropna(subset=['From', 'To']).copy()
     sub = sub.sort_values(by='From')
@@ -743,9 +764,11 @@ def plot_two_elements_overlay(df: pd.DataFrame,
     c_e1_c = f"{elem1}_Cut"
     c_e2_p = f"{elem2}_Pulp"
     c_e2_c = f"{elem2}_Cut"
+    c_e3_p = f"{elem3}_Pulp" if has_e3 else ""
+    c_e3_c = f"{elem3}_Cut" if has_e3 else ""
 
     if orientation == 'horizontal':
-        # Eje X: Profundidad, Eje Y1 (izq): elem1, Eje Y2 (der): elem2
+        # Eje X: Profundidad, Eje Y1 (izq): elem1, Eje Y2 (der interno): elem2, Eje Y3 (der externo): elem3
         if c_e1_p in sub.columns:
             fig.add_trace(go.Scatter(
                 x=sub['Punto_Medio_m'],
@@ -794,8 +817,35 @@ def plot_two_elements_overlay(df: pd.DataFrame,
                 customdata=sub[['From', 'To']].values
             ))
 
-        fig.update_layout(
+        if has_e3:
+            if c_e3_p in sub.columns:
+                fig.add_trace(go.Scatter(
+                    x=sub['Punto_Medio_m'],
+                    y=sub[c_e3_p],
+                    mode=plot_mode,
+                    name=f"{elem3} Pulpa",
+                    line=dict(color=color_e3_pulp, width=width_e3_pulp, dash=dash_e3_pulp),
+                    marker=dict(size=marker_size, color=color_e3_pulp),
+                    yaxis='y3',
+                    hovertemplate=f"<b>{elem3} Pulpa</b><br>Profundidad: %{{x:.1f}}m<br>Ley: %{{y:.4f}} {unit3}<extra></extra>",
+                    customdata=sub[['From', 'To']].values
+                ))
+            if c_e3_c in sub.columns:
+                fig.add_trace(go.Scatter(
+                    x=sub['Punto_Medio_m'],
+                    y=sub[c_e3_c],
+                    mode=plot_mode,
+                    name=f"{elem3} Cutting",
+                    line=dict(color=color_e3_cut, width=width_e3_cut, dash=dash_e3_cut),
+                    marker=dict(size=marker_size, color=color_e3_cut, symbol='triangle-up'),
+                    yaxis='y3',
+                    hovertemplate=f"<b>{elem3} Cutting</b><br>Profundidad: %{{x:.1f}}m<br>Ley: %{{y:.4f}} {unit3}<extra></extra>",
+                    customdata=sub[['From', 'To']].values
+                ))
+
+        layout_axes = dict(
             xaxis=dict(
+                domain=[0.0, 0.82] if has_e3 else [0.0, 1.0],
                 title=dict(text="Profundidad a lo largo del pozo (m)", font=dict(color=t['axis_title_color'], size=12)),
                 tickfont=dict(color=t['axis_tick_color'], size=11),
                 color=t['axis_tick_color'],
@@ -815,8 +865,20 @@ def plot_two_elements_overlay(df: pd.DataFrame,
                 gridcolor=t['grid_color']
             )
         )
+        if has_e3:
+            layout_axes['yaxis3'] = dict(
+                title=dict(text=f"<b>{elem3} ({unit3})</b>", font=dict(color=color_e3_pulp)),
+                tickfont=dict(color=color_e3_pulp),
+                overlaying='y',
+                side='right',
+                anchor='free',
+                position=0.91,
+                gridcolor=t['grid_color']
+            )
+        fig.update_layout(**layout_axes)
+
     else:
-        # Modo Vertical: Eje Y Profundidad invertido, Eje X1 inferior elem1, Eje X2 superior elem2
+        # Modo Vertical: Eje Y Profundidad invertido, Eje X1 inferior elem1, Eje X2 superior elem2, Eje X3 superior externo elem3
         if c_e1_p in sub.columns:
             fig.add_trace(go.Scatter(
                 x=sub[c_e1_p],
@@ -861,7 +923,31 @@ def plot_two_elements_overlay(df: pd.DataFrame,
                 hovertemplate=f"<b>{elem2} Cutting:</b> %{{x:.4f}} {unit2}<extra></extra>"
             ))
 
-        fig.update_layout(
+        if has_e3:
+            if c_e3_p in sub.columns:
+                fig.add_trace(go.Scatter(
+                    x=sub[c_e3_p],
+                    y=sub['Punto_Medio_m'],
+                    mode=plot_mode,
+                    name=f"{elem3} Pulpa",
+                    line=dict(color=color_e3_pulp, width=width_e3_pulp, dash=dash_e3_pulp),
+                    marker=dict(size=marker_size, color=color_e3_pulp),
+                    xaxis='x3',
+                    hovertemplate=f"<b>{elem3} Pulpa:</b> %{{x:.4f}} {unit3}<extra></extra>"
+                ))
+            if c_e3_c in sub.columns:
+                fig.add_trace(go.Scatter(
+                    x=sub[c_e3_c],
+                    y=sub['Punto_Medio_m'],
+                    mode=plot_mode,
+                    name=f"{elem3} Cutting",
+                    line=dict(color=color_e3_cut, width=width_e3_cut, dash=dash_e3_cut),
+                    marker=dict(size=marker_size, color=color_e3_cut, symbol='triangle-up'),
+                    xaxis='x3',
+                    hovertemplate=f"<b>{elem3} Cutting:</b> %{{x:.4f}} {unit3}<extra></extra>"
+                ))
+
+        layout_axes = dict(
             xaxis=dict(
                 title=dict(text=f"<b>{elem1} ({unit1})</b>", font=dict(color=color_pulp)),
                 tickfont=dict(color=color_pulp),
@@ -876,6 +962,7 @@ def plot_two_elements_overlay(df: pd.DataFrame,
                 gridcolor=t['grid_color']
             ),
             yaxis=dict(
+                domain=[0.0, 0.77] if has_e3 else [0.0, 1.0],
                 title=dict(text="Profundidad (m)", font=dict(color=t['axis_title_color'], size=12)),
                 tickfont=dict(color=t['axis_tick_color'], size=11),
                 color=t['axis_tick_color'],
@@ -883,8 +970,21 @@ def plot_two_elements_overlay(df: pd.DataFrame,
                 gridcolor=t['grid_color']
             )
         )
+        if has_e3:
+            layout_axes['xaxis3'] = dict(
+                title=dict(text=f"<b>{elem3} ({unit3})</b>", font=dict(color=color_e3_pulp)),
+                tickfont=dict(color=color_e3_pulp),
+                overlaying='x',
+                side='top',
+                anchor='free',
+                position=0.88,
+                title_standoff=14,
+                gridcolor=t['grid_color']
+            )
+        fig.update_layout(**layout_axes)
 
     sub_title_text = "Vertical" if orientation == 'vertical' else "Horizontal"
+    margin_r = 85 if (orientation == 'horizontal' and has_e3) else 55
     if orientation == 'horizontal':
         if height <= 320:
             margin_t = 65
@@ -899,13 +999,15 @@ def plot_two_elements_overlay(df: pd.DataFrame,
             margin_b = 45
             legend_y = 1.03
     else:
-        margin_t = 125
+        margin_t = 140 if has_e3 else 125
         margin_b = 45
-        legend_y = 1.09
+        legend_y = 1.12 if has_e3 else 1.09
+
+    elem_title = f"{elem1} vs. {elem2} vs. {elem3}" if has_e3 else f"{elem1} vs. {elem2}"
 
     fig.update_layout(
         title=dict(
-            text=f"<b>Sondaje {hole_id}</b> — Superposición {sub_title_text}: {elem1} vs. {elem2}",
+            text=f"<b>Sondaje {hole_id}</b> — Superposición {sub_title_text}: {elem_title}",
             x=0.01,
             y=0.98,
             xanchor='left',
@@ -914,7 +1016,7 @@ def plot_two_elements_overlay(df: pd.DataFrame,
             xref='container',
             font=dict(size=14, color=t['title_color'])
         ),
-        margin=dict(t=margin_t, b=margin_b, l=65, r=55),
+        margin=dict(t=margin_t, b=margin_b, l=65, r=margin_r),
         template=t['template'],
         paper_bgcolor=t['paper_bgcolor'],
         plot_bgcolor=t['plot_bgcolor'],
@@ -935,6 +1037,9 @@ def plot_two_elements_overlay(df: pd.DataFrame,
     )
 
     return fig
+
+
+plot_three_elements_overlay = plot_two_elements_overlay
 
 
 def plot_scatter_1to1(df: pd.DataFrame,
