@@ -41,3 +41,6 @@ presentacion_salud_mental/
 core_logging_interface.html
 geocore_visor_geologico.html
 informe_analisis_ddh4082.html
+
+# Giroscopia Cache
+src/collars_cache.csv

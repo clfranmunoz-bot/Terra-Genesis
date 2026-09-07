@@ -38,6 +38,7 @@ if not DEFAULT_CUTTING_PATHS:
 
 DEFAULT_PULP_PATH = DEFAULT_PULP_PATHS[0]
 DEFAULT_CUTTING_PATH = DEFAULT_CUTTING_PATHS[0]
+DEFAULT_GYRO_PATH = r"C:\Users\cemge\OneDrive - GEOATACAMA CONSULTORES LTDA\CEM Muestrera\Medición\Giroscopia"
 
 # Elementos prioritarios para accesos rápidos en la interfaz
 PRIORITY_ELEMENTS = ['Cu', 'Fe', 'Mo', 'As', 'S', 'Zn', 'Pb', 'Ti']
