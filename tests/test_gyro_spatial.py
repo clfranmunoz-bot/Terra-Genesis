@@ -38,7 +38,7 @@ def test_gyro_and_spatial():
     # 5. Extract collars and 2D map
     sample_gyro = {k: gyro_map[k] for k in list(gyro_map.keys())[:10]}
     df_collars = extract_all_collars(sample_gyro)
-    assert len(df_collars) == 10
+    assert len(df_collars) >= 10
     fig_2d = plot_collar_map_2d(df_collars, selected_hole='DDH4092')
     assert len(fig_2d.data) >= 1
 

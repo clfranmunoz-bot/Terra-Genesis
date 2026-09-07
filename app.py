@@ -1001,135 +1001,15 @@ def main():
     df_all_collars = cached_all_collars(tuple(sorted(gyro_map.items())))
 
     # --- PESTAÑAS PRINCIPALES MULTIELEMENTO ---
-    tab_spatial, tab_downhole, tab_scatter, tab_cross, tab_qaqc, tab_all_matrix, tab_data = st.tabs([
-        "🌍 1. Mapa y Visor 3D (Giroscopía)",
-        "📉 2. Perfil en Profundidad (Multi-Track & Superpuesto)",
-        "🎯 3. Dispersión 1:1 Simultánea (Multi-Scatter)",
-        "🔀 4. Correlación Cruzada (ej. Cu vs Mo)",
-        "⚖️ 5. Control QA/QC (Bland-Altman & HARD)",
-        "🧪 6. Matriz Completa (35 Elementos)",
-        "📄 7. Tabla de Datos & Exportación"
+    tab_downhole, tab_scatter, tab_cross, tab_qaqc, tab_all_matrix, tab_data, tab_spatial = st.tabs([
+        "📉 1. Perfil en Profundidad (Multi-Track & Superpuesto)",
+        "🎯 2. Dispersión 1:1 Simultánea (Multi-Scatter)",
+        "🔀 3. Correlación Cruzada (ej. Cu vs Mo)",
+        "⚖️ 4. Control QA/QC (Bland-Altman & HARD)",
+        "🧪 5. Matriz Completa (35 Elementos)",
+        "📄 6. Tabla de Datos & Exportación",
+        "🌐 7. Visor Espacial 3D & Giroscopía (Herramienta Adicional)"
     ])
-
-    # =========================================================================
-    # PESTAÑA 1: MAPA Y VISOR 3D (GIROSCOPÍA)
-    # =========================================================================
-    with tab_spatial:
-        st.markdown("### 🌍 Exploración Espacial & Modelamiento 3D")
-        st.caption("Georreferenciación de sondajes a partir de los Certificados Oficiales de Giroscopía (Trayectoria Desurveyada y Collares).")
-
-        has_hole_gyro = (selected_hole in gyro_map)
-        cert_data = None
-        df_hole_3d = pd.DataFrame()
-
-        if has_hole_gyro:
-            try:
-                cert_data, df_hole_3d = cached_hole_spatial(gyro_map[selected_hole], df_active.to_json())
-                col_c = cert_data['collar']
-                meta_c = cert_data['metadata']
-
-                st.success(
-                    f"📍 **Giroscopía Oficial Enlazada para {selected_hole}** | "
-                    f"Fase: **{meta_c.get('UBICACION', 'General')}** | "
-                    f"Operador: **{meta_c.get('OPERADOR', '-')}** | "
-                    f"Fecha: **{meta_c.get('FECHA', '-')}** | "
-                    f"Instrumento: **{meta_c.get('INSTRUMENTO', '-')}**"
-                )
-
-                m_c1, m_c2, m_c3, m_c4, m_c5 = st.columns(5)
-                with m_c1:
-                    st.metric("Este (X)", f"{col_c['East']:,.2f} m")
-                with m_c2:
-                    st.metric("Norte (Y)", f"{col_c['North']:,.2f} m")
-                with m_c3:
-                    st.metric("Cota Superficie (Z)", f"{col_c['Elevation']:,.2f} m")
-                with m_c4:
-                    st.metric("Inclinación (Dip)", f"{col_c['Dip']:.2f}°")
-                with m_c5:
-                    st.metric("Azimut", f"{col_c['Azimuth']:.2f}°")
-
-            except Exception as e:
-                st.warning(f"Aviso al procesar giroscopía de {selected_hole}: {e}")
-        else:
-            st.info(
-                f"ℹ️ El sondaje **{selected_hole}** no cuenta con certificado direccional en Giroscopía. "
-                f"El **Plano en Planta 2D** está 100% operativo con los {len(df_all_collars)} collares disponibles en el yacimiento."
-            )
-
-        st.markdown("---")
-        col_sp_mode, col_sp_ctl = st.columns([0.48, 0.52])
-        with col_sp_mode:
-            spatial_mode = st.radio(
-                "Modalidad Espacial:",
-                ["🌐 Visor 3D de Sondajes & Mineralización", "🗺️ Mapa en Planta 2D (Collares en Superficie)"],
-                index=0 if has_hole_gyro else 1,
-                horizontal=True
-            )
-
-        if spatial_mode.startswith("🌐"):
-            with col_sp_ctl:
-                avail_chem_cols = [c for c in ['Cu_Cut', 'Cu_Pulp', 'Mo_Cut', 'Mo_Pulp', 'Fe_Cut', 'Fe_Pulp', 'As_Cut', 'S_Cut'] if c in df_active.columns]
-                if not avail_chem_cols:
-                    avail_chem_cols = [c for c in df_active.columns if c.endswith('_Cut') or c.endswith('_Pulp')]
-                sel_elem_3d = st.selectbox("Elemento / Ley a colorear en 3D:", avail_chem_cols if avail_chem_cols else ['Cu_Cut'], index=0)
-
-            if has_hole_gyro and not df_hole_3d.empty:
-                col_3d_opt1, col_3d_opt2 = st.columns([0.55, 0.45])
-                with col_3d_opt1:
-                    include_neighbors = st.checkbox("🔍 Incluir sondajes vecinos georreferenciados en el visor 3D", value=False)
-
-                spatial_dataset_dict = {selected_hole: df_hole_3d}
-
-                if include_neighbors:
-                    if not df_all_collars.empty and selected_hole in df_all_collars['Hole_ID'].values:
-                        c_self = df_all_collars[df_all_collars['Hole_ID'] == selected_hole].iloc[0]
-                        df_all_collars['dist'] = np.sqrt((df_all_collars['East'] - c_self['East'])**2 + (df_all_collars['North'] - c_self['North'])**2)
-                        neighbors = df_all_collars[df_all_collars['Hole_ID'] != selected_hole].sort_values(by='dist').head(6)['Hole_ID'].tolist()
-                        for n_h in neighbors:
-                            if n_h in scan_res['holes_info'] and n_h in gyro_map:
-                                try:
-                                    n_df = cached_load_hole(scan_res['holes_info'], n_h, lod_mode)
-                                    n_cert = parse_gyro_certificate(gyro_map[n_h])
-                                    n_3d = desurvey_assay_intervals(n_df, n_cert['survey_df'])
-                                    spatial_dataset_dict[n_h] = n_3d
-                                except Exception:
-                                    pass
-
-                fig_3d = plot_drillholes_3d(
-                    spatial_dataset_dict,
-                    color_by=sel_elem_3d,
-                    selected_hole=selected_hole,
-                    theme=theme_param
-                )
-                st.plotly_chart(fig_3d, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
-                st.caption("💡 **Interacción 3D**: Arrastra con clic izquierdo para rotar en 360°, clic derecho para desplazar (pan) y rueda del ratón para zoom.")
-            else:
-                st.warning(f"No se puede renderizar la trayectoria 3D de {selected_hole} porque no tiene certificado direccional. Selecciona un sondaje con giroscopía (ej. DDH4092, DDH3866, DDH3878).")
-
-        else:
-            with col_sp_ctl:
-                st.markdown(f"**Total de collares mapeados**: `{len(df_all_collars)}` pozos georreferenciados en la mina.")
-
-            fig_map = plot_collar_map_2d(
-                df_all_collars,
-                selected_hole=selected_hole,
-                theme=theme_param
-            )
-            st.plotly_chart(fig_map, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
-
-            with st.expander("📋 Ver Tabla Completa de Coordenadas de Collares", expanded=False):
-                st.dataframe(
-                    df_all_collars.style.format({
-                        'East': '{:,.2f}',
-                        'North': '{:,.2f}',
-                        'Elevation': '{:,.2f}',
-                        'Dip': '{:.2f}°',
-                        'Azimuth': '{:.2f}°',
-                        'Total_Depth': '{:.1f} m'
-                    }),
-                    use_container_width=True,
-                    height=300
-                )
 
     # =========================================================================
     # PESTAÑA 1: PERFILES EN PROFUNDIDAD
@@ -1627,3 +1507,156 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+    # =========================================================================
+    # PESTAÑA 7: VISOR ESPACIAL 3D & GIROSCOPÍA (HERRAMIENTA EXTRA)
+    # =========================================================================
+    with tab_spatial:
+        st.markdown("### 🌐 Visor Espacial 3D & Trayectorias de Giroscopía")
+        st.caption("Herramienta complementaria de modelamiento espacial y georreferenciación 3D a partir de Certificados Oficiales de Giroscopía.")
+
+        has_hole_gyro = (selected_hole in gyro_map)
+        cert_data = None
+        df_hole_3d = pd.DataFrame()
+
+        if has_hole_gyro:
+            try:
+                cert_data, df_hole_3d = cached_hole_spatial(gyro_map[selected_hole], df_active.to_json())
+                col_c = cert_data['collar']
+                meta_c = cert_data['metadata']
+
+                st.success(
+                    f"📍 **Giroscopía Oficial Enlazada para {selected_hole}** | "
+                    f"Fase: **{meta_c.get('UBICACION', 'General')}** | "
+                    f"Operador: **{meta_c.get('OPERADOR', '-')}** | "
+                    f"Fecha: **{meta_c.get('FECHA', '-')}** | "
+                    f"Instrumento: **{meta_c.get('INSTRUMENTO', '-')}**"
+                )
+
+                m_c1, m_c2, m_c3, m_c4, m_c5 = st.columns(5)
+                with m_c1:
+                    st.metric("Este (X)", f"{col_c['East']:,.2f} m")
+                with m_c2:
+                    st.metric("Norte (Y)", f"{col_c['North']:,.2f} m")
+                with m_c3:
+                    st.metric("Cota Superficie (Z)", f"{col_c['Elevation']:,.2f} m")
+                with m_c4:
+                    st.metric("Inclinación (Dip)", f"{col_c['Dip']:.2f}°")
+                with m_c5:
+                    st.metric("Azimut", f"{col_c['Azimuth']:.2f}°")
+
+            except Exception as e:
+                st.warning(f"Aviso al procesar giroscopía de {selected_hole}: {e}")
+        else:
+            st.info(
+                f"ℹ️ El sondaje **{selected_hole}** no cuenta con certificado direccional en Giroscopía. "
+                f"El **Plano en Planta** está disponible a continuación con los {len(df_all_collars)} collares disponibles en el yacimiento."
+            )
+
+        st.markdown("---")
+        col_sp_mode, col_sp_ctl = st.columns([0.45, 0.55])
+        with col_sp_mode:
+            spatial_mode = st.radio(
+                "Modalidad Espacial:",
+                ["🌐 Visor 3D de Sondajes & Mineralización", "🗺️ Plano Geológico en Planta (Collares & Trazas)"],
+                index=0 if has_hole_gyro else 1,
+                horizontal=True
+            )
+
+        if spatial_mode.startswith("🌐"):
+            # VISOR 3D: SOPORTE PARA TODOS LOS 35 ELEMENTOS (CUTTING Y PULPA)
+            with col_sp_ctl:
+                # Detectar todas las columnas químicas disponibles
+                cut_cols = [c for c in df_active.columns if c.endswith('_Cut') and c[:-4] in ELEMENT_CATALOG]
+                pulp_cols = [c for c in df_active.columns if c.endswith('_Pulp') and c[:-5] in ELEMENT_CATALOG]
+                all_3d_candidates = cut_cols + pulp_cols
+                if not all_3d_candidates:
+                    all_3d_candidates = [c for c in df_active.columns if c.endswith('_Cut') or c.endswith('_Pulp')]
+
+                def format_3d_elem_label(col_name):
+                    base = col_name.replace('_Cut', '').replace('_Pulp', '').strip()
+                    cat = ELEMENT_CATALOG.get(base, {})
+                    el_name = cat.get('name', base)
+                    el_unit = cat.get('unit', '%')
+                    src = "Cutting (Terreno)" if col_name.endswith('_Cut') else "Pulpa (Lab)"
+                    return f"{base} [{el_name}] — {src} [{el_unit}]"
+
+                def_3d_idx = all_3d_candidates.index('Cu_Cut') if 'Cu_Cut' in all_3d_candidates else 0
+                sel_elem_3d = st.selectbox(
+                    "🧪 Elemento a modelar en 3D (35 elementos disponibles):",
+                    all_3d_candidates,
+                    index=def_3d_idx,
+                    format_func=format_3d_elem_label,
+                    help="Permite modelar en 3D cualquiera de los 35 elementos químicos (Al, Ti, Ca, Mg, K, Si, Fe, Mo, etc.) para análisis geoestadísticos y litológicos."
+                )
+
+            if has_hole_gyro and not df_hole_3d.empty:
+                col_3d_opt1, col_3d_opt2 = st.columns([0.55, 0.45])
+                with col_3d_opt1:
+                    include_neighbors = st.checkbox("🔍 Incluir sondajes vecinos georreferenciados en el visor 3D", value=False)
+                with col_3d_opt2:
+                    show_3d_legend = st.checkbox("Mostrar lista de nombres de pozos en el visor", value=True)
+
+                spatial_dataset_dict = {selected_hole: df_hole_3d}
+
+                if include_neighbors:
+                    if not df_all_collars.empty and selected_hole in df_all_collars['Hole_ID'].values:
+                        c_self = df_all_collars[df_all_collars['Hole_ID'] == selected_hole].iloc[0]
+                        df_all_collars['dist'] = np.sqrt((df_all_collars['East'] - c_self['East'])**2 + (df_all_collars['North'] - c_self['North'])**2)
+                        neighbors = df_all_collars[df_all_collars['Hole_ID'] != selected_hole].sort_values(by='dist').head(6)['Hole_ID'].tolist()
+                        for n_h in neighbors:
+                            if n_h in scan_res['holes_info'] and n_h in gyro_map:
+                                try:
+                                    n_df = cached_load_hole(scan_res['holes_info'], n_h, lod_mode)
+                                    n_cert = parse_gyro_certificate(gyro_map[n_h])
+                                    n_3d = desurvey_assay_intervals(n_df, n_cert['survey_df'])
+                                    spatial_dataset_dict[n_h] = n_3d
+                                except Exception:
+                                    pass
+
+                fig_3d = plot_drillholes_3d(
+                    spatial_dataset_dict,
+                    color_by=sel_elem_3d,
+                    selected_hole=selected_hole,
+                    theme=theme_param,
+                    show_legend=show_3d_legend
+                )
+                st.plotly_chart(fig_3d, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
+                st.caption("💡 **Interacción 3D**: Arrastra con clic izquierdo para rotar en 360°, clic derecho para desplazar (pan) y rueda del ratón para zoom. La escala de ley se ubica a la derecha y los pozos a la izquierda sin solaparse.")
+            else:
+                st.warning(f"No se puede renderizar la trayectoria 3D de {selected_hole} porque no tiene certificado direccional. Selecciona un sondaje con giroscopía (ej. DDH4092, DDH3866, DDH3878).")
+
+        else:
+            # PLANO EN PLANTA 2D CON ENFOQUE LOCAL Y TRAZAS HORIZONTALES
+            with col_sp_ctl:
+                plan_focus = st.radio(
+                    "Enfoque del Plano:",
+                    ["🎯 Entorno Local del Sondaje Activo (con proyección de rumbo/azimut)", "🗺️ Plano General del Yacimiento (Todos los collares)"],
+                    index=0 if has_hole_gyro else 1,
+                    horizontal=True
+                )
+                v_mode = 'local' if plan_focus.startswith("🎯") else 'global'
+
+            fig_map = plot_collar_map_2d(
+                df_all_collars,
+                selected_hole=selected_hole,
+                view_mode=v_mode,
+                theme=theme_param
+            )
+            st.plotly_chart(fig_map, use_container_width=True, config=PLOTLY_CONFIG, theme=None)
+            st.caption("💡 **Plano Geológico**: Las líneas continuas/punteadas indican la proyección horizontal del sondaje hacia donde avanza la perforación (según su azimut e inclinación).")
+
+            with st.expander("📋 Ver Tabla Completa de Coordenadas de Collares", expanded=False):
+                st.dataframe(
+                    df_all_collars.style.format({
+                        'East': '{:,.2f}',
+                        'North': '{:,.2f}',
+                        'Elevation': '{:,.2f}',
+                        'Dip': '{:.2f}°',
+                        'Azimuth': '{:.2f}°',
+                        'Total_Depth': '{:.1f} m'
+                    }),
+                    use_container_width=True,
+                    height=300
+                )
