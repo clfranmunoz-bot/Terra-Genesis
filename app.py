@@ -84,7 +84,8 @@ st.set_page_config(
 PLOTLY_CONFIG = {
     'displaylogo': False,
     'displayModeBar': True,
-    'modeBarButtonsToRemove': ['lasso2d', 'select2d']
+    'modeBarButtonsToRemove': ['lasso2d', 'select2d'],
+    'modeBarButtonsToAdd': ['resetViews']
 }
 
 # Inicialización y saneamiento de estilos por defecto para garantizar colores vivos (Azul y Naranjo)
@@ -244,9 +245,21 @@ def main():
         padding: 4px 6px !important;
         margin: 0 2px !important;
     }
+    .modebar-container {
+        opacity: 0.95 !important;
+        z-index: 1001 !important;
+        pointer-events: auto !important;
+    }
+    .modebar-btn {
+        padding: 4px 6px !important;
+        margin: 0 2px !important;
+        cursor: pointer !important;
+        pointer-events: auto !important;
+    }
     .modebar-btn svg {
         width: 17px !important;
         height: 17px !important;
+        pointer-events: none !important;
     }
     /* BOTÓN HOME DE PLOTLY: Integración orgánica, limpia y sutil */
     .modebar-btn[data-title*="Reset"],
@@ -254,7 +267,12 @@ def main():
     .modebar-btn[data-title*="Restablecer"],
     .modebar-btn[data-title*="axes"],
     .modebar-btn[data-title*="ejes"],
-    .modebar-btn[data-val="reset"] {
+    .modebar-btn[data-title*="view"],
+    .modebar-btn[data-title*="vista"],
+    .modebar-btn[data-val="reset"],
+    .modebar-btn[data-val="resetViews"],
+    .modebar-btn[data-val="resetCameraDefault"],
+    .modebar-btn[data-val="resetCameraLastSave"] {
         background: transparent !important;
         border: none !important;
         border-radius: 4px !important;
@@ -267,7 +285,12 @@ def main():
     .modebar-btn[data-title*="Restablecer"]:hover,
     .modebar-btn[data-title*="axes"]:hover,
     .modebar-btn[data-title*="ejes"]:hover,
-    .modebar-btn[data-val="reset"]:hover {
+    .modebar-btn[data-title*="view"]:hover,
+    .modebar-btn[data-title*="vista"]:hover,
+    .modebar-btn[data-val="reset"]:hover,
+    .modebar-btn[data-val="resetViews"]:hover,
+    .modebar-btn[data-val="resetCameraDefault"]:hover,
+    .modebar-btn[data-val="resetCameraLastSave"]:hover {
         background: rgba(59, 130, 246, 0.18) !important;
     }
     .modebar-btn[data-title*="Reset"] svg path,
@@ -275,7 +298,12 @@ def main():
     .modebar-btn[data-title*="Restablecer"] svg path,
     .modebar-btn[data-title*="axes"] svg path,
     .modebar-btn[data-title*="ejes"] svg path,
-    .modebar-btn[data-val="reset"] svg path {
+    .modebar-btn[data-title*="view"] svg path,
+    .modebar-btn[data-title*="vista"] svg path,
+    .modebar-btn[data-val="reset"] svg path,
+    .modebar-btn[data-val="resetViews"] svg path,
+    .modebar-btn[data-val="resetCameraDefault"] svg path,
+    .modebar-btn[data-val="resetCameraLastSave"] svg path {
         fill: #3b82f6 !important;
     }
 
@@ -1078,7 +1106,12 @@ def main():
             with col_sc_btn:
                 st.write("")  # Alineación vertical
                 st.write("")
-                st.button("🔄 Escala por Defecto (750px)", key="btn_reset_height", on_click=reset_dh_height, use_container_width=True)
+                c_vb1, c_vb2 = st.columns(2)
+                with c_vb1:
+                    st.button("🔄 Altura (750px)", key="btn_reset_height", on_click=reset_dh_height, use_container_width=True)
+                with c_vb2:
+                    if st.button("🏠 Home (Reset)", key="btn_reset_zoom_v", use_container_width=True, help="Restaura la escala y el zoom completo del sondaje (0m a fondo de pozo)"):
+                        st.rerun()
 
             use_scroll_box = st.checkbox("🪟 Bloquear en ventana con scroll vertical (mantiene la página fija en pantalla)", value=False)
         else:
@@ -1109,12 +1142,17 @@ def main():
             with col_h_btn:
                 st.write("")
                 st.write("")
-                st.button("🔄 Altura por Defecto (340px)", key="btn_reset_height_h", on_click=reset_dh_height_h, use_container_width=True)
+                c_hb1, c_hb2 = st.columns(2)
+                with c_hb1:
+                    st.button("🔄 Altura (340px)", key="btn_reset_height_h", on_click=reset_dh_height_h, use_container_width=True)
+                with c_hb2:
+                    if st.button("🏠 Home (Reset)", key="btn_reset_zoom_h", use_container_width=True, help="Restaura la escala y el zoom completo del sondaje (0m a fondo de pozo)"):
+                        st.rerun()
 
             if dh_view.startswith("📊"):
                 profile_height = max(profile_height, len(selected_elements) * 180)
 
-            st.caption("💡 **Modo Horizontal**: La profundidad se despliega a lo largo del pozo en el eje X de izquierda a derecha. Usa el deslizador superior para hacer el gráfico más bajo o alto y navega cualquier tramo con el **control deslizante inferior (rangeslider)**.")
+            st.caption("💡 **Modo Horizontal**: La profundidad se despliega a lo largo del pozo en el eje X. Puedes hacer zoom seleccionando cualquier tramo y regresar a la vista general completa con el botón **🏠 Home (Reset)** o el icono de casa en la barra del gráfico.")
             use_scroll_box = False
 
         if dh_view.startswith("📊"):
@@ -1496,17 +1534,6 @@ def main():
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
 
-    # --- PIE DE PÁGINA / AUTORÍA DEL SOFTWARE ---
-    st.markdown("---")
-    st.markdown("""
-    <div style="text-align: center; padding: 1.5rem 0 2rem 0; color: #64748b; font-size: 0.85rem;">
-        🔬 <b>Ct-Pp QA/QC Analytics</b> &bull; Software desarrollado por <b>Claudio Muñoz Rubilar</b> &bull; Reconciliación Geológica Pulpas vs. Cutting
-    </div>
-    """, unsafe_allow_html=True)
-
-
-if __name__ == "__main__":
-    main()
 
 
     # =========================================================================
@@ -1660,3 +1687,15 @@ if __name__ == "__main__":
                     use_container_width=True,
                     height=300
                 )
+
+# --- PIE DE PÁGINA / AUTORÍA DEL SOFTWARE ---
+    st.markdown("---")
+    st.markdown("""
+    <div style="text-align: center; padding: 1.5rem 0 2rem 0; color: #64748b; font-size: 0.85rem;">
+        🔬 <b>Ct-Pp QA/QC Analytics</b> &bull; Software desarrollado por <b>Claudio Muñoz Rubilar</b> &bull; Reconciliación Geológica Pulpas vs. Cutting
+    </div>
+    """, unsafe_allow_html=True)
+
+
+if __name__ == "__main__":
+    main()

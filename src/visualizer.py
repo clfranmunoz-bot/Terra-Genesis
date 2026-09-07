@@ -222,11 +222,15 @@ def plot_downhole_profile(df: pd.DataFrame,
 
             fig.add_hline(y=0, line_width=1, line_dash='dash', line_color=t['line_ref_color'], row=2, col=1)
 
+            x_min = max(0.0, float(sub['From'].min()))
+            x_max = float(sub['To'].max())
             fig.update_yaxes(title_text=f"Ley {element} ({unit})", row=1, col=1)
             fig.update_yaxes(title_text=f"Δ ({unit})", row=2, col=1)
+            fig.update_xaxes(range=[x_min, x_max], row=1, col=1)
             fig.update_xaxes(
                 title_text="Profundidad a lo largo del pozo (m)",
-                rangeslider=dict(visible=True, thickness=0.06),
+                range=[x_min, x_max],
+                rangeslider=dict(visible=False),
                 row=2, col=1
             )
         else:
@@ -265,10 +269,13 @@ def plot_downhole_profile(df: pd.DataFrame,
                         customdata=sub[['From', 'To']].values
                     )
                 )
+            x_min = max(0.0, float(sub['From'].min()))
+            x_max = float(sub['To'].max())
             fig.update_yaxes(title_text=f"Ley {element} ({unit})")
             fig.update_xaxes(
                 title_text="Profundidad a lo largo del pozo (m)",
-                rangeslider=dict(visible=True, thickness=0.06)
+                range=[x_min, x_max],
+                rangeslider=dict(visible=False)
             )
 
     else:
@@ -340,8 +347,10 @@ def plot_downhole_profile(df: pd.DataFrame,
             # Línea cero en diferencia
             fig.add_vline(x=0, line_width=1, line_dash='dash', line_color=t['line_ref_color'], row=1, col=2)
 
-            # Invertir eje Y (profundidad geológica)
-            fig.update_yaxes(autorange='reversed')
+            # Invertir eje Y (profundidad geológica con rango explícito para Home)
+            y_min = max(0.0, float(sub['From'].min()))
+            y_max = float(sub['To'].max())
+            fig.update_yaxes(range=[y_max, y_min], autorange='reversed')
             fig.update_yaxes(title_text="Profundidad (m)", row=1, col=1)
 
             # Ejes X superiores con espaciado garantizado anti-solapamiento
@@ -395,7 +404,9 @@ def plot_downhole_profile(df: pd.DataFrame,
                         customdata=sub[['From', 'To']].values
                     )
                 )
-            fig.update_yaxes(autorange='reversed', title_text="Profundidad (m)")
+            y_min = max(0.0, float(sub['From'].min()))
+            y_max = float(sub['To'].max())
+            fig.update_yaxes(range=[y_max, y_min], autorange='reversed', title_text="Profundidad (m)")
             fig.update_xaxes(
                 title_text=f"<b>Ley {element} ({unit})</b>",
                 side='top',
@@ -559,7 +570,7 @@ def plot_multi_track_downhole(df: pd.DataFrame,
         # Habilitar rangeslider en la última fila
         fig.update_xaxes(
             title_text="Profundidad a lo largo del pozo (m)",
-            rangeslider=dict(visible=True, thickness=0.05),
+            rangeslider=dict(visible=False),
             row=n_elem, col=1
         )
 
@@ -784,7 +795,7 @@ def plot_two_elements_overlay(df: pd.DataFrame,
                 title=dict(text="Profundidad a lo largo del pozo (m)", font=dict(color=t['axis_title_color'], size=12)),
                 tickfont=dict(color=t['axis_tick_color'], size=11),
                 color=t['axis_tick_color'],
-                rangeslider=dict(visible=True, thickness=0.06),
+                rangeslider=dict(visible=False),
                 gridcolor=t['grid_color']
             ),
             yaxis=dict(
