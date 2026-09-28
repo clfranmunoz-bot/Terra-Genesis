@@ -919,7 +919,7 @@ class PlanetViewer {
 
         // 1. Inclinación Axial (Oblicuidad de Milankovitch)
         if (window.astrophysicsEngine) {
-            const tiltRad = (window.astrophysicsEngine.params.obliquityDeg * Math.PI) / 180;
+            const tiltRad = (window.astrophysicsEngine.oblicuidadEfectiva() * Math.PI) / 180;
             this.earthMesh.rotation.z = tiltRad;
             if (this.cloudMesh) this.cloudMesh.rotation.z = tiltRad;
 
@@ -1002,6 +1002,16 @@ class PlanetViewer {
             const showAuroras = magIntensity > 0.05 && this.showAtmosphere && (this.showAuroras !== false);
             this.auroraNorthMesh.visible = showAuroras;
             this.auroraSouthMesh.visible = showAuroras;
+
+            // Óvalo auroral en la latitud invariante calculada (dipolo + Chapman-Ferraro, ver fisica.js)
+            if (window.astrophysicsEngine) {
+                const lat = window.astrophysicsEngine.latitudAuroral * Math.PI / 180;
+                const k = (this.planetRadius * Math.cos(lat)) / 2.3; // 2.3 = radio base del toro
+                for (const [m, s] of [[this.auroraNorthMesh, 1], [this.auroraSouthMesh, -1]]) {
+                    m.scale.set(k, k, 1);
+                    m.position.y = s * this.planetRadius * Math.sin(lat);
+                }
+            }
         }
 
         // 6. Animación de Haz de Sonda

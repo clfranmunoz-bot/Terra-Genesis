@@ -277,17 +277,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const sliderOrbitalDist = document.getElementById('slider-orbital-dist');
     const dispOrbitalDist = document.getElementById('disp-orbital-dist');
     const subOrbitalDist = document.getElementById('sub-orbital-dist');
+    // Texto del panel orbital: distancia real, insolación S = L/(4πd²), zona habitable y anclaje por marea
+    function actualizarTextoOrbital() {
+        const d = astrophysics.distanciaUA, zh = astrophysics.zonaHabitable;
+        const flux = Math.round(Fisica.C.S0 * astrophysics.insolacionRel);
+        const dTxt = d >= 10 ? d.toFixed(0) : d >= 0.1 ? d.toFixed(2) : d.toFixed(3);
+        dispOrbitalDist.textContent = `${dTxt} UA`;
+        const dentro = d >= zh.interiorConservador && d <= zh.exteriorConservador;
+        const anclaje = astrophysics.params.isTidallyLocked
+            ? `Anclado por marea (t ≈ ${(astrophysics.tiempoAnclajeAnios / 1e6).toPrecision(2)} Ma < edad estelar)`
+            : 'Rotación libre (sin anclaje por marea)';
+        if (subOrbitalDist) subOrbitalDist.textContent =
+            `Insolación: ${flux} W/m² (${astrophysics.insolacionRel.toFixed(2)} S⊕). ` +
+            `Zona habitable conservadora: ${zh.interiorConservador.toPrecision(3)}–${zh.exteriorConservador.toPrecision(3)} UA ` +
+            `(Kopparapu 2014${astrophysics.estrella.Teff > 7200 ? ', extrapolado: Teff fuera de 2600–7200 K' : ''}) → ${dentro ? 'DENTRO' : 'FUERA'}. ${anclaje}.` +
+            (Fisica.estrellaPermiteVida(astrophysics.estrella) ? '' : ' ⚠️ Estrella demasiado joven: vida imposible.');
+    }
     if (sliderOrbitalDist) {
         sliderOrbitalDist.addEventListener('input', (e) => {
-            const val = parseFloat(e.target.value);
-            dispOrbitalDist.textContent = `${val.toFixed(2)} UA`;
-            const solarFlux = Math.round(1361.0 / (val * val));
-            simulation.setParam('solarLuminosity', 1.0 / (val * val));
-            if (subOrbitalDist) {
-                subOrbitalDist.textContent = `Constante solar: ${solarFlux} W/m² (Insolación).`;
-            }
+            astrophysics.setDistanceFactor(parseFloat(e.target.value));
+            actualizarTextoOrbital();
         });
     }
+
+    const bindSlider = (id, dispId, fmt, fn) => {
+        const el = document.getElementById(id), disp = document.getElementById(dispId);
+        if (el) el.addEventListener('input', (e) => { const v = parseFloat(e.target.value); disp.textContent = fmt(v); fn(v); });
+    };
+    bindSlider('slider-eccentricity', 'disp-eccentricity', (v) => v.toFixed(3), (v) => astrophysics.setEccentricity(v));
+    bindSlider('slider-perihelion', 'disp-perihelion', (v) => `${Math.round(v)}°`, (v) => astrophysics.setPerihelion(v));
 
     sliderObliquity.addEventListener('input', (e) => {
         const val = parseFloat(e.target.value);
@@ -319,25 +337,32 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleMoon.addEventListener('change', (e) => {
         astrophysics.setMoon(e.target.checked);
         if (!e.target.checked) {
-            displayEpoch.textContent = 'DERIVA CAÓTICA POR AUSENCIA LUNAR';
-            chronicleText.textContent = 'Sin la estabilización giroscópica de la Luna, el eje de la Tierra oscila caóticamente entre 0° y 85° como en Marte, generando colapsos climáticos extremos y mareas reducidas.';
+            displayEpoch.textContent = 'SIN LUNA: OBLICUIDAD CAÓTICA';
+            chronicleText.textContent = `Sin el momento de fuerza de la Luna, la oblicuidad entra en resonancia con los planetas y puede variar entre 0° y 85° (Laskar et al. 1993) en escalas de millones de años; Lissauer et al. (2012) estiman variaciones menores (±10°–20° en 500 Ma). La animación está acelerada: 1 s = 1 Ma. Las mareas quedan en ~${Math.round(astrophysics.mareaRel * 100)} % de las actuales (solo solares).`;
         }
     });
 
     selectStarType.addEventListener('change', (e) => {
         const type = e.target.value;
         astrophysics.setStarType(type);
+        astrophysics.setDistanceFactor(1.0);
+        if (sliderOrbitalDist) sliderOrbitalDist.value = 1.0;
+        actualizarTextoOrbital();
+        const est = astrophysics.estrella;
+        const pico = `Pico de emisión: ${Fisica.picoWien_um(est.Teff).toFixed(2)} µm (Teff ${est.Teff} K)`;
+        displayEpoch.textContent = `ESTRELLA: ${est.nombre.toUpperCase()}`;
         if (type === 'red_dwarf_m') {
-            displayEpoch.textContent = 'TIERRA EN ÓRBITA DE ENANA ROJA (TRAPPIST-1)';
-            chronicleText.textContent = 'El planeta ha caído en anclaje por marea (Tidal Locking). Un hemisferio es un desierto perpetuo expuesto a luz infrarroja y llamaradas UV, mientras el otro es un glaciar eterno.';
+            chronicleText.textContent = `${pico}. A ${astrophysics.distanciaUA.toFixed(3)} UA el planeta queda anclado por marea en ~${(astrophysics.tiempoAnclajeAnios / 1e3).toFixed(0)} mil años (Gladman 1996). La circulación atmosférica puede redistribuir el calor hacia el lado nocturno (Yang et al. 2013); las fulguraciones UV y el viento estelar comprimen la magnetosfera a ~${astrophysics.radioMagnetopausa.toFixed(1)} R⊕.`;
             selectPigment.value = 'black';
             astrobiology.setPigment('black');
         } else if (type === 'blue_giant') {
-            displayEpoch.textContent = 'TIERRA EN ÓRBITA DE GIGANTE AZUL (RIGEL)';
-            chronicleText.textContent = 'Radiación ultravioleta e ionizante extrema. La capa de ozono es bombardeada por fotones duros.';
-            selectPigment.value = 'purple';
-            astrobiology.setPigment('purple');
+            chronicleText.textContent = `${pico}. Rigel es una supergigante de ~8 Ma y ~120.000 L☉: su zona habitable estaría a ~${Math.round(astrophysics.zonaHabitable.interiorConservador)}–${Math.round(astrophysics.zonaHabitable.exteriorConservador)} UA. Ya agotó el hidrógeno de su núcleo y estallará como supernova en pocos millones de años. En la Tierra la vida tardó al menos ~0,5 Ga en surgir: un planeta en torno a Rigel NO puede albergar vida (sin tiempo para la abiogénesis, UV extremo).`;
+        } else if (type === 'orange_dwarf_k') {
+            chronicleText.textContent = `${pico}. Las enanas K viven más de 15 Ga y emiten menos UV que el Sol, por eso se las considera candidatas "superhabitables" (Schulze-Makuch et al. 2020). ${astrophysics.params.isTidallyLocked ? 'A esta distancia el modelo de Gladman predice anclaje por marea (con incertidumbre de ~1–2 órdenes de magnitud).' : ''}`;
+            selectPigment.value = 'green';
+            astrobiology.setPigment('green');
         } else {
+            chronicleText.textContent = `${pico}. El Sol (G2V, 4,57 Ga) en la secuencia principal.`;
             selectPigment.value = 'green';
             astrobiology.setPigment('green');
         }
@@ -979,15 +1004,10 @@ document.addEventListener('DOMContentLoaded', () => {
         astrophysics.setObliquity(23.44);
         astrophysics.setMoon(true);
         astrophysics.setStarType('sun_g2v');
-        astrophysics.setTidalLock(false);
         astrophysics.setMagneticField(1.0);
-        if (window.astrophysicsEngine) {
-            window.astrophysicsEngine.params.obliquityDeg = 23.44;
-            window.astrophysicsEngine.params.hasMoon = true;
-            window.astrophysicsEngine.params.starType = 'sun_g2v';
-            window.astrophysicsEngine.params.isTidallyLocked = false;
-            window.astrophysicsEngine.params.magneticField = 1.0;
-        }
+        astrophysics.setEccentricity(0.0167);
+        astrophysics.setPerihelion(282.9);
+        astrophysics.setDistanceFactor(1.0);
 
         geology.setThermostat(true);
         geology.setOrogeny(1.0);
@@ -1009,8 +1029,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 5. Restablecer controles de Astrofísica & Órbita
         if (sliderOrbitalDist) sliderOrbitalDist.value = 1.00;
-        if (dispOrbitalDist) dispOrbitalDist.textContent = '1.00 UA';
-        if (subOrbitalDist) subOrbitalDist.textContent = 'Constante solar: 1361 W/m² (Insolación).';
+        actualizarTextoOrbital();
+        for (const [id, v, txt] of [['slider-eccentricity', 0.0167, '0.017'], ['slider-perihelion', 282.9, '283°']]) {
+            const el = document.getElementById(id);
+            if (el) { el.value = v; document.getElementById(id.replace('slider', 'disp')).textContent = txt; }
+        }
         if (sliderObliquity) sliderObliquity.value = 23;
         if (dispObliquity) dispObliquity.textContent = '23.4°';
         if (sliderRotationSpeed) sliderRotationSpeed.value = 24;

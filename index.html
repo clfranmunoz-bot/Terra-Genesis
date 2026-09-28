@@ -404,16 +404,16 @@
                 <div class="tab-pane active" id="tab-orbit">
                     <div class="control-group">
                         <div class="slider-header">
-                            <span class="slider-name">Distancia al Sol (Semieje)</span>
+                            <span class="slider-name">Distancia a la estrella (semieje)</span>
                             <span id="disp-orbital-dist" class="slider-num">1.00 UA</span>
                         </div>
                         <input type="range" id="slider-orbital-dist" min="0.70" max="1.60" step="0.01" value="1.00">
                         <div class="slider-ticks">
-                            <span>0.70 UA (Venus)</span>
-                            <span>1.00 UA (Hoy)</span>
-                            <span>1.52 UA (Marte)</span>
+                            <span>0,70× (con el Sol: Venus)</span>
+                            <span>1× (misma insolación que la Tierra)</span>
+                            <span>1,52× (Marte)</span>
                         </div>
-                        <div class="card-subtext" id="sub-orbital-dist">Constante solar: 1361 W/m² (Zona de Habitabilidad óptima).</div>
+                        <div class="card-subtext" id="sub-orbital-dist">Insolación: 1361 W/m² (1.00 S⊕). Zona habitable conservadora: 0.951–1.68 UA (Kopparapu 2014) → DENTRO. Rotación libre (sin anclaje por marea).</div>
                     </div>
 
                     <div class="control-group">
@@ -427,6 +427,28 @@
                             <span>23.4° (Hoy)</span>
                             <span>90° (Urano)</span>
                         </div>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="slider-header">
+                            <span class="slider-name">Excentricidad orbital (e)</span>
+                            <span id="disp-eccentricity" class="slider-num">0.017</span>
+                        </div>
+                        <input type="range" id="slider-eccentricity" min="0" max="0.07" step="0.001" value="0.0167">
+                        <div class="slider-ticks">
+                            <span>0 (circular)</span>
+                            <span>0,017 (hoy)</span>
+                            <span>0,07 (máx. Milankovitch)</span>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="slider-header">
+                            <span class="slider-name">Precesión (longitud del perihelio ϖ)</span>
+                            <span id="disp-perihelion" class="slider-num">283°</span>
+                        </div>
+                        <input type="range" id="slider-perihelion" min="0" max="359" step="1" value="283">
+                        <div class="card-subtext">Ciclos de Milankovitch: excentricidad ~100/405 ka, oblicuidad 41 ka, precesión ~23 ka (Berger 1978).</div>
                     </div>
 
                     <div class="control-group">
@@ -447,9 +469,9 @@
                         </div>
                         <select id="select-star-type" class="custom-select">
                             <option value="sun_g2v" selected>Sol (Enana Amarilla G2V)</option>
-                            <option value="red_dwarf_m">Enana Roja M (TRAPPIST-1 / Próxima)</option>
-                            <option value="orange_dwarf_k">Enana Naranja K (Kepler-442b)</option>
-                            <option value="blue_giant">Gigante Azul Caliente (Rigel)</option>
+                            <option value="red_dwarf_m">Enana Roja M5.5V (Próxima Centauri)</option>
+                            <option value="orange_dwarf_k">Enana Naranja K5V</option>
+                            <option value="blue_giant">Supergigante Azul (Rigel) — sin vida posible</option>
                         </select>
                     </div>
 
@@ -462,7 +484,7 @@
                         <div class="layer-toggle-row" style="margin-top: 6px;">
                             <label class="layer-checkbox-label">
                                 <input type="checkbox" id="toggle-moon" checked>
-                                <span>Presencia de la Luna (Giroscopio)</span>
+                                <span>Presencia de la Luna (estabiliza la oblicuidad)</span>
                             </label>
                         </div>
                     </div>
@@ -890,6 +912,7 @@
     </div>
 
     <!-- Scripts de la aplicación -->
+    <script src="js/fisica.js"></script>
     <script src="js/simulation.js"></script>
     <script src="js/scenarios.js"></script>
     <script src="js/astrophysics.js"></script>

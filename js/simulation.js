@@ -236,7 +236,8 @@ class EarthSimulation {
         const deltaF_CH4 = 0.036 * (Math.sqrt(Math.max(0, this.current.ch4)) - Math.sqrt(1.7));
         const volcanicAerosols = (this.current.so2 * 0.04) + (this.meteorEvent.sootDust * 8.0);
         const coolingFactor = Math.min(28.0, volcanicAerosols * 2.4);
-        const solarForcing = (this.current.solarLuminosity - 1.0) * 38.0;
+        const S = this.current.solarLuminosity * (window.astrophysicsEngine ? window.astrophysicsEngine.insolacionRel : 1);
+        const solarForcing = (S - 1.0) * 38.0;
         
         let calculatedTemp = 14.5 + (deltaF_CO2 * 0.75) + (deltaF_CH4 * 0.4) + solarForcing - coolingFactor;
 
