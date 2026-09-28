@@ -232,10 +232,15 @@ function temperaturaEquilibrio(S_Wm2, albedo) { return Math.pow(S_Wm2 * (1 - alb
 //   El vapor de agua crece ~7 %/K (Clausius-Clapeyron) y su absorción es ∝ ln(q), por eso su retroalimentación es ~constante en W/m²/K.
 // α: hielo (T < −10 °C, criterio de Budyko) = 0,62; sin hielo, 0,26 + 0,10·x² (ángulo cenital y nubes subpolares).
 // C = 2,1×10⁸ J m⁻² K⁻¹ (capa de mezcla oceánica de ~70 m × 70 % de océano; Hartmann 2016).
+// Océano profundo por banda (modelo de dos capas; Held et al. 2010, J. Climate 23; Geoffroy et al. 2013):
+//   C_d dT_d/dt = γ (T − T_d),  C_d = 3,2×10⁹ J m⁻² K⁻¹ (~100 W·año m⁻² K⁻¹), γ = 0,7 W m⁻² K⁻¹.
+//   Si la superficie queda más fría que el fondo, la columna es inestable y se mezcla por convección: γ = 3 (calibrado para reproducir −26 K tras Chicxulub)
+//   (simplificación del papel de la convección oceánica en el invierno de impacto; Brugger et al. 2017).
+//   El océano profundo no altera el equilibrio (cada banda intercambia con su propio fondo), solo la respuesta transitoria.
 // A se calibra para que la Tierra actual dé 15 °C (ver tests/validacion.js).
 // simplificación: sin estaciones (insolación media anual), sin océano profundo, sin tierra/mar ni dinámica;
 //   las nubes y el vapor de agua van como retroalimentaciones globales. La histéresis de bola de nieve sí emerge del modelo.
-const EBM = { N: 18, A: 218.85, B: 1.40, D: 0.55, CALOR: 2.1e8, T_HIELO: -10, ALB_HIELO: 0.62 };
+const EBM = { N: 18, A: 218.85, B: 1.40, D: 0.55, CALOR: 2.1e8, CALOR_PROFUNDO: 3.2e9, GAMMA: 0.7, GAMMA_CONV: 3, T_HIELO: -10, ALB_HIELO: 0.62 };
 const EBM_X = Array.from({ length: EBM.N }, (_, i) => -1 + (i + 0.5) * 2 / EBM.N);
 
 function albedoBanda(T, x) {
@@ -249,8 +254,9 @@ function insolacionBandas(S_Wm2, oblicuidadDeg, e, varpiDeg) {
 }
 function perfilInicial(Tmedia) { return EBM_X.map((x) => Tmedia - 45 * (x * x - 1 / 3)); }
 
-// Avanza el modelo `anios` años con pasos explícitos de 5 días. Q: insolación por banda; F: forzamiento total.
-function pasoEBM(T, Q, F, anios) {
+// Avanza el modelo `anios` años con pasos explícitos de 5 días. Q: insolación por banda; F: forzamiento total;
+// Td: temperatura del océano profundo por banda (opcional).
+function pasoEBM(T, Q, F, anios, Td) {
     const dx = 2 / EBM.N, dt = 5 * 86400;
     const pasos = Math.max(1, Math.round(anios * C.ANIO / dt));
     const flujo = new Array(EBM.N + 1).fill(0);
@@ -260,7 +266,12 @@ function pasoEBM(T, Q, F, anios) {
             flujo[i] = EBM.D * (1 - xb * xb) * (T[i] - T[i - 1]) / dx;
         }
         for (let i = 0; i < EBM.N; i++) {
-            const neto = Q[i] * (1 - albedoBanda(T[i], EBM_X[i])) - (EBM.A + EBM.B * T[i]) + F + (flujo[i + 1] - flujo[i]) / dx;
+            let haciaFondo = 0;
+            if (Td) {
+                haciaFondo = (T[i] < Td[i] ? EBM.GAMMA_CONV : EBM.GAMMA) * (T[i] - Td[i]);
+                Td[i] += dt * haciaFondo / EBM.CALOR_PROFUNDO;
+            }
+            const neto = Q[i] * (1 - albedoBanda(T[i], EBM_X[i])) - (EBM.A + EBM.B * T[i]) + F + (flujo[i + 1] - flujo[i]) / dx - haciaFondo;
             T[i] += dt * neto / EBM.CALOR;
         }
     }
@@ -295,7 +306,7 @@ const T_DESBOCADO_C = 1127;
 // Equilibrio completo (para pruebas y para el Estudio de escenarios)
 function climaEquilibrio(g, orbita, Tinicial = 15, anios = 300) {
     const Q = insolacionBandas(C.S0 * orbita.S_rel, orbita.oblicuidad, orbita.e, orbita.varpi);
-    const T = pasoEBM(perfilInicial(Tinicial), Q, forzamientoTotal(g), anios);
+    const T = pasoEBM(perfilInicial(Tinicial), Q, forzamientoTotal(g), anios); // sin océano profundo: solo interesa el equilibrio
     return diagnosticoEBM(T, Q);
 }
 
@@ -348,8 +359,88 @@ const PROVINCIAS_IGNEAS = {
 // Luminosidad solar en el tiempo (Gough 1981, Solar Physics 74): L(t)/L☉ = 1 / [1 + 0,4 (1 − t/t☉)], t☉ = 4,57 Ga.
 function luminosidadSolar(Ma) { const t = 4.57 + Ma / 1000; return 1 / (1 + 0.4 * (1 - t / 4.57)); }
 
+// ============================================================
+// FASE 5 — IMPACTOS (Collins, Melosh & Marcus 2005, Meteoritics & Planet. Sci. 40: "Earth Impact Effects Program")
+// ============================================================
+const DENSIDADES_IMPACTOR = { iron: 7800, rock: 3000, ice: 1000 }; // kg/m³ (Collins 2005, tabla 1)
+const ATM = { rho0: 1.0, H: 8000, CD: 2, FP: 7 };                  // Collins 2005 ec. 3, 8 y 18
+
+// Chicxulub: cráter final ≈ 180 km (Hildebrand et al. 1991; Morgan et al. 1997). Con las ecuaciones de Collins 2005,
+// 10 km a 20 km/s y 45° da ~120 km; 180 km requieren ~14 km y ~60°, dentro de las estimaciones del impactor (10–15 km).
+const CHICXULUB = { L_m: 14000, v_kms: 20, rho: 3000, theta: 60 }; // ángulo empinado (Collins et al. 2020, Nat. Commun. 11)
+
+function impacto({ L_m, v_kms, rho_i = 3000, theta_deg = 45, rho_t = 2500 }) {
+    const { rho0, H, CD, FP } = ATM;
+    const g = C.G_TIERRA, sinT = Math.sin(theta_deg * Math.PI / 180), v0 = v_kms * 1000;
+
+    // Energía cinética: E = ½ m v²  [J], m = (π/6) ρ L³
+    const masa = Math.PI / 6 * rho_i * L_m ** 3;
+    const E = 0.5 * masa * v0 * v0;
+
+    // Entrada atmosférica. Resistencia del cuerpo: Y = 10^(2,107 + 0,0624 √ρ) Pa (ec. 10).
+    // Factor de fragmentación I_f = 4,07 C_D H Y / (ρ L v² sin θ) (ec. 12); si I_f ≥ 1 llega intacto.
+    const Y = Math.pow(10, 2.107 + 0.0624 * Math.sqrt(rho_i));
+    const If = 4.07 * CD * H * Y / (rho_i * L_m * v0 * v0 * sinT);
+    let vSuelo, zRotura = null, zExplosion = null, rafaga = false;
+    if (If >= 1) {
+        // Frenado de un cuerpo intacto (ec. 8): v = v₀ exp(−3 ρ₀ C_D H / (4 ρ L sin θ))
+        vSuelo = v0 * Math.exp(-3 * rho0 * CD * H / (4 * rho_i * L_m * sinT));
+    } else {
+        // Altitud de rotura (ec. 11): z* = −H [ln(Y/ρ₀v₀²) + 1,308 − 0,314 I_f − 1,303 √(1 − I_f)]
+        zRotura = -H * (Math.log(Y / (rho0 * v0 * v0)) + 1.308 - 0.314 * If - 1.303 * Math.sqrt(1 - If));
+        const rhoZ = rho0 * Math.exp(-zRotura / H);
+        const vZ = v0 * Math.exp(-3 * rhoZ * CD * H / (4 * rho_i * L_m * sinT));
+        // Modelo de "tortita": longitud de dispersión l = L sin θ √(ρ/(C_D ρ(z*))) (ec. 13); explosión aérea cuando L = f_p·L₀ (ec. 18)
+        const l = L_m * sinT * Math.sqrt(rho_i / (CD * rhoZ));
+        zExplosion = zRotura - 2 * H * Math.log(1 + (l / (2 * H)) * Math.sqrt(FP * FP - 1));
+        if (zExplosion > 0) {
+            rafaga = true;
+            vSuelo = 0;
+        } else {
+            // Velocidad en el suelo del enjambre que se expande (ec. 19–20, integración numérica en 200 pasos)
+            let integral = 0;
+            const n = 200, dz = zRotura / n;
+            for (let i = 0; i < n; i++) {
+                const z = (i + 0.5) * dz;
+                const Lz2 = L_m * L_m * (1 + Math.pow(2 * H / l, 2) * Math.pow(Math.exp((zRotura - z) / (2 * H)) - 1, 2));
+                integral += Math.exp((zRotura - z) / H) * Lz2 * dz;
+            }
+            vSuelo = vZ * Math.exp(-0.75 * CD * rhoZ * integral / (rho_i * L_m ** 3 * sinT));
+        }
+    }
+
+    // Cráter transitorio (ec. 21): D_tc = 1,161 (ρ_i/ρ_t)^⅓ L^0,78 v^0,44 g^−0,22 sin^⅓θ   [m, SI]
+    // Cráter final (ec. 22 y 27): simple D = 1,25 D_tc; complejo D = 1,17 D_tc^1,13 / D_c^0,13, con D_c = 3,2 km en la Tierra.
+    // Profundidad del cráter complejo (ec. 28): d = 0,294 D^0,301 [km].
+    let Dtc = 0, Dfinal = 0, profundidad = 0;
+    if (!rafaga) {
+        Dtc = 1.161 * Math.pow(rho_i / rho_t, 1 / 3) * Math.pow(L_m, 0.78) * Math.pow(vSuelo, 0.44) * Math.pow(g, -0.22) * Math.pow(sinT, 1 / 3);
+        const Dc = 3200;
+        Dfinal = 1.25 * Dtc < Dc ? 1.25 * Dtc : 1.17 * Math.pow(Dtc, 1.13) / Math.pow(Dc, 0.13);
+        profundidad = 1.25 * Dtc < Dc ? Dfinal / 5 / 1000 : 0.294 * Math.pow(Dfinal / 1000, 0.301);
+    }
+
+    // Magnitud sísmica equivalente (ec. 40, eficiencia sísmica 10⁻⁴): M = 0,67 log₁₀E − 5,87
+    const magnitud = rafaga ? null : 0.67 * Math.log10(0.5 * masa * vSuelo * vSuelo) - 5.87;
+
+    // Invierno de impacto: polvo, hollín y sulfatos. Chicxulub → oscuridad de meses y enfriamiento de ~26 K
+    // durante ~3–16 años (Brugger, Feulner & Petri 2017, GRL 44; Toon et al. 1997, Rev. Geophys. 35).
+    // simplificación: τ = 20 · (E/E_Chicxulub)^(2/3), con umbral de efectos globales en ~10⁵–10⁶ Mt (Toon 1997).
+    const E_chix = 0.5 * (Math.PI / 6 * CHICXULUB.rho * CHICXULUB.L_m ** 3) * (CHICXULUB.v_kms * 1000) ** 2;
+    const tau = rafaga ? 0 : 20 * Math.pow(E / E_chix, 2 / 3);
+
+    return {
+        masa_kg: masa, energia_J: E, energia_Mt: E / C.MT_TNT, If, zRotura_km: zRotura && zRotura / 1000,
+        zExplosion_km: zExplosion && zExplosion / 1000, rafagaAerea: rafaga, vSuelo_kms: vSuelo / 1000,
+        crater_transitorio_km: Dtc / 1000, crater_km: Dfinal / 1000, profundidad_km: profundidad, magnitud, tau
+    };
+}
+// El aerosol del impacto decae con τ ≈ 1,5 años (sedimentación del polvo fino y del sulfato; Brugger 2017).
+const TAU_DECAIMIENTO_IMPACTO_ANIOS = 1.5;
+
 const Fisica = {
     C, ESTRELLAS, KOPPARAPU, OBLICUIDAD_CAOS, EDAD_MINIMA_VIDA_GA, PREINDUSTRIAL, EBM, T_DESBOCADO_C,
+    DENSIDADES_IMPACTOR, CHICXULUB, TAU_DECAIMIENTO_IMPACTO_ANIOS, impacto,
     CARBONO, HIELO_TOTAL_M, EUSTASIA_MAX_M, PROVINCIAS_IGNEAS,
     meteorizacion_GtAnio, desgasificacion_GtAnio, pasoCarbono, nivelMarPorHielo_m, nivelMarFisicamentePosible, luminosidadSolar,
     insolacion, distanciaEquivalente, picoWien_um, picoFotones_um, sEff, zonaHabitable,

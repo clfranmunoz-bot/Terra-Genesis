@@ -51,7 +51,7 @@ class EarthSimulation {
             active: false,
             timer: 0,
             duration: 16.0,
-            sootDust: 0,
+            tau: 0,          // espesor óptico del aerosol de impacto
             sizeKm: 15,
             speedKms: 25,
             energyMegatons: 1.4e8,
@@ -60,6 +60,7 @@ class EarthSimulation {
 
         this.currentScenarioId = 'real';
         this.T = Fisica.perfilInicial(15);   // °C por banda de latitud (modelo EBM)
+        this.Td = Fisica.perfilInicial(15);  // °C del océano profundo por banda
         this.clima = { estado: 'normal', albedo: 0.30, forzamiento: 0, Teq: 255, S_Wm2: 1361 };
     }
 
@@ -74,7 +75,7 @@ class EarthSimulation {
 
         const c = this.current;
         const F = Fisica.forzamientoTotal({ co2: c.co2, ch4: c.ch4, n2o: c.n2o, so2: c.so2, nubes: c.cloudDensity,
-                                            tauImpacto: this.meteorEvent.active ? this.meteorEvent.sootDust * 4 : 0 });
+                                            tauImpacto: this.meteorEvent.active ? this.meteorEvent.tau : 0 });
         const Teff = astro ? astro.estrella.Teff : 5772;
         const estado = Fisica.estadoInvernadero(S_rel, Teff);
 
@@ -84,8 +85,8 @@ class EarthSimulation {
             this.T.fill(c.meanTemp);
             c.iceCoverage = 0;
         } else {
-            if (this.clima.estado === 'desbocado') this.T = Fisica.perfilInicial(60);
-            Fisica.pasoEBM(this.T, this._Q, F, anios);
+            if (this.clima.estado === 'desbocado') { this.T = Fisica.perfilInicial(60); this.Td = Fisica.perfilInicial(60); }
+            Fisica.pasoEBM(this.T, this._Q, F, anios, this.Td);
             const d = Fisica.diagnosticoEBM(this.T, this._Q);
             c.meanTemp = d.Tmedia;
             c.iceCoverage = d.hielo;
@@ -121,6 +122,7 @@ class EarthSimulation {
         // La temperatura del escenario solo fija la condición inicial: el equilibrio lo calcula el modelo.
         // Importa por la histéresis: un arranque frío puede quedar atrapado en la bola de nieve (Budyko-Sellers).
         this.T = Fisica.perfilInicial(p.meanTempTarget !== undefined ? p.meanTempTarget : 15);
+        this.Td = [...this.T];
 
         this.target.atmosphereColor = [...v.atmosphereColor];
         this.target.atmosphereOpacity = v.atmosphereOpacity;
@@ -177,57 +179,29 @@ class EarthSimulation {
     }
 
     /**
-     * Calcula la balística y consecuencias físicas de un impacto personalizado
-     */
-    calculateImpactPhysics(diameterKm, speedKms, composition = 'rock') {
-        // Densidad (kg/m3)
-        const densities = { iron: 7800, rock: 3000, ice: 920 };
-        const rho = densities[composition] || 3000;
-
-        // Masa = (4/3) * PI * r^3 * rho
-        const radiusM = (diameterKm * 1000) / 2;
-        const volumeM3 = (4 / 3) * Math.PI * Math.pow(radiusM, 3);
-        const massKg = volumeM3 * rho;
-
-        // Energía cinética = 0.5 * m * v^2 en Joules (1 Megatón TNT = 4.184 x 10^15 Joules)
-        const velocityMs = speedKms * 1000;
-        const energyJoules = 0.5 * massKg * Math.pow(velocityMs, 2);
-        const megatons = energyJoules / 4.184e15;
-
-        // Diámetro estimado del cráter (fórmula empírica de Schmidt-Holsapple)
-        const craterDiameterKm = 1.161 * Math.pow(rho / 2600, 0.33) * Math.pow(diameterKm, 0.78) * Math.pow(speedKms, 0.44);
-
-        return {
-            massKg,
-            megatons,
-            craterDiameterKm: Math.round(craterDiameterKm * 10) / 10,
-            dustEjectionPpm: Math.min(5000, megatons * 0.0005)
-        };
-    }
-
-    /**
      * Registra un impacto en coordenadas 3D de la corteza y desencadena cataclismo
      */
     triggerCustomImpact(hitPoint3D, diameterKm, speedKms, composition) {
-        const physics = this.calculateImpactPhysics(diameterKm, speedKms, composition);
+        // Ángulo de 45°: el más probable (Shoemaker 1962)
+        const physics = Fisica.impacto({ L_m: diameterKm * 1000, v_kms: speedKms, rho_i: Fisica.DENSIDADES_IMPACTOR[composition] || 3000 });
+        this.ultimoImpacto = physics;
+        if (physics.rafagaAerea) return physics; // se desintegra en el aire: sin cráter ni invierno global
 
         this.meteorEvent.active = true;
-        this.meteorEvent.timer = 0;
-        this.meteorEvent.sootDust = Math.min(2.5, physics.megatons / 1e7);
+        this.meteorEvent.tau = Math.max(this.meteorEvent.active ? this.meteorEvent.tau || 0 : 0, physics.tau);
         this.meteorEvent.sizeKm = diameterKm;
         this.meteorEvent.speedKms = speedKms;
-        this.meteorEvent.energyMegatons = physics.megatons;
-        this.meteorEvent.craterKm = physics.craterDiameterKm;
+        this.meteorEvent.energyMegatons = physics.energia_Mt;
+        this.meteorEvent.craterKm = physics.crater_km;
 
-        // Registrar deformación cortical en la corteza
-        // Un asteroide >35 km produce deformación orogénica (levantamiento de meseta basáltica)
-        const crustUplift = diameterKm > 35 ? (diameterKm / 150.0) : -0.3; // Negativo = hundimiento / cuenca marina
+        // Los grandes impactos excavan cuencas multianillo (Melosh 1989), no levantan mesetas: siempre hundimiento.
+        const crustUplift = -0.3;
         
         const craterNormPos = hitPoint3D.clone().normalize();
         this.craters.push({
             center: craterNormPos,
-            radius: Math.min(0.35, (physics.craterDiameterKm / 12742) * 2.5), // Radio angular en la esfera
-            depth: Math.min(0.2, diameterKm / 100.0),
+            radius: Math.min(0.35, (physics.crater_km / 12742) * 2.5), // radio angular en la esfera (exagerado ×2,5 para verse)
+            depth: Math.min(0.2, physics.profundidad_km / 10),
             crustUplift: crustUplift
         });
 
@@ -236,12 +210,13 @@ class EarthSimulation {
             this.craters.shift();
         }
 
-        // Alteración ambiental inmediata
-        this.target.so2 = Math.min(300, this.target.so2 + physics.dustEjectionPpm * 0.3);
+        // Alteración visual inmediata (el efecto climático va por meteorEvent.tau)
+        if (physics.tau < 0.05) return physics;
         this.target.cloudDensity = Math.min(1.0, this.target.cloudDensity + 0.35);
         this.target.cloudColor = [0.22, 0.16, 0.14];
         this.target.atmosphereColor = [0.85, 0.35, 0.12];
         this.target.erosionFactor = Math.min(1.0, this.target.erosionFactor + 0.35);
+        return physics;
     }
 
     update(dt) {
@@ -260,16 +235,10 @@ class EarthSimulation {
         this.current.pangeaFactor += ((this.target.pangeaFactor || 0.0) - this.current.pangeaFactor) * lerpFactor;
         this.current.geologicalMa += ((this.target.geologicalMa !== undefined ? this.target.geologicalMa : 0.0) - this.current.geologicalMa) * lerpFactor;
 
-        // Disipación del invierno de impacto
+        // Disipación del invierno de impacto: e-folding de 1,5 años de clima (Brugger 2017)
         if (this.meteorEvent.active) {
-            this.meteorEvent.timer += dt;
-            if (this.meteorEvent.timer > this.meteorEvent.duration) {
-                this.meteorEvent.sootDust *= Math.max(0, 1 - dt * 0.15);
-                if (this.meteorEvent.sootDust < 0.03) {
-                    this.meteorEvent.active = false;
-                    this.meteorEvent.sootDust = 0;
-                }
-            }
+            this.meteorEvent.tau *= Math.exp(-dt * EarthSimulation.AÑOS_CLIMA_POR_SEGUNDO / Fisica.TAU_DECAIMIENTO_IMPACTO_ANIOS);
+            if (this.meteorEvent.tau < 0.01) { this.meteorEvent.active = false; this.meteorEvent.tau = 0; }
         }
 
         // ==========================================
@@ -298,7 +267,6 @@ class EarthSimulation {
             if (this.current.meanTemp > 25) habitability -= Math.min(80, (this.current.meanTemp - 25) * 3.5);
             if (this.current.o2 < 12.0) habitability -= (12.0 - this.current.o2) * 5.0;
             if (this.current.so2 > 5.0) habitability -= Math.min(60, (this.current.so2 - 5.0) * 0.8);
-            if (this.meteorEvent.active) habitability -= this.meteorEvent.sootDust * 65;
         }
         this.current.habitability = Math.max(0, Math.min(100, habitability));
 
@@ -330,7 +298,7 @@ class EarthSimulation {
                 desc: 'La abiogénesis nunca prosperó. Continentes desolados y mares verdes ricos en hierro soluble.'
             };
         }
-        if (this.meteorEvent.active && this.meteorEvent.sootDust > 0.4) {
+        if (this.meteorEvent.active && this.meteorEvent.tau > 1) {
             return {
                 badge: 'EXTINCIÓN POR IMPACTO CATACLÍSMICO',
                 desc: 'Invierno de impacto global en curso. Colapso del fitoplancton y cadenas tróficas.'
@@ -379,6 +347,6 @@ class EarthSimulation {
     }
 }
 
-EarthSimulation.AÑOS_CLIMA_POR_SEGUNDO = 1; // escala visual acelerada del clima
+EarthSimulation.AÑOS_CLIMA_POR_SEGUNDO = 5; // escala visual acelerada: 1 s = 5 años de clima
 
 window.EarthSimulation = EarthSimulation;

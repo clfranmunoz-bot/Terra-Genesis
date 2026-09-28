@@ -90,5 +90,31 @@ verdad('+1.200 m no es físicamente posible (máx. ±250 m)', !F.nivelMarFisicam
 prueba('Luminosidad solar hace 700 Ma (bola de nieve)', F.luminosidadSolar(-700), 0.93, 0.95);
 prueba('Luminosidad solar en +1 Ga', F.luminosidadSolar(1000), 1.08, 1.12);
 
+console.log('\n— Fase 5: impactos (Collins et al. 2005) —');
+const chix = F.impacto({ L_m: 14000, v_kms: 20, rho_i: 3000, theta_deg: 60 });
+prueba('Chicxulub: cráter final', chix.crater_km, 150, 210, 'km');
+prueba('Chicxulub: energía', chix.energia_Mt, 5e7, 5e8, 'Mt');
+prueba('10 km, 20 km/s, 45° (fórmula de Collins)', F.impacto({ L_m: 10000, v_kms: 20, rho_i: 3000 }).crater_km, 100, 140, 'km');
+const barringer = F.impacto({ L_m: 40, v_kms: 12.8, rho_i: 7800 });
+prueba('Cráter Barringer (hierro de ~40 m): 1,2 km', barringer.crater_km, 0.9, 1.5, 'km');
+const tunguska = F.impacto({ L_m: 50, v_kms: 12.8, rho_i: 1500 });
+verdad('Tunguska (~50 m, roca porosa) explota en el aire', tunguska.rafagaAerea);
+prueba('Tunguska: altitud de explosión (obs. 5–10 km)', tunguska.zExplosion_km, 4, 15, 'km');
+verdad('Cheliábinsk (~20 m) explota en el aire (obs. ~30 km)', F.impacto({ L_m: 20, v_kms: 19, rho_i: 3300, theta_deg: 18 }).rafagaAerea);
+{   // Invierno de impacto de Chicxulub con el océano de dos capas
+    const Q = F.insolacionBandas(1361, 23.44, 0.0167, 282.9);
+    const T = F.perfilInicial(15), Td = F.perfilInicial(15);
+    F.pasoEBM(T, Q, F.forzamientoTotal(hoy), 50, Td);
+    const T0 = F.diagnosticoEBM(T, Q).Tmedia;
+    let tau = chix.tau, Tmin = 99;
+    for (let y = 0; y < 60; y += 0.1) {
+        F.pasoEBM(T, Q, F.forzamientoTotal({ ...hoy, tauImpacto: tau }), 0.1, Td);
+        tau *= Math.exp(-0.1 / F.TAU_DECAIMIENTO_IMPACTO_ANIOS);
+        Tmin = Math.min(Tmin, F.diagnosticoEBM(T, Q).Tmedia);
+    }
+    prueba('Invierno de impacto Chicxulub: enfriamiento máximo (Brugger 2017: ~26 K)', T0 - Tmin, 18, 35, 'K');
+    prueba('Recuperación a los 60 años', F.diagnosticoEBM(T, Q).Tmedia, 12, 16, '°C');
+}
+
 console.log(`\n${fallos === 0 ? 'TODAS LAS PRUEBAS PASARON' : fallos + ' PRUEBA(S) FALLARON'}\n`);
 process.exit(fallos ? 1 : 0);

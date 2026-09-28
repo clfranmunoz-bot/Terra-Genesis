@@ -872,6 +872,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Estimación previa del impacto (Collins, Melosh & Marcus 2005; ángulo de 45°)
+    function actualizarEstimacionImpacto() {
+        const d = parseFloat(sliderMeteorSize.value), v = parseFloat(sliderMeteorSpeed.value);
+        dispMeteorSize.textContent = `${d} km`;
+        dispMeteorSpeed.textContent = `${v} km/s`;
+        const r = Fisica.impacto({ L_m: d * 1000, v_kms: v, rho_i: Fisica.DENSIDADES_IMPACTOR[selectMeteorComp.value] });
+        const [m, e] = r.energia_Mt.toExponential(1).split('e');
+        dispMeteorEnergy.textContent = `${m} × 10^${Number(e)} Mt TNT`;
+        dispMeteorCrater.textContent = r.rafagaAerea
+            ? `explosión aérea a ${r.zExplosion_km.toFixed(0)} km de altura (sin cráter)`
+            : `~${r.crater_km.toFixed(r.crater_km < 10 ? 1 : 0)} km (transitorio ${r.crater_transitorio_km.toFixed(0)} km), sismo M${r.magnitud.toFixed(1)}` +
+              (r.tau > 1 ? ' · invierno de impacto global' : '');
+    }
+    [sliderMeteorSize, sliderMeteorSpeed, selectMeteorComp].forEach((el) => el && el.addEventListener('input', actualizarEstimacionImpacto));
+    actualizarEstimacionImpacto();
+
     canvasViewport.addEventListener('click', (e) => {
         const coords = viewer.getCoordinatesAtMouse(e.clientX, e.clientY);
         if (!coords) return;
