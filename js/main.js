@@ -586,18 +586,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    btnNakedEarth.addEventListener('click', () => {
-        toggleClouds.checked = false;
-        toggleAtmosphere.checked = false;
-        if (quickClouds) quickClouds.checked = false;
-        if (quickAtmo) quickAtmo.checked = false;
-        viewer.setCloudsVisible(false);
-        viewer.setAtmosphereVisible(false);
-        simulation.setParam('seaLevelOffset', -130);
-        sliderSeaLevel.value = -130;
-        dispSliderSea.textContent = '-130 m';
-    });
-
     const btnRestoreDefaults = document.getElementById('btn-restore-defaults');
     if (btnRestoreDefaults) {
         btnRestoreDefaults.addEventListener('click', () => {
@@ -801,31 +789,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // ========================================================
     // ROTACIÓN Y CAPAS
     // ========================================================
-    btnToggleRotation.addEventListener('click', () => {
-        viewer.isRotationPaused = !viewer.isRotationPaused;
-        viewer.controls.autoRotate = false;
-        if (viewer.isRotationPaused) {
-            btnToggleRotation.textContent = '▶️ REANUDAR GIRO';
-            btnToggleRotation.classList.remove('active-btn');
-        } else {
-            btnToggleRotation.textContent = '⏸️ PAUSAR GIRO';
-            btnToggleRotation.classList.add('active-btn');
-        }
-    });
-
-    btnReverseRotation.addEventListener('click', () => {
-        viewer.rotationSpeed = -viewer.rotationSpeed;
-        viewer.controls.autoRotate = false;
-    });
-
-    toggleClouds.addEventListener('change', (e) => {
-        viewer.setCloudsVisible(e.target.checked);
-    });
-
-    toggleAtmosphere.addEventListener('change', (e) => {
-        viewer.setAtmosphereVisible(e.target.checked);
-    });
-
     let isNakedActive = false;
     btnNakedEarth.addEventListener('click', () => {
         isNakedActive = !isNakedActive;
@@ -834,6 +797,8 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleAtmosphere.checked = false;
             viewer.setCloudsVisible(false);
             viewer.setAtmosphereVisible(false);
+            if (quickClouds) quickClouds.checked = false;
+            if (quickAtmo) quickAtmo.checked = false;
             btnNakedEarth.textContent = '🌐 RESTAURAR CAPAS';
             btnNakedEarth.classList.add('active-btn');
         } else {
@@ -841,6 +806,8 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleAtmosphere.checked = true;
             viewer.setCloudsVisible(true);
             viewer.setAtmosphereVisible(true);
+            if (quickClouds) quickClouds.checked = true;
+            if (quickAtmo) quickAtmo.checked = true;
             btnNakedEarth.textContent = '🌍 MODO CORTEZA PURA';
             btnNakedEarth.classList.remove('active-btn');
         }
@@ -977,12 +944,12 @@ document.addEventListener('DOMContentLoaded', () => {
             name: name,
             epoch: epoch,
             params: {
-                co2, o2, ch4, so2: volcanism * 3.0, solarLuminosity: 1.0,
+                co2, o2, ch4, so2: 0.05, solarLuminosity: 1.0,
                 volcanism, hasLife, hasCivilization: hasCiv,
                 seaLevelOffset: sea, meanTempTarget: temp
             },
             visual: {
-                atmosphereColor: hasLife ? [0.15, 0.55, 1.0] : [0.90, 0.55, 0.20],
+                atmosphereColor: [0.31, 0.51, 1.0], // cielo azul por Rayleigh del N₂, haya o no vida
                 atmosphereOpacity: 0.85,
                 oceanColor: hasLife ? [0.03, 0.18, 0.45] : [0.12, 0.35, 0.22],
                 oceanShallowColor: hasLife ? [0.08, 0.45, 0.65] : [0.22, 0.48, 0.25],
@@ -1033,7 +1000,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         geology.setThermostat(false);
         geology.setOrogeny(1.0);
-        geology.setContinentalEpoch('modern');
 
         astrobiology.setPigment('green');
 
