@@ -525,16 +525,25 @@
                             <span id="disp-ch4" class="slider-num">1.9 ppm</span>
                         </div>
                         <input type="range" id="slider-ch4" min="0.5" max="50.0" step="0.5" value="1.9">
-                        <div class="card-subtext">Potencia de efecto invernadero x28 vs CO₂.</div>
+                        <div class="card-subtext">Potencial de calentamiento global ≈ 27–30 × CO₂ a 100 años (IPCC AR6).</div>
                     </div>
 
                     <div class="control-group">
                         <div class="slider-header">
-                            <span class="slider-name">Dióxido de Azufre (SO₂)</span>
-                            <span id="disp-so2" class="slider-num">0 ppm</span>
+                            <span class="slider-name">Óxido Nitroso (N₂O)</span>
+                            <span id="disp-n2o" class="slider-num">0.335 ppm</span>
+                        </div>
+                        <input type="range" id="slider-n2o" min="0" max="2" step="0.005" value="0.335">
+                        <div class="card-subtext">Preindustrial 0,270 ppm; hoy 0,335 ppm (NOAA). Forzamiento según Myhre et al. 1998.</div>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="slider-header">
+                            <span class="slider-name">SO₂ estratosférico (aerosoles)</span>
+                            <span id="disp-so2" class="slider-num">0 Mt</span>
                         </div>
                         <input type="range" id="slider-so2" min="0" max="150" step="5" value="0">
-                        <div class="card-subtext">Aerosoles reflectantes que enfrían la superficie.</div>
+                        <div class="card-subtext">Carga en megatoneladas. Pinatubo 1991 ≈ 20 Mt → −0,5 °C. Los sulfatos reflejan la luz solar (Hansen et al. 2005).</div>
                     </div>
 
                     <div class="control-group">
@@ -548,7 +557,7 @@
                     <div class="control-group">
                         <div class="slider-header">
                             <span class="slider-name">Presión en Superficie</span>
-                            <span id="disp-surface-pressure" class="slider-num">1.00 atm</span>
+                            <span id="disp-surface-pressure" class="slider-num">1.00 bar</span>
                         </div>
                         <input type="range" id="slider-surface-pressure" min="0.20" max="3.00" step="0.05" value="1.00">
                     </div>

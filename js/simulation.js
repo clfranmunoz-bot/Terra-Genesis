@@ -9,7 +9,8 @@ class EarthSimulation {
             co2: 420,
             o2: 21.0,
             ch4: 1.9,
-            so2: 0.05,
+            n2o: 0.335,          // ppm (NOAA GML 2024)
+            so2: 0.05,           // Mt de SO₂ en la estratosfera (carga de fondo)
             solarLuminosity: 1.0,
             volcanism: 1.0,
             hasLife: true,
@@ -58,6 +59,44 @@ class EarthSimulation {
         };
 
         this.currentScenarioId = 'real';
+        this.T = Fisica.perfilInicial(15);   // °C por banda de latitud (modelo EBM)
+        this.clima = { estado: 'normal', albedo: 0.30, forzamiento: 0, Teq: 255, S_Wm2: 1361 };
+    }
+
+    // Integra el clima `anios` años de modelo. La insolación por banda sale de la órbita actual (Milankovitch).
+    actualizarClima(anios) {
+        const astro = window.astrophysicsEngine;
+        const S_rel = this.current.solarLuminosity * (astro ? astro.insolacionRel : 1);
+        const p = astro ? astro.params : { eccentricity: 0.0167, perihelionDeg: 282.9 };
+        const obl = astro ? astro.oblicuidadEfectiva() : 23.44;
+        const clave = [S_rel.toFixed(4), obl.toFixed(2), p.eccentricity, p.perihelionDeg].join();
+        if (clave !== this._claveQ) { this._claveQ = clave; this._Q = Fisica.insolacionBandas(Fisica.C.S0 * S_rel, obl, p.eccentricity, p.perihelionDeg); }
+
+        const c = this.current;
+        const F = Fisica.forzamientoTotal({ co2: c.co2, ch4: c.ch4, n2o: c.n2o, so2: c.so2, nubes: c.cloudDensity,
+                                            tauImpacto: this.meteorEvent.active ? this.meteorEvent.sootDust * 4 : 0 });
+        const Teff = astro ? astro.estrella.Teff : 5772;
+        const estado = Fisica.estadoInvernadero(S_rel, Teff);
+
+        if (estado === 'desbocado') {
+            // Fuera del dominio del modelo lineal: océanos evaporados (Goldblatt et al. 2013)
+            c.meanTemp += (Fisica.T_DESBOCADO_C - c.meanTemp) * Math.min(1, anios * 0.05);
+            this.T.fill(c.meanTemp);
+            c.iceCoverage = 0;
+        } else {
+            if (this.clima.estado === 'desbocado') this.T = Fisica.perfilInicial(60);
+            Fisica.pasoEBM(this.T, this._Q, F, anios);
+            const d = Fisica.diagnosticoEBM(this.T, this._Q);
+            c.meanTemp = d.Tmedia;
+            c.iceCoverage = d.hielo;
+            this.clima.albedo = d.albedo;
+            this.clima.Tecuador = d.Tecuador;
+            this.clima.Tpolo = d.Tpolo;
+        }
+        this.clima.estado = estado;
+        this.clima.forzamiento = F;
+        this.clima.S_Wm2 = Fisica.C.S0 * S_rel;
+        this.clima.Teq = Fisica.temperaturaEquilibrio(this.clima.S_Wm2, this.clima.albedo);
     }
 
     applyScenario(scenarioKey) {
@@ -78,6 +117,10 @@ class EarthSimulation {
         this.target.hasLife = p.hasLife;
         this.target.hasCivilization = p.hasCivilization;
         this.target.seaLevelOffset = p.seaLevelOffset;
+        this.target.n2o = p.n2o !== undefined ? p.n2o : 0.335;
+        // La temperatura del escenario solo fija la condición inicial: el equilibrio lo calcula el modelo.
+        // Importa por la histéresis: un arranque frío puede quedar atrapado en la bola de nieve (Budyko-Sellers).
+        this.T = Fisica.perfilInicial(p.meanTempTarget !== undefined ? p.meanTempTarget : 15);
 
         this.target.atmosphereColor = [...v.atmosphereColor];
         this.target.atmosphereOpacity = v.atmosphereOpacity;
@@ -208,6 +251,7 @@ class EarthSimulation {
         this.current.o2 += (this.target.o2 - this.current.o2) * lerpFactor;
         this.current.ch4 += (this.target.ch4 - this.current.ch4) * lerpFactor;
         this.current.so2 += (this.target.so2 - this.current.so2) * lerpFactor;
+        this.current.n2o += (this.target.n2o - this.current.n2o) * lerpFactor;
         this.current.solarLuminosity += (this.target.solarLuminosity - this.current.solarLuminosity) * lerpFactor;
         this.current.volcanism += (this.target.volcanism - this.current.volcanism) * lerpFactor;
         this.current.hasLife = this.target.hasLife;
@@ -229,29 +273,10 @@ class EarthSimulation {
         }
 
         // ==========================================
-        // 1. CLIMA Y BALANCE TÉRMICO
+        // 1. CLIMA: modelo de balance energético latitudinal (ver Fisica.pasoEBM)
+        // Escala visual acelerada: 1 s de pantalla = AÑOS_CLIMA_POR_SEGUNDO años de clima.
         // ==========================================
-        const co2Ratio = Math.max(0.1, this.current.co2 / 280);
-        const deltaF_CO2 = 5.35 * Math.log(co2Ratio);
-        const deltaF_CH4 = 0.036 * (Math.sqrt(Math.max(0, this.current.ch4)) - Math.sqrt(1.7));
-        const volcanicAerosols = (this.current.so2 * 0.04) + (this.meteorEvent.sootDust * 8.0);
-        const coolingFactor = Math.min(28.0, volcanicAerosols * 2.4);
-        const S = this.current.solarLuminosity * (window.astrophysicsEngine ? window.astrophysicsEngine.insolacionRel : 1);
-        const solarForcing = (S - 1.0) * 38.0;
-        
-        let calculatedTemp = 14.5 + (deltaF_CO2 * 0.75) + (deltaF_CH4 * 0.4) + solarForcing - coolingFactor;
-
-        if (!this.current.hasLife) {
-            calculatedTemp += 3.5;
-        }
-
-        // Glaciación desbocada
-        if (calculatedTemp < -5) {
-            const iceAlbedo = Math.min(22, Math.abs(calculatedTemp + 5) * 0.65);
-            calculatedTemp -= iceAlbedo;
-        }
-
-        this.current.meanTemp += (calculatedTemp - this.current.meanTemp) * lerpFactor;
+        this.actualizarClima(dt * EarthSimulation.AÑOS_CLIMA_POR_SEGUNDO);
 
         // ==========================================
         // 2. NIVEL DEL MAR Y CASQUETES
@@ -265,19 +290,6 @@ class EarthSimulation {
             }
         }
         this.current.seaLevelOffset += (targetSeaOffset - this.current.seaLevelOffset) * lerpFactor;
-
-        // Cobertura de hielo polar
-        let targetIce = 0.10;
-        if (this.current.meanTemp <= -25) {
-            targetIce = 0.98;
-        } else if (this.current.meanTemp <= 0) {
-            targetIce = 0.45 + Math.abs(this.current.meanTemp) * 0.02;
-        } else if (this.current.meanTemp < 18) {
-            targetIce = Math.max(0.01, 0.16 - (this.current.meanTemp - 10) * 0.015);
-        } else {
-            targetIce = 0.0;
-        }
-        this.current.iceCoverage += (targetIce - this.current.iceCoverage) * lerpFactor;
 
         // ==========================================
         // 3. HABITABILIDAD GLOBAL
@@ -294,9 +306,8 @@ class EarthSimulation {
         }
         this.current.habitability = Math.max(0, Math.min(100, habitability));
 
-        // Presión superficial
-        const basePressure = 0.78 + (this.current.o2 / 100) + (this.current.co2 / 10000) * 0.6;
-        this.current.surfacePressure = Math.round(basePressure * 100) / 100;
+        // Presión superficial total (bar ≈ atm): la fija el control; O₂ y CO₂ son fracciones molares de esa presión.
+        this.current.surfacePressure += (this.target.surfacePressure - this.current.surfacePressure) * lerpFactor;
 
         // ==========================================
         // 4. INTERPOLACIÓN VISUAL
@@ -371,5 +382,7 @@ class EarthSimulation {
         };
     }
 }
+
+EarthSimulation.AÑOS_CLIMA_POR_SEGUNDO = 1; // escala visual acelerada del clima
 
 window.EarthSimulation = EarthSimulation;

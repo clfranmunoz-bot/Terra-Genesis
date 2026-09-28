@@ -167,11 +167,146 @@ function colorCielo(Teff) {
     return rgb.map((v) => v / max);
 }
 
+// ============================================================
+// FASE 3 — CLIMA Y ATMÓSFERA
+// ============================================================
+
+// Concentraciones preindustriales (1750), IPCC AR6 WG1 cap. 2: CO₂ 278 ppm, CH₄ 722 ppb, N₂O 270 ppb.
+const PREINDUSTRIAL = { co2: 278, ch4: 0.722, n2o: 0.270 };
+
+// Forzamiento radiativo de gases de efecto invernadero (Myhre et al. 1998, GRL 25; IPCC TAR tabla 6.2) [W/m²]
+//   CO₂:  ΔF = 5,35 · ln(C/C₀)                                    C en ppm
+//   CH₄:  ΔF = 0,036 · (√M − √M₀) − [f(M,N₀) − f(M₀,N₀)]           M, N en ppb
+//   N₂O:  ΔF = 0,12  · (√N − √N₀) − [f(M₀,N) − f(M₀,N₀)]
+//   f(M,N) = 0,47 · ln[1 + 2,01×10⁻⁵ (MN)^0,75 + 5,31×10⁻¹⁵ M (MN)^1,52]   (solapamiento de bandas CH₄–N₂O)
+// simplificación: por encima de ~2000 ppm de CO₂ la fórmula logarítmica subestima el forzamiento (Byrne & Goldblatt 2014).
+function solape(M, N) { return 0.47 * Math.log(1 + 2.01e-5 * Math.pow(M * N, 0.75) + 5.31e-15 * M * Math.pow(M * N, 1.52)); }
+function forzamientoCO2(co2_ppm) { return 5.35 * Math.log(Math.max(1, co2_ppm) / PREINDUSTRIAL.co2); }
+function forzamientoCH4(ch4_ppm, n2o_ppm = PREINDUSTRIAL.n2o) {
+    const M = ch4_ppm * 1000, M0 = PREINDUSTRIAL.ch4 * 1000, N0 = n2o_ppm * 1000;
+    return 0.036 * (Math.sqrt(M) - Math.sqrt(M0)) - (solape(M, N0) - solape(M0, N0));
+}
+function forzamientoN2O(n2o_ppm, ch4_ppm = PREINDUSTRIAL.ch4) {
+    const N = n2o_ppm * 1000, N0 = PREINDUSTRIAL.n2o * 1000, M0 = ch4_ppm * 1000;
+    return 0.12 * (Math.sqrt(N) - Math.sqrt(N0)) - (solape(M0, N) - solape(M0, N0));
+}
+
+// Aerosoles de sulfato estratosférico a partir de la carga de SO₂ (Mt):
+//   τ = 0,0075·M  (Pinatubo 1991: ~20 Mt SO₂ → τ₅₅₀ ≈ 0,15; Sato et al. 1993)
+//   por encima de 20 Mt las partículas coagulan y τ crece como M^(2/3) (Pinto, Turco & Toon 1989)
+//   ΔF ≈ −25·τ W/m² para τ pequeño (Hansen et al. 2005, JGR 110), saturando en la radiación solar absorbida:
+//   ΔF = −ASR · (1 − e^(−25τ/ASR)),  ASR ≈ 240 W/m²
+function profundidadOpticaSulfato(so2_Mt) {
+    const m = Math.max(0, so2_Mt);
+    return m <= 20 ? 0.0075 * m : 0.15 * Math.pow(m / 20, 2 / 3);
+}
+function forzamientoAerosol(tau) { const ASR = 240; return -ASR * (1 - Math.exp(-25 * tau / ASR)); }
+
+// Nubes: efecto radiativo neto actual ≈ −20 W/m² con una cobertura de ~67 % (CERES EBAF; Loeb et al. 2018).
+// simplificación: forzamiento lineal respecto a la cobertura del control visual (0,75 = hoy), −27 W/m² por unidad de fracción.
+function forzamientoNubes(fraccion) { return -27 * (fraccion - 0.75); }
+
+// Presión de vapor de saturación (Clausius-Clapeyron, aproximación de Magnus; Alduchov & Eskridge 1996):
+//   e_s = 6,1094 · exp(17,625·T / (T + 243,04))  [hPa, T en °C]  → ~7 %/K cerca de 15 °C.
+function presionVaporSaturacion_hPa(T) { return 6.1094 * Math.exp(17.625 * T / (T + 243.04)); }
+// Punto de ebullición del agua a presión P (Clausius-Clapeyron integrada, L = 40,65 kJ/mol): [°C]
+function puntoEbullicion_C(P_bar) {
+    return 1 / (1 / 373.15 - 8.314 * Math.log(Math.max(1e-4, P_bar) / 1.01325) / 40650) - 273.15;
+}
+
+// Espesor óptico de Rayleigh (Bodhaine et al. 1999, J. Atmos. Ocean. Tech. 16) [adimensional, λ en µm]
+//   τ_R(λ) ≈ 0,00864 · λ^−(3,916 + 0,074λ + 0,050/λ) · P/1,01325 bar;  τ(550 nm) ≈ 0,097
+// El CO₂ dispersa ~2,5 veces más que el N₂ (Sneep & Ubachs 2005).
+function espesorRayleigh(lambda_um, P_bar, co2_ppm = 420) {
+    const composicion = 1 + 1.5 * co2_ppm * 1e-6;
+    return 0.00864 * Math.pow(lambda_um, -(3.916 + 0.074 * lambda_um + 0.050 / lambda_um)) * (P_bar / 1.01325) * composicion;
+}
+
+// Temperatura de equilibrio radiativo: T_eq = [S(1−A) / 4σ]^¼  [K]. Tierra: S=1361, A=0,30 → 255 K.
+function temperaturaEquilibrio(S_Wm2, albedo) { return Math.pow(S_Wm2 * (1 - albedo) / (4 * C.SIGMA), 0.25); }
+
+// ---- Modelo de balance energético latitudinal (Budyko 1969; Sellers 1969; North, Cahalan & Coakley 1981, Rev. Geophys. 19)
+//   C ∂T/∂t = Q(x)(1 − α(T,x)) − (A + B·T) + F + ∂/∂x[ D (1−x²) ∂T/∂x ],   x = sen(latitud)
+// B = 1,40 W m⁻² K⁻¹: Planck (3,22) − vapor de agua + gradiente vertical (1,30) − nubes (0,42) = 1,50 (IPCC AR6 WG1 tabla 7.10),
+//   menos 0,10 por la nieve continental que el modelo no resuelve (el AR6 da 0,35 para todo el albedo superficial).
+//   El vapor de agua crece ~7 %/K (Clausius-Clapeyron) y su absorción es ∝ ln(q), por eso su retroalimentación es ~constante en W/m²/K.
+// α: hielo (T < −10 °C, criterio de Budyko) = 0,62; sin hielo, 0,26 + 0,10·x² (ángulo cenital y nubes subpolares).
+// C = 2,1×10⁸ J m⁻² K⁻¹ (capa de mezcla oceánica de ~70 m × 70 % de océano; Hartmann 2016).
+// A se calibra para que la Tierra actual dé 15 °C (ver tests/validacion.js).
+// simplificación: sin estaciones (insolación media anual), sin océano profundo, sin tierra/mar ni dinámica;
+//   las nubes y el vapor de agua van como retroalimentaciones globales. La histéresis de bola de nieve sí emerge del modelo.
+const EBM = { N: 18, A: 218.85, B: 1.40, D: 0.55, CALOR: 2.1e8, T_HIELO: -10, ALB_HIELO: 0.62 };
+const EBM_X = Array.from({ length: EBM.N }, (_, i) => -1 + (i + 0.5) * 2 / EBM.N);
+
+function albedoBanda(T, x) {
+    const libre = 0.26 + 0.10 * x * x;
+    const hielo = 0.5 * (1 - Math.tanh((T - EBM.T_HIELO) / 2)); // transición suave de ±2 K para estabilidad numérica
+    return libre + (EBM.ALB_HIELO - libre) * hielo;
+}
+function insolacionBandas(S_Wm2, oblicuidadDeg, e, varpiDeg) {
+    const r = Math.PI / 180;
+    return EBM_X.map((x) => insolacionAnual(S_Wm2, Math.asin(x), oblicuidadDeg * r, e, varpiDeg * r, 48));
+}
+function perfilInicial(Tmedia) { return EBM_X.map((x) => Tmedia - 45 * (x * x - 1 / 3)); }
+
+// Avanza el modelo `anios` años con pasos explícitos de 5 días. Q: insolación por banda; F: forzamiento total.
+function pasoEBM(T, Q, F, anios) {
+    const dx = 2 / EBM.N, dt = 5 * 86400;
+    const pasos = Math.max(1, Math.round(anios * C.ANIO / dt));
+    const flujo = new Array(EBM.N + 1).fill(0);
+    for (let p = 0; p < pasos; p++) {
+        for (let i = 1; i < EBM.N; i++) {
+            const xb = -1 + i * dx;
+            flujo[i] = EBM.D * (1 - xb * xb) * (T[i] - T[i - 1]) / dx;
+        }
+        for (let i = 0; i < EBM.N; i++) {
+            const neto = Q[i] * (1 - albedoBanda(T[i], EBM_X[i])) - (EBM.A + EBM.B * T[i]) + F + (flujo[i + 1] - flujo[i]) / dx;
+            T[i] += dt * neto / EBM.CALOR;
+        }
+    }
+    return T;
+}
+function diagnosticoEBM(T, Q) {
+    let t = 0, q = 0, qa = 0, hielo = 0;
+    for (let i = 0; i < EBM.N; i++) {
+        const a = albedoBanda(T[i], EBM_X[i]);
+        t += T[i]; q += Q[i]; qa += Q[i] * a;
+        hielo += 0.5 * (1 - Math.tanh((T[i] - EBM.T_HIELO) / 2));
+    }
+    return { Tmedia: t / EBM.N, albedo: qa / q, hielo: hielo / EBM.N, Qmedia: q / EBM.N,
+             Tecuador: (T[EBM.N / 2 - 1] + T[EBM.N / 2]) / 2, Tpolo: (T[0] + T[EBM.N - 1]) / 2 };
+}
+
+// Forzamiento total respecto al preindustrial (W/m²)
+function forzamientoTotal(g) {
+    return forzamientoCO2(g.co2) + forzamientoCH4(g.ch4, g.n2o) + forzamientoN2O(g.n2o, g.ch4) +
+        forzamientoAerosol(profundidadOpticaSulfato(g.so2) + (g.tauImpacto || 0)) + forzamientoNubes(g.nubes);
+}
+
+// Estado del invernadero según la insolación (Kopparapu 2013/2014; Leconte et al. 2013 con GCM: desbocado ~1,1 S⊕)
+function estadoInvernadero(S_rel, Teff) {
+    if (S_rel >= sEff('desbocado', Teff)) return 'desbocado';
+    if (S_rel >= sEff('humedo', Teff)) return 'humedo';
+    return 'normal';
+}
+// Tras un invernadero desbocado los océanos pasan a la atmósfera y la superficie supera ~1400 K (Goldblatt et al. 2013, Nat. Geosci. 6).
+const T_DESBOCADO_C = 1127;
+
+// Equilibrio completo (para pruebas y para el Estudio de escenarios)
+function climaEquilibrio(g, orbita, Tinicial = 15, anios = 300) {
+    const Q = insolacionBandas(C.S0 * orbita.S_rel, orbita.oblicuidad, orbita.e, orbita.varpi);
+    const T = pasoEBM(perfilInicial(Tinicial), Q, forzamientoTotal(g), anios);
+    return diagnosticoEBM(T, Q);
+}
+
 const Fisica = {
-    C, ESTRELLAS, KOPPARAPU, OBLICUIDAD_CAOS, EDAD_MINIMA_VIDA_GA,
+    C, ESTRELLAS, KOPPARAPU, OBLICUIDAD_CAOS, EDAD_MINIMA_VIDA_GA, PREINDUSTRIAL, EBM, T_DESBOCADO_C,
     insolacion, distanciaEquivalente, picoWien_um, picoFotones_um, sEff, zonaHabitable,
     insolacionDiaria, insolacionAnual, tiempoAnclajeMarea_anios, estaAnclado, mareaRelativa,
-    presionVientoEstelar_Pa, radioMagnetopausa, latitudAuroral_grados, estrellaPermiteVida, colorCielo
+    presionVientoEstelar_Pa, radioMagnetopausa, latitudAuroral_grados, estrellaPermiteVida, colorCielo,
+    forzamientoCO2, forzamientoCH4, forzamientoN2O, profundidadOpticaSulfato, forzamientoAerosol, forzamientoNubes,
+    forzamientoTotal, presionVaporSaturacion_hPa, puntoEbullicion_C, espesorRayleigh, temperaturaEquilibrio,
+    insolacionBandas, perfilInicial, pasoEBM, diagnosticoEBM, estadoInvernadero, climaEquilibrio
 };
 
 if (typeof module !== 'undefined' && module.exports) module.exports = Fisica;

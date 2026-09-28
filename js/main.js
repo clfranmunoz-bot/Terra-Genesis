@@ -407,12 +407,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    bindSlider('slider-n2o', 'disp-n2o', (v) => `${v.toFixed(3)} ppm`, (v) => simulation.setParam('n2o', v));
+
     const sliderSo2 = document.getElementById('slider-so2');
     const dispSo2 = document.getElementById('disp-so2');
     if (sliderSo2) {
         sliderSo2.addEventListener('input', (e) => {
             const val = parseFloat(e.target.value);
-            dispSo2.textContent = `${Math.round(val)} ppm`;
+            dispSo2.textContent = `${Math.round(val)} Mt`;
             simulation.setParam('so2', val);
         });
     }
@@ -432,7 +434,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sliderSurfacePressure) {
         sliderSurfacePressure.addEventListener('input', (e) => {
             const val = parseFloat(e.target.value);
-            dispSurfacePressure.textContent = `${val.toFixed(2)} atm`;
+            dispSurfacePressure.textContent = `${val.toFixed(2)} bar`;
             simulation.setParam('surfacePressure', val);
         });
     }
@@ -1055,12 +1057,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (dispO2) dispO2.textContent = '20.9 %';
         if (sliderCh4) sliderCh4.value = 1.9;
         if (dispCh4) dispCh4.textContent = '1.9 ppm';
+        const sN2o = document.getElementById('slider-n2o');
+        if (sN2o) { sN2o.value = 0.335; document.getElementById('disp-n2o').textContent = '0.335 ppm'; }
         if (sliderSo2) sliderSo2.value = 0;
-        if (dispSo2) dispSo2.textContent = '0 ppm';
+        if (dispSo2) dispSo2.textContent = '0 Mt';
         if (sliderCloudDensity) sliderCloudDensity.value = 75;
         if (dispCloudDensity) dispCloudDensity.textContent = '75 %';
         if (sliderSurfacePressure) sliderSurfacePressure.value = 1.00;
-        if (dispSurfacePressure) dispSurfacePressure.textContent = '1.00 atm';
+        if (dispSurfacePressure) dispSurfacePressure.textContent = '1.00 bar';
 
         // 7. Restablecer controles de Geología & Silicatos
         if (sliderSeaLevel) sliderSeaLevel.value = 0;
@@ -1316,7 +1320,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (sliderSo2) {
             sliderSo2.value = Math.round(scen.params.so2);
-            dispSo2.textContent = `${Math.round(scen.params.so2)} ppm`;
+            dispSo2.textContent = `${Math.round(scen.params.so2)} Mt`;
         }
         if (sliderVolcanism) {
             sliderVolcanism.value = scen.params.volcanism.toFixed(1);
@@ -1347,6 +1351,13 @@ document.addEventListener('DOMContentLoaded', () => {
         valTemp.textContent = `${cur.meanTemp.toFixed(1)} °C`;
         const tempPct = Math.max(0, Math.min(100, (cur.meanTemp + 50) / 100 * 100));
         barTemp.style.width = `${tempPct}%`;
+        const cl = simulation.clima;
+        const estadoTxt = { desbocado: '🔥 INVERNADERO DESBOCADO: océanos evaporados (fuera del modelo lineal)',
+                            humedo: '⚠️ Invernadero húmedo: el agua llega a la estratosfera y escapa al espacio (Kasting 1993)' }[cl.estado]
+            || (cur.iceCoverage > 0.9 ? '❄️ Tierra bola de nieve (estado estable por el albedo del hielo)' : '');
+        statusTemp.textContent = `S = ${Math.round(cl.S_Wm2)} W/m² · albedo ${cl.albedo.toFixed(2)} · T_eq ${Math.round(cl.Teq)} K · ` +
+            `efecto invernadero ${(g => (g >= 0 ? '+' : '') + g)(Math.round(cur.meanTemp + 273.15 - cl.Teq))} K · ΔF = ${cl.forzamiento >= 0 ? '+' : ''}${cl.forzamiento.toFixed(2)} W/m² (vs. 1750)` +
+            (estadoTxt ? ` · ${estadoTxt}` : '');
 
         // Nivel del mar
         const sign = cur.seaLevelOffset >= 0 ? '+' : '';

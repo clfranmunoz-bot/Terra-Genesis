@@ -990,7 +990,9 @@ class PlanetViewer {
         // 4. Shaders de Atmósfera
         if (this.atmoUniforms && this.showAtmosphere) {
             this.atmoUniforms.uColor.value.set(...cur.atmosphereColor);
-            this.atmoUniforms.uOpacity.value = cur.atmosphereOpacity;
+            // Brillo del cielo ∝ espesor óptico de Rayleigh (∝ presión y composición; Bodhaine et al. 1999)
+            const tauRel = Fisica.espesorRayleigh(0.55, cur.surfacePressure, cur.co2) / Fisica.espesorRayleigh(0.55, 1.0, 420);
+            this.atmoUniforms.uOpacity.value = cur.atmosphereOpacity * Math.min(2.5, Math.sqrt(tauRel));
         }
 
         // 5. Animación de Auroras Boreales 3D
