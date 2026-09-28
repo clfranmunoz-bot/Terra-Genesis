@@ -77,6 +77,11 @@ class EarthSimulation {
         this.target.hasLife = p.hasLife;
         this.target.hasCivilization = p.hasCivilization;
         this.target.seaLevelOffset = p.seaLevelOffset;
+        // El clima es biestable (hielo-albedo): un escenario glaciado debe arrancar ya helado,
+        // y el balance energético decide después si se mantiene o se deshiela.
+        if (p.meanTempTarget !== undefined && p.meanTempTarget < -10) {
+            this.current.meanTemp = p.meanTempTarget;
+        }
 
         this.target.atmosphereColor = [...v.atmosphereColor];
         this.target.atmosphereOpacity = v.atmosphereOpacity;
@@ -230,24 +235,46 @@ class EarthSimulation {
         // ==========================================
         // 1. CLIMA Y BALANCE TÉRMICO
         // ==========================================
+        // Modelo de balance energético de dimensión cero (Budyko-Sellers simplificado):
+        //   T_e = [S·(1−α) / (4σ)]^¼   (Stefan-Boltzmann)
+        //   T_s = T_e + G₀ + λ·ΔF       (efecto invernadero + sensibilidad climática)
+        // El albedo depende del hielo, que depende de T → se resuelve por punto fijo
+        // (retroalimentación hielo-albedo con posibilidad de Tierra bola de nieve).
+        const SIGMA = 5.670374e-8;        // Constante de Stefan-Boltzmann [W·m⁻²·K⁻⁴]
+        const S0 = 1361;                  // Constante solar a 1 UA [W/m²]
+        const G0 = 31.5;                  // Invernadero preindustrial calibrado para T≈14 °C (H₂O + CO₂ 280 ppm) [K]
+        const LAMBDA = 0.8;               // Sensibilidad climática con feedback de vapor de agua [K/(W/m²)]
+
+        const S = S0 * this.current.solarLuminosity; // Luminosidad ya incluye 1/d² (ley del inverso del cuadrado)
+
+        // Forzamientos radiativos (Myhre et al. 1998 / IPCC TAR)
         const co2Ratio = Math.max(0.1, this.current.co2 / 280);
         const deltaF_CO2 = 5.35 * Math.log(co2Ratio);
-        const deltaF_CH4 = 0.036 * (Math.sqrt(Math.max(0, this.current.ch4)) - Math.sqrt(1.7));
-        const volcanicAerosols = (this.current.so2 * 0.04) + (this.meteorEvent.sootDust * 8.0);
-        const coolingFactor = Math.min(28.0, volcanicAerosols * 2.4);
-        const solarForcing = (this.current.solarLuminosity - 1.0) * 38.0;
-        
-        let calculatedTemp = 14.5 + (deltaF_CO2 * 0.75) + (deltaF_CH4 * 0.4) + solarForcing - coolingFactor;
+        const ch4ppb = Math.max(0, this.current.ch4) * 1000; // El slider trabaja en ppm; la fórmula exige ppb
+        const deltaF_CH4 = 0.036 * (Math.sqrt(ch4ppb) - Math.sqrt(700));
+        // Aerosoles de sulfato y hollín: forzamiento negativo (≈ −25 W/m² para Pinatubo·10)
+        const aerosolAOD = (this.current.so2 * 0.004) + (this.meteorEvent.sootDust * 1.5);
+        const deltaF_aer = -25 * aerosolAOD / (1 + aerosolAOD);
 
-        if (!this.current.hasLife) {
-            calculatedTemp += 3.5;
-        }
+        const cloudAlbedo = (this.current.cloudDensity - 0.75) * 0.12;
+        const surfaceAlbedo = this.current.hasLife ? 0.0 : 0.015; // Roca desnuda más clara que la vegetación
 
-        // Glaciación desbocada
-        if (calculatedTemp < -5) {
-            const iceAlbedo = Math.min(22, Math.abs(calculatedTemp + 5) * 0.65);
-            calculatedTemp -= iceAlbedo;
+        const iceForTemp = (t) => {
+            if (t <= -25) return 0.98;
+            if (t <= 0) return 0.45 + Math.abs(t) * 0.02;
+            return Math.max(0.0, 0.10 - (t - 14) * 0.006); // ~10 % a 14 °C, sin hielo permanente > ~30 °C
+        };
+
+        let calculatedTemp = this.current.meanTemp;
+        for (let i = 0; i < 25; i++) {
+            const ice = iceForTemp(calculatedTemp);
+            const albedo = Math.min(0.85, Math.max(0.05, 0.29 + (ice - 0.10) * 0.45 + cloudAlbedo + surfaceAlbedo));
+            const Te = Math.pow((S * (1 - albedo)) / (4 * SIGMA), 0.25);
+            const Ts = Te + G0 + LAMBDA * (deltaF_CO2 + deltaF_CH4 + deltaF_aer) - 273.15;
+            calculatedTemp += (Ts - calculatedTemp) * 0.5; // Relajación para estabilidad numérica
         }
+        this.current.planetaryAlbedo = Math.min(0.85, Math.max(0.05,
+            0.29 + (iceForTemp(calculatedTemp) - 0.10) * 0.45 + cloudAlbedo + surfaceAlbedo));
 
         this.current.meanTemp += (calculatedTemp - this.current.meanTemp) * lerpFactor;
 
@@ -265,16 +292,7 @@ class EarthSimulation {
         this.current.seaLevelOffset += (targetSeaOffset - this.current.seaLevelOffset) * lerpFactor;
 
         // Cobertura de hielo polar
-        let targetIce = 0.10;
-        if (this.current.meanTemp <= -25) {
-            targetIce = 0.98;
-        } else if (this.current.meanTemp <= 0) {
-            targetIce = 0.45 + Math.abs(this.current.meanTemp) * 0.02;
-        } else if (this.current.meanTemp < 18) {
-            targetIce = Math.max(0.01, 0.16 - (this.current.meanTemp - 10) * 0.015);
-        } else {
-            targetIce = 0.0;
-        }
+        const targetIce = iceForTemp(this.current.meanTemp);
         this.current.iceCoverage += (targetIce - this.current.iceCoverage) * lerpFactor;
 
         // ==========================================
