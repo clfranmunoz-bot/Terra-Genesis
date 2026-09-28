@@ -354,7 +354,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // ========================================================
     const sliderCo2 = document.getElementById('slider-co2');
     const dispCo2 = document.getElementById('disp-co2');
+    let co2SliderDragging = false;
     if (sliderCo2) {
+        // Mientras el usuario arrastra, el ciclo del carbono no debe mover el control bajo su dedo
+        sliderCo2.addEventListener('pointerdown', () => { co2SliderDragging = true; });
+        window.addEventListener('pointerup', () => { co2SliderDragging = false; });
         sliderCo2.addEventListener('input', (e) => {
             const val = parseFloat(e.target.value);
             dispCo2.textContent = `${Math.round(val)} ppm`;
@@ -1361,6 +1365,11 @@ document.addEventListener('DOMContentLoaded', () => {
         barO2.style.width = `${Math.min(100, (cur.o2 / 35) * 100)}%`;
         valCO2.textContent = `${Math.round(cur.co2)} ppm`;
         barCO2.style.width = `${Math.min(100, (cur.co2 / 10000) * 100)}%`;
+        // Sincroniza el slider con el CO₂ real (el termostato de silicatos lo modifica con el tiempo)
+        if (sliderCo2 && !co2SliderDragging) {
+            sliderCo2.value = cur.co2; // El navegador lo acota a [min, max]
+            dispCo2.textContent = `${Math.round(cur.co2)} ppm`;
+        }
         valCH4.textContent = `${cur.ch4.toFixed(1)} ppm`;
         barCH4.style.width = `${Math.min(100, (cur.ch4 / 50) * 100)}%`;
 
