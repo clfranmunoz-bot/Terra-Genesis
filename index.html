@@ -42,6 +42,9 @@
                 <button id="btn-scenario-studio" class="obs-btn obs-btn-studio" title="Estudio creador y exportador de escenarios">
                     <span class="icon">✨</span> <span class="btn-text">STUDIO</span>
                 </button>
+                <button id="btn-sources" class="obs-btn obs-btn-studio" title="Fuentes, supuestos y escalas de tiempo">
+                    <span class="icon">📚</span> <span class="btn-text">FUENTES</span>
+                </button>
                 <button id="btn-cinema-mode" class="obs-btn obs-btn-cinema" title="Vista cinematográfica sin HUD">
                     <span class="icon">🖥️</span> <span class="btn-text">CINEMA</span>
                 </button>
@@ -210,7 +213,7 @@
                         <div id="bar-temp" class="gauge-bar" style="width: 50%;"></div>
                     </div>
                     <div class="trend-sparkline-wrap">
-                        <span class="sparkline-title">TENDENCIA TÉRMICA (60s):</span>
+                        <span class="sparkline-title">TENDENCIA (60 s en pantalla = 300 años de clima):</span>
                         <canvas id="canvas-temp-trend" width="240" height="30"></canvas>
                     </div>
                     <div class="card-subtext" id="status-temp">Clima templado óptimo</div>
@@ -252,7 +255,7 @@
                 <!-- Pirámide Trófica Multiespecie -->
                 <div class="telemetry-card" id="card-trophic" draggable="true">
                     <div class="card-header">
-                        <span class="card-title">RED TRÓFICA ECOLÓGICA</span>
+                        <span class="card-title">RED TRÓFICA (BIOMASA RELATIVA)</span>
                         <div class="card-header-actions">
                             <div class="card-reorder-tools">
                                 <button class="btn-card-up" title="Subir">▲</button>
@@ -454,7 +457,7 @@
 
                     <div class="control-group">
                         <div class="slider-header">
-                            <span class="slider-name">Duración del Día (Rotación)</span>
+                            <span class="slider-name">Duración del Día (rotación visual)</span>
                             <span id="disp-rotation-speed" class="slider-num">24.0 h</span>
                         </div>
                         <input type="range" id="slider-rotation-speed" min="6" max="72" step="1" value="24">
@@ -479,7 +482,7 @@
                     <div class="control-group">
                         <div class="slider-header">
                             <span class="slider-name">Campo Geomagnético (Dipolo)</span>
-                            <span id="disp-magnetic-field" class="slider-num">1.0x</span>
+                            <span id="disp-magnetic-field" class="slider-num">1.0× (31 µT)</span>
                         </div>
                         <input type="range" id="slider-magnetic-field" min="0" max="3.0" step="0.1" value="1.0">
                         <div class="layer-toggle-row" style="margin-top: 6px;">
@@ -789,6 +792,58 @@
         </div>
 
         <!-- Modal 2: Espectroscopio de Biosignaturas JWST -->
+        <!-- Modal: Fuentes y supuestos -->
+        <div id="sources-modal" class="modal-overlay">
+            <div class="modal-box glass-panel" style="width: 760px;">
+                <div class="modal-header">
+                    <h2><span class="icon">📚</span> FUENTES, SUPUESTOS Y ESCALAS DE TIEMPO</h2>
+                    <button class="close-modal" id="btn-close-sources">✕</button>
+                </div>
+                <div class="modal-body" style="max-height: 70vh; overflow-y: auto; font-size: 0.82rem; line-height: 1.5;">
+                    <h3>⏱️ Tiempo de la animación frente al tiempo real</h3>
+                    <p>La animación está acelerada; cada proceso usa su propio reloj:</p>
+                    <ul>
+                        <li><b>Clima</b> (balance energético): 1 s = 5 años. En la realidad el océano de mezcla responde en ~5 años y el profundo en siglos.</li>
+                        <li><b>Estaciones</b>: 1 s = 15 días de órbita.</li>
+                        <li><b>Termostato carbono-silicato</b> (si está activo): 1 s = 50.000 años. En la realidad equilibra el CO₂ en ~400.000 años.</li>
+                        <li><b>Oblicuidad sin Luna</b>: 1 s = 1 millón de años.</li>
+                        <li><b>Escala geológica lateral</b> (reproducción): 1 s = 25 millones de años.</li>
+                        <li><b>Invierno de impacto</b>: el aerosol decae en ~1,5 años reales (≈ 0,3 s en pantalla).</li>
+                        <li><b>Rotación del planeta</b>: puramente visual.</li>
+                    </ul>
+                    <h3>🔭 Modelos y fuentes</h3>
+                    <ul>
+                        <li><b>Estrellas</b>: Sol (Prša et al. 2016), K5V (Pecaut &amp; Mamajek 2013), Próxima Centauri (Boyajian 2012; Ribas 2017), Rigel (Przybilla et al. 2006/2010).</li>
+                        <li><b>Insolación</b>: S = L/(4πd²), constante solar de 1361 W/m² (Kopp &amp; Lean 2011); insolación diaria por latitud (Berger 1978).</li>
+                        <li><b>Zona habitable</b>: Kopparapu et al. 2013 y 2014.</li>
+                        <li><b>Anclaje por marea</b>: Gladman et al. 1996; erosión de la oblicuidad (Heller et al. 2011).</li>
+                        <li><b>Oblicuidad y Luna</b>: Laskar et al. 1993; Lissauer et al. 2012.</li>
+                        <li><b>Magnetosfera</b>: equilibrio de Chapman-Ferraro (1931), Shue et al. 1998; viento solar OMNI.</li>
+                        <li><b>Clima</b>: modelo de balance energético de Budyko (1969) y Sellers (1969), según North et al. 1981; retroalimentaciones del IPCC AR6 (tabla 7.10); océano de dos capas (Held et al. 2010).</li>
+                        <li><b>Forzamientos</b>: CO₂, CH₄ y N₂O de Myhre et al. 1998; sulfatos de Hansen et al. 2005 y Pinto et al. 1989; nubes de CERES (Loeb 2018).</li>
+                        <li><b>Invernadero húmedo y desbocado</b>: Kasting 1988; Kopparapu 2013/2014; Leconte 2013; Goldblatt 2013.</li>
+                        <li><b>Rayleigh</b>: Bodhaine et al. 1999; Sneep &amp; Ubachs 2005. <b>Vapor de agua</b>: Clausius-Clapeyron (Alduchov &amp; Eskridge 1996).</li>
+                        <li><b>Termostato carbono-silicato</b>: Walker, Hays &amp; Kasting 1981; Berner 2004; desgasificación de Gerlach 2011; relajación de Archer 2005.</li>
+                        <li><b>Nivel del mar</b>: Fretwell et al. 2013; Clark et al. 2009; Haq et al. 1987; Müller et al. 2008.</li>
+                        <li><b>Paleoclima</b>: CO₂ de Foster, Royer &amp; Lunt 2017; O₂ de Berner 2009; luminosidad solar de Gough 1981; placas de DeMets et al. 2010 (MORVEL).</li>
+                        <li><b>Grandes provincias ígneas</b>: Burgess &amp; Bowring 2015; Svensen et al. 2009; Black et al. 2012; Schoene et al. 2019.</li>
+                        <li><b>Impactos</b>: Collins, Melosh &amp; Marcus 2005; invierno de impacto de Brugger et al. 2017; Toon et al. 1997.</li>
+                        <li><b>Biosfera</b>: pigmentos de Kiang et al. 2007; O₂ de Catling et al. 2005, Belcher &amp; McElwain 2008 y Lyons et al. 2014; ozono de Segura et al. 2003; límites térmicos de Sherwood &amp; Huber 2010 y Clarke 2014.</li>
+                        <li><b>Océano</b>: absorción de Pope &amp; Fry 1997; color de Morel &amp; Maritorena 2001; química del carbonato de Zeebe &amp; Wolf-Gladrow 2001.</li>
+                    </ul>
+                    <h3>⚠️ Simplificaciones principales</h3>
+                    <ul>
+                        <li>El clima es zonal (18 bandas), sin estaciones, continentes ni dinámica atmosférica; las nubes y el vapor de agua van como retroalimentaciones globales.</li>
+                        <li>La geografía del pasado usa texturas paleogeográficas de 240, 150 y 65 Ma (atribuidas a PALEOMAP de Scotese) interpoladas entre sí; las posiciones intermedias no son reconstrucciones, y +250 Ma es una proyección.</li>
+                        <li>Los colores del océano, del cielo y de la vegetación son aproximaciones visuales de procesos reales.</li>
+                        <li>El Mundo Océano (+1.200 m) es un escenario <b>hipotético</b>: excede los límites físicos (±250 m tectónicos, +66 m por el hielo).</li>
+                        <li>El índice de habitabilidad se refiere a vida compleja; los microorganismos toleran rangos mucho mayores.</li>
+                    </ul>
+                    <p>El detalle de cada ecuación, sus unidades y su fuente está comentado en <code>js/fisica.js</code>. Las pruebas de validación se ejecutan con <code>node tests/validacion.js</code>.</p>
+                </div>
+            </div>
+        </div>
+
         <div id="jwst-spectrum-modal" class="modal-overlay">
             <div class="modal-box glass-panel" style="width: 720px;">
                 <div class="modal-header">

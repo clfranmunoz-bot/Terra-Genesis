@@ -369,7 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     sliderMagneticField.addEventListener('input', (e) => {
         const val = parseFloat(e.target.value);
-        dispMagneticField.textContent = `${val.toFixed(1)}x`;
+        dispMagneticField.textContent = `${val.toFixed(1)}× (${Math.round(31 * val)} µT)`;
         astrophysics.setMagneticField(val);
     });
 
@@ -647,6 +647,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    const sourcesModal = document.getElementById('sources-modal');
+    document.getElementById('btn-sources').addEventListener('click', () => sourcesModal.classList.add('active'));
+    document.getElementById('btn-close-sources').addEventListener('click', () => sourcesModal.classList.remove('active'));
+
     btnJwstModal.addEventListener('click', () => {
         jwstModal.classList.add('active');
         renderJwstSpectrum();
@@ -914,7 +918,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('probe-biome').textContent = report.biomeName;
             document.getElementById('probe-temp').textContent = `${report.localTemp} °C`;
             document.getElementById('probe-elevation').textContent = `${report.elevationM} m`;
-            document.getElementById('probe-pressure').textContent = `${report.pressureAtm} atm`;
+            document.getElementById('probe-pressure').textContent = `${report.pressureAtm} bar`;
             document.getElementById('probe-uv').textContent = `Índice ${report.uvIndex} (Escala OMS)`;
             document.getElementById('probe-soil-text').textContent = report.soilAnalysis;
             document.getElementById('probe-water-text').textContent = report.waterAnalysis;
@@ -1063,7 +1067,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnReverseRotation) btnReverseRotation.classList.remove('active-btn');
         if (selectStarType) selectStarType.value = 'sun_g2v';
         if (sliderMagneticField) sliderMagneticField.value = 1.0;
-        if (dispMagneticField) dispMagneticField.textContent = '1.0x';
+        if (dispMagneticField) dispMagneticField.textContent = '1.0× (31 µT)';
         if (toggleMoon) toggleMoon.checked = true;
 
         // 6. Restablecer controles de Clima & Atmósfera
@@ -1392,7 +1396,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Termostato de Silicatos (Walker)
         const wRate = Math.round(geology.params.weatheringRateMtYear);
         const dRate = Math.round(geology.params.degassingRateMtYear);
-        valWeathering.textContent = `${wRate} Mt/a`;
+        valWeathering.textContent = `${wRate} Mt CO₂/a`;
         statusThermostat.textContent = `Meteorización: ${wRate} Mt CO₂/a | Volcanes: ${dRate} Mt CO₂/a | ` +
             (geology.params.thermostatActive ? `Tiempo geológico: ${geology.maTranscurridos.toFixed(2)} Ma (1 s = 50.000 años)` : 'Termostato en pausa (actúa en ~400.000 años)');
 

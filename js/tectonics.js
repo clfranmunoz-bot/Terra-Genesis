@@ -14,8 +14,9 @@ class TectonicsEngine {
         //  seaLevel (eustasia, m): Haq & Schutter 2008; Haq 2014/2018; Müller et al. 2008
         //  velocidades de placas: DeMets, Gordon & Argus 2010 (MORVEL, hoy); van Hinsbergen et al. 2011 (India); Müller et al. 2016 (GPlates)
         // La temperatura NO se fija: la calcula el modelo de clima con el CO₂ y la luminosidad solar de Gough (1981).
-        // simplificación: la geografía que se ve es un morfismo visual entre Pangea y hoy, no una reconstrucción PALEOMAP
-        //   (para eso harían falta los rásteres PaleoDEM de Scotese & Wright 2018 como texturas).
+        // simplificación: la geografía se muestra con texturas paleogeográficas a 240, 150 y 65 Ma (textures/paleo_*.jpg,
+        //   atribuidas en el README a PALEOMAP de Scotese; su procedencia exacta no está documentada) interpoladas entre sí;
+        //   entre esos hitos no hay posiciones de placas reales, y el futuro (+250 Ma) es una proyección.
         this.epochs = [
             {
                 ma: -250,
