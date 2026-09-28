@@ -230,6 +230,7 @@ class EarthSimulation {
         this.current.solarLuminosity += (this.target.solarLuminosity - this.current.solarLuminosity) * lerpFactor;
         this.current.volcanism += (this.target.volcanism - this.current.volcanism) * lerpFactor;
         this.current.hasLife = this.target.hasLife;
+        if (this.target.vegetationColor) this.current.vegetationColor = this.target.vegetationColor;
         this.current.hasCivilization = this.target.hasCivilization;
         this.current.erosionFactor += (this.target.erosionFactor - this.current.erosionFactor) * lerpFactor;
         this.current.pangeaFactor += ((this.target.pangeaFactor || 0.0) - this.current.pangeaFactor) * lerpFactor;
@@ -259,15 +260,15 @@ class EarthSimulation {
         // ==========================================
         // 3. HABITABILIDAD GLOBAL
         // ==========================================
-        let habitability = 100.0;
-        if (!this.current.hasLife) {
-            habitability = 0.0;
-        } else {
-            if (this.current.meanTemp < 5) habitability -= Math.min(80, (5 - this.current.meanTemp) * 2.0);
-            if (this.current.meanTemp > 25) habitability -= Math.min(80, (this.current.meanTemp - 25) * 3.5);
-            if (this.current.o2 < 12.0) habitability -= (12.0 - this.current.o2) * 5.0;
-            if (this.current.so2 > 5.0) habitability -= Math.min(60, (this.current.so2 - 5.0) * 0.8);
-        }
+        // Índice de habitabilidad con fuentes (Fisica.indiceHabitabilidad). No depende de si ya hay vida: mide si el planeta la permite.
+        const astro = window.astrophysicsEngine;
+        const hab = Fisica.indiceHabitabilidad({
+            T: this.current.meanTemp, P_bar: this.current.surfacePressure, o2: this.current.o2,
+            B_rel: astro ? astro.params.magneticField : 1, estrella: astro ? astro.estrella : Fisica.ESTRELLAS.sun_g2v,
+            estadoInvernadero: this.clima.estado
+        });
+        this.habitabilidadFactores = hab.factores;
+        const habitability = hab.indice;
         this.current.habitability = Math.max(0, Math.min(100, habitability));
 
         // Presión superficial total (bar ≈ atm): la fija el control; O₂ y CO₂ son fracciones molares de esa presión.

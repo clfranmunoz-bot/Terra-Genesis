@@ -353,19 +353,18 @@ document.addEventListener('DOMContentLoaded', () => {
         displayEpoch.textContent = `ESTRELLA: ${est.nombre.toUpperCase()}`;
         if (type === 'red_dwarf_m') {
             chronicleText.textContent = `${pico}. A ${astrophysics.distanciaUA.toFixed(3)} UA el planeta queda anclado por marea en ~${(astrophysics.tiempoAnclajeAnios / 1e3).toFixed(0)} mil años (Gladman 1996). La circulación atmosférica puede redistribuir el calor hacia el lado nocturno (Yang et al. 2013); las fulguraciones UV y el viento estelar comprimen la magnetosfera a ~${astrophysics.radioMagnetopausa.toFixed(1)} R⊕.`;
-            selectPigment.value = 'black';
-            astrobiology.setPigment('black');
         } else if (type === 'blue_giant') {
             chronicleText.textContent = `${pico}. Rigel es una supergigante de ~8 Ma y ~120.000 L☉: su zona habitable estaría a ~${Math.round(astrophysics.zonaHabitable.interiorConservador)}–${Math.round(astrophysics.zonaHabitable.exteriorConservador)} UA. Ya agotó el hidrógeno de su núcleo y estallará como supernova en pocos millones de años. En la Tierra la vida tardó al menos ~0,5 Ga en surgir: un planeta en torno a Rigel NO puede albergar vida (sin tiempo para la abiogénesis, UV extremo).`;
         } else if (type === 'orange_dwarf_k') {
             chronicleText.textContent = `${pico}. Las enanas K viven más de 15 Ga y emiten menos UV que el Sol, por eso se las considera candidatas "superhabitables" (Schulze-Makuch et al. 2020). ${astrophysics.params.isTidallyLocked ? 'A esta distancia el modelo de Gladman predice anclaje por marea (con incertidumbre de ~1–2 órdenes de magnitud).' : ''}`;
-            selectPigment.value = 'green';
-            astrobiology.setPigment('green');
         } else {
             chronicleText.textContent = `${pico}. El Sol (G2V, 4,57 Ga) en la secuencia principal.`;
-            selectPigment.value = 'green';
-            astrobiology.setPigment('green');
         }
+        // Pigmento adaptado al pico de fotones de la estrella (Kiang et al. 2007)
+        const pig = Fisica.pigmentoPorEstrella(est.Teff);
+        selectPigment.value = pig;
+        astrobiology.setPigment(pig);
+        chronicleText.textContent += ` Pico de fotones: ${Fisica.picoFotones_um(est.Teff).toFixed(2)} µm → ${astrobiology.pigmentColors[pig].label}.`;
     });
 
     sliderMagneticField.addEventListener('input', (e) => {
@@ -496,8 +495,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 simulation.setParam('oceanColor', [0.02, 0.28, 0.25]);
                 simulation.setParam('oceanShallowColor', [0.10, 0.65, 0.45]);
             } else if (pal === 'ferrous') {
-                simulation.setParam('oceanColor', [0.45, 0.12, 0.08]);
-                simulation.setParam('oceanShallowColor', [0.65, 0.25, 0.15]);
+                // Océano arqueano ferruginoso: verde por Fe(III) coloidal (hipótesis de Matsuo et al. 2025)
+                simulation.setParam('oceanColor', [0.10, 0.30, 0.20]);
+                simulation.setParam('oceanShallowColor', [0.22, 0.46, 0.28]);
             } else {
                 simulation.setParam('oceanColor', [0.03, 0.18, 0.45]);
                 simulation.setParam('oceanShallowColor', [0.08, 0.45, 0.65]);
@@ -1402,6 +1402,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const pCarnivores = Math.round(astrobiology.params.trophicCarnivores);
 
         barProducers.style.width = `${pProducers}%`;
+        const statusHab = document.getElementById('status-habitability');
+        if (statusHab && simulation.habitabilidadFactores) {
+            const nombres = { agua: 'agua líquida', temperatura: 'temperatura', uv: 'escudo UV', oxigeno: 'O₂', presion: 'presión', magnetosfera: 'magnetosfera', estrella: 'edad estelar' };
+            const limitante = Object.entries(simulation.habitabilidadFactores).sort((a, b) => a[1] - b[1])[0];
+            statusHab.textContent = `Índice de habitabilidad (vida compleja): ${Math.round(cur.habitability)}/100` +
+                (limitante[1] < 1 ? ` · factor limitante: ${nombres[limitante[0]]} (${Math.round(limitante[1] * 100)} %)` : '');
+        }
+        if (statusPressure) {
+            const O = Fisica.OXIGENO;
+            const fuego = cur.o2 < O.INCENDIO_MIN ? 'sin incendios (O₂ < 15 %)' : cur.o2 > O.INCENDIO_MAX ? '🔥 incendios incontrolables (O₂ > 30 %)' : 'incendios posibles';
+            statusPressure.textContent = `Presión: ${cur.surfacePressure.toFixed(2)} bar · N₂O ${cur.n2o.toFixed(3)} ppm · ` +
+                `${cur.o2 >= 2.1 ? 'capa de ozono activa' : '⚠️ sin capa de ozono (O₂ < 10 % del actual)'} · ${fuego}` +
+                (cur.o2 < O.ANIMALES_GRANDES ? ' · O₂ insuficiente para animales grandes' : '');
+        }
         valProducers.textContent = `${pProducers}%`;
         barHerbivores.style.width = `${pHerbivores}%`;
         valHerbivores.textContent = `${pHerbivores}%`;

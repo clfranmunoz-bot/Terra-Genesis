@@ -14,31 +14,20 @@ class AstrobiologyEngine {
             biosignatureScore: 98
         };
 
-        // Colores de vegetación según pigmento para el shader
+        // Color de la vegetación según el pigmento (Kiang et al. 2007). El pigmento tiñe la tierra, NO el océano.
         this.pigmentColors = {
-            green: { veg: [34, 139, 34], atmoGlow: [0.15, 0.55, 1.0], label: 'Clorofila Verde (Estándar)' },
-            purple: { veg: [138, 43, 226], atmoGlow: [0.65, 0.25, 0.85], label: 'Retinal Púrpura (Tierra Arqueana)' },
-            black: { veg: [25, 28, 36], atmoGlow: [0.45, 0.25, 0.35], label: 'Fotorreceptores Negros (Enana Roja)' }
+            green:  { veg: [34, 139, 34],  label: 'Clorofila a/b: absorbe azul y rojo, refleja verde (Sol)' },
+            purple: { veg: [138, 43, 226], label: 'Retinal (bacteriorrodopsina): absorbe verde; hipótesis "Tierra púrpura" (DasSarma & Schwieterman 2018)' },
+            black:  { veg: [25, 28, 36],   label: 'Absorción de todo el visible e IR cercano (enanas M; Kiang 2007b)' },
+            gold:   { veg: [200, 160, 40], label: 'Reflexión amarillo-anaranjada (estrellas F; Kiang 2007b)' },
+            blue:   { veg: [40, 90, 190],  label: 'Ficocianina: absorbe naranja-rojo (cianobacterias)' }
         };
     }
 
     setPigment(type) {
         if (!this.pigmentColors[type]) return;
         this.params.pigmentType = type;
-        
-        if (this.simulation.current.hasLife) {
-            const p = this.pigmentColors[type];
-            this.simulation.target.vegetationColor = [...p.veg];
-            if (type === 'purple') {
-                this.simulation.target.oceanColor = [0.25, 0.08, 0.35]; // Océano púrpura arqueano
-                this.simulation.target.oceanShallowColor = [0.45, 0.15, 0.55];
-            } else if (type === 'black') {
-                this.simulation.target.oceanColor = [0.02, 0.12, 0.25];
-            } else {
-                this.simulation.target.oceanColor = [0.03, 0.18, 0.45];
-                this.simulation.target.oceanShallowColor = [0.08, 0.45, 0.65];
-            }
-        }
+        if (this.simulation.current.hasLife) this.simulation.target.vegetationColor = [...this.pigmentColors[type].veg];
     }
 
     /**
@@ -52,10 +41,9 @@ class AstrobiologyEngine {
         for (let wl = 0.4; wl <= 15.0; wl += 0.15) {
             let transmission = 0.95; // Transmisión base
 
-            // Dispersión Rayleigh en UV/azul
-            if (wl < 0.8) {
-                transmission -= (0.35 / Math.pow(wl, 4)) * 0.1;
-            }
+            // Dispersión de Rayleigh: τ_R ∝ λ⁻⁴·P (Bodhaine 1999); ×5 por la trayectoria oblicua del tránsito
+            // simplificación: factor geométrico fijo en lugar de integrar la geometría del limbo.
+            transmission *= Math.exp(-5 * Fisica.espesorRayleigh(wl, cur.surfacePressure, cur.co2));
 
             // Banda de absorción de Ozono O3 (0.6 um y 9.6 um)
             if (cur.o2 > 5.0) {
@@ -63,7 +51,8 @@ class AstrobiologyEngine {
                 if (Math.abs(wl - 9.6) < 0.4) transmission -= (cur.o2 / 21.0) * 0.65;
             }
 
-            // "Vegetation Red Edge" (Salto reflectivo de la vegetación a 0.7 um)
+            // "Red edge" de la vegetación a 0,7 µm: es un rasgo de REFLEXIÓN de la superficie (Seager et al. 2005, Astrobiology 5),
+            // no de transmisión; se superpone aquí de forma ilustrativa.
             if (cur.hasLife && Math.abs(wl - 0.7) < 0.05) {
                 transmission += (this.params.pigmentType === 'green' ? 0.25 : 0.12);
             }
@@ -129,6 +118,8 @@ class AstrobiologyEngine {
         this.params.trophicProducers += (producerTarget - this.params.trophicProducers) * dt * 0.8;
 
         // Herbívoros siguen a los productores con retraso
+        // Biomasa relativa por nivel (0–100, escala de la barra). Solo ~10 % de la energía pasa de un nivel al siguiente
+        // (Lindeman 1942; Pauly & Christensen 1995); aquí se muestra la tendencia relativa, no la proporción absoluta.
         const herbivoreTarget = Math.max(0, this.params.trophicProducers * 0.85);
         this.params.trophicHerbivores += (herbivoreTarget - this.params.trophicHerbivores) * dt * 0.5;
 

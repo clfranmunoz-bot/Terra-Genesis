@@ -438,8 +438,68 @@ function impacto({ L_m, v_kms, rho_i = 3000, theta_deg = 45, rho_t = 2500 }) {
 // El aerosol del impacto decae con τ ≈ 1,5 años (sedimentación del polvo fino y del sulfato; Brugger 2017).
 const TAU_DECAIMIENTO_IMPACTO_ANIOS = 1.5;
 
+// ============================================================
+// FASE 6 — OCÉANOS Y BIOSFERA
+// ============================================================
+
+// Color del océano (explicación física; los colores RGB del shader son aproximaciones visuales):
+//  - El agua pura absorbe el rojo por sobretonos vibracionales del enlace O–H: a = 0,65 m⁻¹ a 700 nm frente a 0,0044 m⁻¹ a 420 nm
+//    (Pope & Fry 1997, Appl. Opt. 36). Lo que vuelve a la superficie tras dispersarse es azul.
+//  - El fitoplancton absorbe azul y rojo con la clorofila a, y el agua vira a verde con > ~1 mg/m³ (Morel & Maritorena 2001, JGR 106).
+//  - Aguas someras turquesa: el fondo de arena carbonatada refleja la luz que el agua todavía no absorbió.
+//  - Arqueano: océano anóxico rico en Fe²⁺; el Fe(III) coloidal formado por fotooxidación lo teñiría de verde
+//    (hipótesis de Matsuo et al. 2025, Nat. Ecol. Evol.). No era rojo: el óxido rojo precipitaba como formaciones de hierro bandeado.
+
+// Pigmento fotosintético esperado según la estrella (Kiang et al. 2007a,b, Astrobiology 7):
+// las plantas se adaptan al pico de flujo de FOTONES en superficie. Sol → absorben azul y rojo y reflejan verde;
+// enanas M (pico en el infrarrojo cercano) → pigmentos que absorben todo el visible y el IR cercano: aspecto oscuro o negro.
+// simplificación: tres clases según la temperatura efectiva.
+function pigmentoPorEstrella(Teff) {
+    if (Teff < 3900) return 'black';
+    if (Teff > 6500) return 'gold';   // estrellas F: predicción de reflexión amarillo-anaranjada (Kiang 2007b)
+    return 'green';
+}
+
+// Oxígeno atmosférico (% en volumen a 1 bar)
+const OXIGENO = {
+    GRAN_OXIDACION_GA: 2.4,     // Lyons, Reinhard & Planavsky 2014 (Nature 506)
+    INCENDIO_MIN: 15,           // por debajo no se sostiene la combustión de biomasa (Belcher & McElwain 2008, Science 321)
+    INCENDIO_MAX: 30,           // por encima arde incluso la vegetación húmeda (Watson, Lovelock & Margulis 1978; Lenton 2013)
+    ANIMALES_GRANDES: 10        // ~0,1 bar de O₂ para metabolismo aerobio de animales grandes (Catling et al. 2005, Astrobiology 5)
+};
+
+// Índice de habitabilidad para vida compleja (0–100) = 100 × producto de factores en [0,1].
+// Cada factor tiene su fuente. simplificación: pesos multiplicativos e interpolación lineal entre umbrales;
+// los microorganismos toleran rangos mucho más amplios (−20 a 122 °C; Clarke 2014, Takai et al. 2008).
+function indiceHabitabilidad({ T, P_bar, o2, B_rel, estrella, estadoInvernadero }) {
+    const rampa = (x, a, b) => Math.max(0, Math.min(1, (x - a) / (b - a)));
+    const Tebull = puntoEbullicion_C(P_bar);
+    const f = {
+        // Agua líquida en superficie: entre el punto de congelación del agua de mar (−1,9 °C) y la ebullición a esa presión (Clausius-Clapeyron)
+        agua: estadoInvernadero === 'desbocado' || T >= Tebull || P_bar < 0.0061 ? 0 : rampa(T, -30, -1.9),
+        // Temperatura para vida compleja: óptimo 0–30 °C; estrés térmico a partir de ~35 °C de bulbo húmedo
+        // (Sherwood & Huber 2010, PNAS 107) y límite de eucariotas ~50 °C (Clarke 2014)
+        temperatura: Math.min(rampa(T, -20, 0), 1 - rampa(T, 30, 50)),
+        // Escudo de ozono: O₂ ≥ ~10 % del actual (≈ 2 %) ya da una columna de O₃ protectora (Segura et al. 2003, Astrobiology 3)
+        uv: rampa(o2, 0, 2.1),
+        // Respiración de animales grandes (Catling 2005) e incendios generalizados por encima de ~30 % (Watson 1978)
+        oxigeno: rampa(o2, 0, OXIGENO.ANIMALES_GRANDES) * (o2 > OXIGENO.INCENDIO_MAX ? 0.5 : 1),
+        // Presión: por debajo del límite de Armstrong (0,0627 bar) los fluidos corporales hierven a 37 °C;
+        // por encima de ~5 bar hay narcosis por N₂ (Bennett & Rostain 2003)
+        presion: Math.min(rampa(P_bar, 0.0627, 0.5), 1 - rampa(P_bar, 5, 50)),
+        // Campo magnético: reduce el escape iónico y la radiación en superficie; su papel neto se discute
+        // (Gunell et al. 2018, A&A 614), por eso pesa poco
+        magnetosfera: 0.8 + 0.2 * Math.min(1, B_rel),
+        // Estrella: tiempo para la abiogénesis (≥ 0,5 Ga)
+        estrella: estrellaPermiteVida(estrella) ? 1 : 0
+    };
+    const indice = 100 * Object.values(f).reduce((a, b) => a * b, 1);
+    return { indice, factores: f };
+}
+
 const Fisica = {
     C, ESTRELLAS, KOPPARAPU, OBLICUIDAD_CAOS, EDAD_MINIMA_VIDA_GA, PREINDUSTRIAL, EBM, T_DESBOCADO_C,
+    OXIGENO, pigmentoPorEstrella, indiceHabitabilidad,
     DENSIDADES_IMPACTOR, CHICXULUB, TAU_DECAIMIENTO_IMPACTO_ANIOS, impacto,
     CARBONO, HIELO_TOTAL_M, EUSTASIA_MAX_M, PROVINCIAS_IGNEAS,
     meteorizacion_GtAnio, desgasificacion_GtAnio, pasoCarbono, nivelMarPorHielo_m, nivelMarFisicamentePosible, luminosidadSolar,

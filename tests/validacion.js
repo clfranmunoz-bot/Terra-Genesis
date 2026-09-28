@@ -116,5 +116,18 @@ verdad('Cheliábinsk (~20 m) explota en el aire (obs. ~30 km)', F.impacto({ L_m:
     prueba('Recuperación a los 60 años', F.diagnosticoEBM(T, Q).Tmedia, 12, 16, '°C');
 }
 
+console.log('\n— Fase 6: océanos y biosfera —');
+const hab = (o) => F.indiceHabitabilidad({ T: 15, P_bar: 1.013, o2: 20.95, B_rel: 1, estrella: sol, estadoInvernadero: 'normal', ...o }).indice;
+prueba('Habitabilidad de la Tierra actual', hab({}), 95, 100);
+prueba('Habitabilidad en bola de nieve (−50 °C)', hab({ T: -50 }), 0, 5);
+prueba('Habitabilidad sin O₂ (Arqueano)', hab({ o2: 0 }), 0, 5);
+prueba('Habitabilidad en torno a Rigel', hab({ estrella: F.ESTRELLAS.blue_giant }), 0, 0);
+prueba('Habitabilidad con invernadero desbocado', hab({ estadoInvernadero: 'desbocado' }), 0, 0);
+prueba('Habitabilidad con O₂ = 35 % (incendios)', hab({ o2: 35 }), 40, 60);
+prueba('Habitabilidad a 0,05 bar (bajo el límite de Armstrong)', hab({ P_bar: 0.05 }), 0, 0);
+verdad('Pigmento para el Sol: verde', F.pigmentoPorEstrella(5772) === 'green');
+verdad('Pigmento para una enana M: negro (Kiang 2007)', F.pigmentoPorEstrella(3042) === 'black');
+prueba('Pico de fotones de una enana M5.5', F.picoFotones_um(3042), 1.1, 1.3, 'µm');
+
 console.log(`\n${fallos === 0 ? 'TODAS LAS PRUEBAS PASARON' : fallos + ' PRUEBA(S) FALLARON'}\n`);
 process.exit(fallos ? 1 : 0);

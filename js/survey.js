@@ -60,20 +60,23 @@ class SurveyEngine {
         // 1. Elevación topográfica aproximada en metros
         const elevationM = isWater ? -Math.round((1.0 - topoElev) * 4500) : Math.round(topoElev * 6000);
 
-        // 2. Temperatura local (gradiente latitudinal + gradiente altotérmico -6.5°C / 1000m)
-        const latCooling = Math.pow(absLat / 90.0, 2) * 42.0;
+        // 2. Temperatura local: banda de latitud del modelo de balance energético + gradiente de −6,5 °C/km (atmósfera estándar ISA)
+        const T = this.simulation.T;
+        const banda = Math.min(T.length - 1, Math.floor((Math.sin(latDeg * Math.PI / 180) + 1) / 2 * T.length));
         const altCooling = (!isWater && elevationM > 0) ? (elevationM / 1000) * 6.5 : 0;
-        const localTemp = Math.round((cur.meanTemp + 14 - latCooling - altCooling) * 10) / 10;
+        const localTemp = Math.round((T[banda] - altCooling) * 10) / 10;
 
-        // 3. Presión barométrica local (fórmula hipsométrica barométrica)
-        const pressureAtm = !isWater ? 
-            Math.round(cur.surfacePressure * Math.exp(-Math.max(0, elevationM) / 8400) * 100) / 100 : 
+        // 3. Presión local: P = P₀ exp(−z/H), escala de altura H = R T / (M g) = 287·T/9,81 ≈ 8,4 km a 15 °C (atmósfera isoterma)
+        const H = 287 * (localTemp + altCooling + 273.15) / 9.81;
+        const pressureAtm = !isWater ?
+            Math.round(cur.surfacePressure * Math.exp(-Math.max(0, elevationM) / H) * 100) / 100 :
             cur.surfacePressure;
 
-        // 4. Radiación UV local
-        let uvIndex = Math.max(0, Math.round((12 - (absLat / 90) * 8) * (1.0 - cur.cloudDensity * 0.5)));
-        if (cur.o2 < 10) uvIndex *= 2.5; // Sin capa de ozono
-        if (window.astrophysicsEngine && window.astrophysicsEngine.params.magneticField < 0.2) uvIndex *= 2.0;
+        // 4. Índice UV al mediodía: ∝ cos(cenit) y atenuado por nubes; sin ozono el UV-B crece un orden de magnitud
+        //    (Segura et al. 2003). El campo magnético NO filtra UV (desvía partículas cargadas), por eso no interviene.
+        // simplificación: cielo despejado con índice 12 en el ecuador en equinoccio (OMS 2002).
+        const escudoO3 = Math.min(1, cur.o2 / 2.1);
+        let uvIndex = Math.max(0, Math.round(12 * Math.cos(latDeg * Math.PI / 180) * (1.0 - cur.cloudDensity * 0.5) * (1 + 9 * (1 - escudoO3))));
 
         // 5. Análisis Geo-Biológico
         let biomeName = '';
@@ -84,7 +87,10 @@ class SurveyEngine {
             biomeName = localTemp < -2 ? 'Banquisa Glaciar Marina' : (absLat < 25 ? 'Océano Tropical Pelágico' : 'Océano Abisal Templado');
             soilAnalysis = 'Sedimentos marinos pelágicos y lodos silíceos/calcáreos';
             
-            const ph = cur.hasLife ? (8.1 - (cur.co2 / 3000) * 0.8).toFixed(1) : '5.8 (Acidificación carbónica extrema)';
+            // pH superficial con alcalinidad constante: [H⁺] ∝ pCO₂^0,77 → pH = 8,17 − 0,77·log₁₀(CO₂/280)
+            // (preindustrial 8,17, hoy 8,05; Zeebe & Wolf-Gladrow 2001; IPCC AR6 cap. 5).
+            // simplificación: en escalas geológicas la meteorización sube la alcalinidad y amortigua la acidificación.
+            const ph = (8.17 - 0.77 * Math.log10(Math.max(1, cur.co2) / 280)).toFixed(2);
             const salinity = (35 + (cur.meanTemp > 25 ? 4 : 0)).toFixed(1);
             waterAnalysis = `pH: ${ph} | Salinidad: ${salinity} PSU | Profundidad: ${Math.abs(elevationM)} m`;
         } else {
