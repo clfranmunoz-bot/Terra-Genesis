@@ -1381,9 +1381,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCollapseRight = document.getElementById('btn-collapse-right');
     const btnTabLeft = document.getElementById('btn-tab-left');
     const btnTabRight = document.getElementById('btn-tab-right');
-    const hudChronicle = document.getElementById('hud-chronicle');
-    const btnToggleChronicle = document.getElementById('btn-toggle-chronicle');
-    const chronicleExpandBtn = document.getElementById('chronicle-expand-btn');
 
     if (btnCinemaMode) {
         btnCinemaMode.addEventListener('click', () => {
@@ -1417,14 +1414,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    if (btnToggleChronicle && hudChronicle) {
-        btnToggleChronicle.addEventListener('click', () => {
-            const isCollapsed = hudChronicle.classList.toggle('collapsed');
-            if (chronicleExpandBtn) {
-                chronicleExpandBtn.textContent = isCollapsed ? '▲ MOSTRAR DETALLE' : '▼ OCULTAR DETALLE';
-            }
-        });
-    }
 
     // ========================================================
     // REGISTRO DE TENDENCIA TÉRMICA EN TIEMPO REAL (SPARKLINE)

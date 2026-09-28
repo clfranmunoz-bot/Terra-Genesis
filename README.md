@@ -12,14 +12,14 @@ Un simulador planetario 3D hiperrealista e interactivo basado en física astrof�
 * Animación interactiva de la deriva continental en tiempo real con control de velocidad.
 
 ### 🪐 Dinámica Orbital y Astrofísica
-* Control de **distancia orbital al Sol** (0.70 UA a 1.60 UA) con cálculo de insolación en /m^2$.
+* Control de **distancia orbital al Sol** (0.70 UA a 1.60 UA) con cálculo de insolación en W/m².
 * **Oblicuidad axial** (0° a 90°) para modelar estaciones templadas, nulas o extremas.
 * **Velocidad de rotación** (duración del día de 6h a 72h) con pausa e inversión a rotación retrógrada.
 * **Estrellas Huésped**: Sol (G2V), Enana Roja M (*TRAPPIST-1*, con anclaje mareal), Enana Naranja K (*Kepler-442b*) y Gigante Azul (*Rigel*).
 * **Escudo Geomagnético**: Campo dipolo con simulación volumétrica de auroras boreales y australes 3D.
 
 ### 🧪 Química Atmosférica y Efecto Invernadero
-* Simulación termodinámica de gases de efecto invernadero: $ (50 a 8.000 ppm), $ (0% a 35%), $ y $.
+* Simulación termodinámica de gases de efecto invernadero: CO₂ (50 a 8.000 ppm), O₂ (0% a 35%), CH₄ y SO₂.
 * Manto nuboso fotorrealista con sombreado de scattering y autoturbulencia.
 * Presión superficial y resplandor de dispersión de Rayleigh en el limbo atmosférico.
 
@@ -43,24 +43,24 @@ Un simulador planetario 3D hiperrealista e interactivo basado en física astrof�
 ## 🚀 Cómo Ejecutar el Proyecto
 
 1. Clona el repositorio:
-   `ash
+   ```bash
    git clone https://github.com/clfranmunoz-bot/Terra-Genesis.git
    cd Terra-Genesis
-   `
+   ```
 
 2. Inicia un servidor web local (por ejemplo con Python):
-   `ash
+   ```bash
    python server.py
-   `
+   ```
    *o alternativamente:*
-   `ash
+   ```bash
    python -m http.server 8080
-   `
+   ```
 
 3. Abre en tu navegador moderno preferido (con aceleración por hardware WebGL):
-   `
+   ```
    http://localhost:8080/index.html
-   `
+   ```
 
 ---
 
@@ -68,7 +68,7 @@ Un simulador planetario 3D hiperrealista e interactivo basado en física astrof�
 * **Three.js** (WebGL 3D Rendering Engine)
 * **GLSL Shaders** (Shaders de fragmentos y vértices fotorrealistas con atmósfera de scattering múltiple y nubes procedurales)
 * **HTML5 / CSS3** (Interfaz HUD Sci-Fi con diseño responsivo y modo cinemático)
-* **JavaScript ES6+** (Motores desacoplados: simulation.js, strophysics.js, geology.js, strobiology.js, 	ectonics.js)
+* **JavaScript ES6+** (Motores desacoplados: simulation.js, astrophysics.js, geology.js, astrobiology.js, tectonics.js)
 
 ---
 

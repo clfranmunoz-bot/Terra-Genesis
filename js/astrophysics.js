@@ -34,11 +34,13 @@ class AstrophysicsEngine {
         if (type === 'red_dwarf_m') {
             this.params.isTidallyLocked = true;
             this.simulation.target.solarLuminosity = 0.85; // Menor radiación visible, mayor infrarrojo
-            this.simulation.target.atmosphereColor = [0.85, 0.40, 0.25]; // Cielo rojizo
+            this.simulation.skyColor = [0.85, 0.40, 0.25]; // Cielo rojizo
+            this.simulation.target.atmosphereColor = [...this.simulation.skyColor];
         } else {
             this.params.isTidallyLocked = false;
             this.simulation.target.solarLuminosity = 1.0;
-            this.simulation.target.atmosphereColor = [0.15, 0.55, 1.0];
+            this.simulation.skyColor = [0.15, 0.55, 1.0];
+            this.simulation.target.atmosphereColor = [...this.simulation.skyColor];
         }
     }
 
@@ -53,7 +55,7 @@ class AstrophysicsEngine {
     /**
      * Calcula la insolación solar estacional según latitud y día del año
      */
-    getSeasonalInsulation(latDeg) {
+    getSeasonalInsolation(latDeg) {
         const radLat = (latDeg * Math.PI) / 180;
         const tiltRad = (this.params.obliquityDeg * Math.PI) / 180;
 

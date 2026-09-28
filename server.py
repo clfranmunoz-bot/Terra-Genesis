@@ -11,7 +11,6 @@ class RobustHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
         self.send_header('Pragma', 'no-cache')
         self.send_header('Expires', '0')
-        self.send_header('Access-Control-Allow-Origin', '*')
         super().end_headers()
 
     def handle(self):
@@ -35,7 +34,7 @@ def run_server():
     
     for p in range(PORT, PORT + 20):
         try:
-            httpd = ThreadingServer(("", p), RobustHandler)
+            httpd = ThreadingServer(("127.0.0.1", p), RobustHandler)
             url = f"http://localhost:{p}"
             print("=" * 60)
             print(f"  [TERRA GENESIS - SERVIDOR ROBUSTO MULTIHILO]")

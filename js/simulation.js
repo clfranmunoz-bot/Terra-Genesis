@@ -40,6 +40,7 @@ class EarthSimulation {
 
         this.target = JSON.parse(JSON.stringify(this.current));
         this.manualSeaLevel = false;
+        this.skyColor = [0.15, 0.55, 1.0]; // lo cambia AstrophysicsEngine según la estrella
         
         // Historial de cráteres de impacto persistentes en la corteza terrestre
         this.craters = []; // { center: THREE.Vector3, radius: float, depth: float, crustUplift: float }
@@ -119,7 +120,7 @@ class EarthSimulation {
                 this.target.nightLights = 0.0;
             } else {
                 this.target.oceanColor = [0.03, 0.18, 0.45];
-                this.target.atmosphereColor = [0.15, 0.55, 1.0];
+                this.target.atmosphereColor = [...this.skyColor];
             }
         }
 
