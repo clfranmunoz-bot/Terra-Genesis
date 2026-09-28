@@ -1,4 +1,12 @@
 /**
+ * Escenarios. En `params`:
+ *  - co2 [ppm], o2 [% en volumen], ch4 [ppm], n2o [ppm], so2 [Mt de SO₂ estratosférico]
+ *  - solarLuminosity: luminosidad solar relativa a la actual (Gough 1981 para el pasado/futuro)
+ *  - volcanism: desgasificación relativa a la actual (1 = 0,26 Gt CO₂/año; Gerlach 2011)
+ *  - seaLevelOffset: SOLO la eustasia tectónica [m]; el aporte del hielo lo calcula el modelo según la temperatura.
+ *    Más de ±250 m (Haq 1987; Müller 2008) se marca como HIPOTÉTICO.
+ *  - meanTempTarget: condición inicial del clima (el equilibrio lo calcula el modelo; importa por la histéresis del hielo).
+ *
  * Scenarios Module: Definición de las líneas temporales alternativas "What-If"
  * y gestor robusto "Scenario Studio" con soporte de persistencia local y exportación JSON.
  */
@@ -45,21 +53,24 @@ const SCENARIOS = {
         epoch: 'AÑO 2026 d.C. SIN GÉNESIS BIOLÓGICA',
         divergenceDate: 'Hace 3.800 Millones de Años (La sopa primordial nunca formó autorreplicadores)',
         params: {
-            co2: 12500,
+            // Sin fotosíntesis el CO₂ no se fija como carbono orgánico ni se forma O₂; sin metanógenos no hay CH₄ biológico.
+            // simplificación: CO₂ ~10× preindustrial, por la menor meteorización sin raíces (Berner 1997: las plantas la aceleran ×4–7)
+            co2: 2800,
             o2: 0.0,
-            ch4: 85.0,
-            so2: 12.0,
+            ch4: 0.01,          // solo CH₄ abiótico serpentinización (~1 % del flujo actual; Etiope & Sherwood Lollar 2013)
+            n2o: 0.0,
+            so2: 0.05,
             solarLuminosity: 1.0,
-            volcanism: 1.8,
+            volcanism: 1.0,
             hasLife: false,
             hasCivilization: false,
-            seaLevelOffset: 45,
-            meanTempTarget: 34.5
+            seaLevelOffset: 0,
+            meanTempTarget: 25
         },
         visual: {
-            atmosphereColor: [0.95, 0.55, 0.15],
-            atmosphereOpacity: 1.2,
-            oceanColor: [0.12, 0.35, 0.22],     // Verde ferroso
+            atmosphereColor: [0.31, 0.51, 1.0], // N₂ domina la dispersión de Rayleigh: el cielo sigue siendo azul
+            atmosphereOpacity: 0.9,
+            oceanColor: [0.12, 0.35, 0.22],     // Verde por Fe(III) coloidal en un océano ferruginoso anóxico (hipótesis: Matsuo et al. 2025, Nat. Ecol. Evol.)
             oceanShallowColor: [0.22, 0.48, 0.25],
             cloudDensity: 0.90,
             cloudColor: [0.88, 0.80, 0.65],
@@ -71,7 +82,7 @@ const SCENARIOS = {
         },
         dominantClade: 'ESTÉRIL (QUÍMICA PREBIÓTICA)',
         cladeDescription: 'Mares ricos en hierro ferroso, continentes desprovistos de suelo orgánico, radiación UV letal sin capa de ozono.',
-        chronicle: 'Al no ocurrir la Gran Oxidación (hace 2.400 Ma), el planeta es un mundo inerte semejante a un Marte húmedo o un preludio de Venus. La atmósfera es sofocante y anóxica con cielos color ámbar. Las masas continentales son pura roca desnuda y cañones gigantescos labrados por la erosión extrema.',
+        chronicle: 'Sin vida no hubo fotosíntesis oxigénica ni Gran Oxidación (hace ~2.400 Ma; Lyons et al. 2014): la atmósfera es de N₂ y CO₂, sin O₂ ni capa de ozono, y el cielo sigue siendo azul por la dispersión de Rayleigh del N₂. El termostato carbono-silicato mantiene el clima templado-cálido (Kasting 1993), con más CO₂ que hoy porque sin raíces la meteorización es más lenta. Los continentes son roca desnuda y los océanos anóxicos y ricos en hierro ferroso.',
         impactWinter: false
     },
 
@@ -81,15 +92,15 @@ const SCENARIOS = {
         epoch: 'PRESENTE ALTERNATIVO (66 Ma POST-IMPACTO EVITADO)',
         divergenceDate: 'Hace 66 Millones de Años (El asteroide de Chicxulub erró la Tierra por 15.000 km)',
         params: {
-            co2: 850,
-            o2: 28.5,
-            ch4: 4.5,
+            co2: 850,           // Maastrichtiense: ~400–1000 ppm (Foster, Royer & Lunt 2017)
+            o2: 23.0,           // Cretácico tardío: ~21–25 % (Berner 2009; Glasspool & Scott 2010)
+            ch4: 1.5,
             so2: 0.08,
             solarLuminosity: 1.0,
             volcanism: 1.1,
             hasLife: true,
             hasCivilization: false,
-            seaLevelOffset: 25,
+            seaLevelOffset: 0,  // misma tectónica actual (solo cambió la biosfera)
             meanTempTarget: 22.0
         },
         visual: {
@@ -117,22 +128,23 @@ const SCENARIOS = {
         epoch: 'GRAN EXTINCIÓN CONTINUA (ANÁLOGO PÉRMICO-TRIÁSICO)',
         divergenceDate: 'Superpluma mantélica activa en la corteza continental',
         params: {
-            co2: 6500,
-            o2: 9.0,
-            ch4: 40.0,
-            so2: 180.0,
-            solarLuminosity: 0.90,
-            volcanism: 25.0,
+            // Pulso tipo Trampas Siberianas: 3×10⁴–10⁵ Gt de CO₂ y ~7000 Gt de azufre en ~1 Ma (Svensen 2009; Black 2012)
+            co2: 2500,          // Pérmico-Triásico: ~2000–4000 ppm tras el pulso (Joachimski et al. 2022)
+            o2: 16.0,
+            ch4: 10.0,
+            so2: 180.0,         // carga estratosférica durante un pulso eruptivo; Pinatubo = 20 Mt
+            solarLuminosity: 0.98, // Sol hace 252 Ma (Gough 1981); el vulcanismo no cambia la luminosidad
+            volcanism: 25.0,    // 25 × 0,26 = 6,5 Gt CO₂/año: orden de los pulsos eruptivos estimados
             hasLife: true,
             hasCivilization: false,
-            seaLevelOffset: -15,
+            seaLevelOffset: 0,
             meanTempTarget: 8.5
         },
         visual: {
             atmosphereColor: [0.85, 0.65, 0.20],
             atmosphereOpacity: 1.4,
-            oceanColor: [0.35, 0.08, 0.42],
-            oceanShallowColor: [0.45, 0.15, 0.35],
+            oceanColor: [0.10, 0.22, 0.20],     // euxinia: bacterias verdes del azufre (biomarcadores de Grice et al. 2005)
+            oceanShallowColor: [0.18, 0.35, 0.25],
             cloudDensity: 0.98,
             cloudColor: [0.28, 0.24, 0.22],
             hasCityLights: false,
@@ -142,8 +154,8 @@ const SCENARIOS = {
             erosionFactor: 0.70
         },
         dominantClade: 'MICROORGANISMOS METANÓGENOS Y HONGOS',
-        cladeDescription: 'Colapso ecológico del 96% de las especies marinas y 75% terrestres. Océanos ácidos tóxicos.',
-        chronicle: 'Erupciones basálticas continuas de miles de kilómetros cúbicos de lava incendiaron mantos de carbón. El planeta está sumido en lluvia ácida concentrada y anoxia oceánica. Los mares han adquirido un tono púrpura por bacterias sulfurosas y los cielos son de un plomo amarillento.',
+        cladeDescription: 'Extinción de ~81 % de las especies marinas (Stanley 2016) y ~70 % de los vertebrados terrestres. Océanos ácidos y euxínicos.',
+        chronicle: 'Durante un pulso eruptivo de una gran provincia ígnea (~4 millones de km³ de basalto en ~1 Ma en Siberia; Burgess & Bowring 2015), los aerosoles de sulfato enfrían el planeta durante años, mientras que el CO₂ lo calienta durante cientos de miles de años. Las intrusiones queman capas de carbón y evaporitas (Svensen 2009), los océanos se acidifican y quedan anóxicos y euxínicos, y proliferan las bacterias verdes del azufre (Grice et al. 2005). Hace 252 Ma esto causó la mayor extinción conocida: ~81 % de las especies marinas (Stanley 2016).',
         impactWinter: true
     },
 
@@ -161,7 +173,7 @@ const SCENARIOS = {
             volcanism: 0.5,
             hasLife: true,
             hasCivilization: false,
-            seaLevelOffset: -120,
+            seaLevelOffset: 0,  // el descenso por el hielo lo calcula el modelo
             meanTempTarget: -45.0
         },
         visual: {
@@ -179,25 +191,26 @@ const SCENARIOS = {
         },
         dominantClade: 'EXTREMÓFILOS Y ALGAS SUBLACUSTRES',
         cladeDescription: 'La vida sobrevive confinada bajo kilómetros de banquisa de hielo o en respiraderos hidrotermales.',
-        chronicle: 'Una retroalimentación de albedo positiva causó que el hielo polar avanzara hasta alcanzar los trópicos y el ecuador. Con una reflectividad superficial del 80%, el calor solar escapa al espacio, manteniendo el planeta en una congelación total con temperaturas ecuatoriales de -30°C.',
+        chronicle: 'Una retroalimentación de albedo positiva causó que el hielo polar avanzara hasta alcanzar los trópicos y el ecuador. Con una reflectividad superficial del 80%, el calor solar escapa al espacio, manteniendo el planeta en una congelación total con temperaturas ecuatoriales de ~-30 a -40 °C (Pierrehumbert et al. 2011). Salir de ella exige acumular ~0,1 bar de CO₂ volcánico durante millones de años (histéresis de Budyko-Sellers).',
         impactWinter: false
     },
 
     runaway_hot: {
         id: 'runaway_hot',
-        name: 'Invernadero Desbocado',
-        epoch: 'POST-CRISIS CLIMÁTICA TOTAL (AÑO 2200 d.C.)',
+        name: 'Invernadero Extremo (Hothouse)',
+        epoch: 'EQUILIBRIO TRAS EMISIONES EXTREMAS (MILENIOS DESPUÉS DE 2250 d.C.)',
         divergenceDate: 'Liberación total de permafrost y clatratos submarinos',
         params: {
-            co2: 2400,
-            o2: 18.0,
-            ch4: 35.0,
-            so2: 2.5,
+            // SSP5-8.5 alcanza ~2000 ppm hacia 2250 (Meinshausen et al. 2020); 2400 ppm exige quemar más de las reservas probadas
+            co2: 2000,
+            o2: 20.9,
+            ch4: 3.5,           // liberación parcial de permafrost e hidratos (Schuur et al. 2015)
+            so2: 0.05,
             solarLuminosity: 1.0,
             volcanism: 1.2,
             hasLife: true,
             hasCivilization: true,
-            seaLevelOffset: 68,
+            seaLevelOffset: 0,  // la fusión del hielo (hasta +65,7 m) la calcula el modelo; en equilibrio tarda milenios
             meanTempTarget: 27.5
         },
         visual: {
@@ -215,13 +228,13 @@ const SCENARIOS = {
         },
         dominantClade: 'HUMANIDAD POLAR Y ESPECIES OPORTUNISTAS',
         cladeDescription: 'Casquetes polares extintos. Nuevas franjas habitables en la Antártida y Siberia septentrional.',
-        chronicle: 'La fusión completa del hielo polar elevó el nivel de los océanos 68 metros, sumergiendo a Nueva York, Londres, Shanghái y Buenos Aires. El ecuador se ha convertido en una zona inhabitable por calor húmedo mortal, desplazando la biosfera y la civilización hacia las altas latitudes polares.',
+        chronicle: 'No es un invernadero desbocado (eso exige ~1,1 veces la insolación actual y evaporar los océanos; Kopparapu 2014): es un clima de invernadero extremo en equilibrio. Tras milenios, la fusión de Groenlandia y la Antártida sube el mar hasta ~66 m (Fretwell 2013), sumergiendo Nueva York, Londres, Shanghái y Buenos Aires. En los trópicos la temperatura de bulbo húmedo supera con frecuencia los 35 °C, el límite fisiológico humano (Sherwood & Huber 2010).',
         impactWinter: false
     },
 
     waterworld: {
         id: 'waterworld',
-        name: 'Mundo Océano (Waterworld)',
+        name: 'Mundo Océano (HIPOTÉTICO)',
         epoch: 'HIPERINUNDACIÓN POR BOMBARDEO COMETARIO',
         divergenceDate: 'Bombardeo masivo de cometas de hielo en el Cenozoico',
         params: {
@@ -233,7 +246,7 @@ const SCENARIOS = {
             volcanism: 1.0,
             hasLife: true,
             hasCivilization: false,
-            seaLevelOffset: 1200, // +1.200 metros: sumerge casi toda la tierra
+            seaLevelOffset: 1200, // HIPOTÉTICO: supera los ±250 m físicamente posibles; exige ~4×10⁸ km³ de agua (~30 % del océano actual)
             meanTempTarget: 17.5
         },
         visual: {
@@ -251,7 +264,7 @@ const SCENARIOS = {
         },
         dominantClade: 'CETÁCEOS Y ORGANISMOS PELÁGICOS',
         cladeDescription: 'Planeta acuático donde solo emergen archipiélagos aislados en las cumbres del Tíbet y los Andes.',
-        chronicle: 'Un diluvio astronómico añadió miles de millones de metros cúbicos de agua al planeta. Los continentes han desaparecido bajo un abismo azul sin fin. La vida marina ha evolucionado formas colosales en un océano global sin barreras costeras.',
+        chronicle: 'ESCENARIO HIPOTÉTICO (no es un proceso físico plausible): +1.200 m requieren añadir unos 4×10⁸ km³ de agua, cerca de un tercio del océano actual; ni la fusión del hielo (+66 m) ni la tectónica (±250 m) lo permiten, y un bombardeo de cometas con esa masa esterilizaría la superficie. Los continentes han desaparecido bajo un abismo azul sin fin. La vida marina ha evolucionado formas colosales en un océano global sin barreras costeras.',
         impactWinter: false
     },
 
@@ -265,11 +278,11 @@ const SCENARIOS = {
             o2: 19.0,
             ch4: 2.2,
             so2: 0.15,
-            solarLuminosity: 1.0,
-            volcanism: 2.2,
+            solarLuminosity: 0.98, // Sol hace 250 Ma (Gough 1981)
+            volcanism: 1.5,
             hasLife: true,
             hasCivilization: false,
-            seaLevelOffset: -35,
+            seaLevelOffset: -20, // Pérmico tardío: cerca o algo por debajo del actual (Haq & Schutter 2008)
             meanTempTarget: 23.0
         },
         visual: {
@@ -296,17 +309,17 @@ const SCENARIOS = {
         id: 'far_future',
         name: 'Tierra del Futuro Lejano (+1.000 Ma)',
         epoch: 'OCASO BIOLÓGICO SOLAR (+1.000.000.000 AÑOS)',
-        divergenceDate: 'Evolución estelar natural: El Sol aumenta un 10% su luminosidad',
+        divergenceDate: 'Evolución estelar natural: el Sol aumenta su luminosidad ~9 % por Ga (Gough 1981)',
         params: {
-            co2: 15,             // Inanición de CO2: desgasificación de silicatos devora el carbono
-            o2: 3.0,              // Colapso total de la fotosíntesis
+            co2: 15,             // El termostato baja el CO₂ por debajo de ~10–150 ppm, límite de las plantas C3/C4 (Caldeira & Kasting 1992)
+            o2: 10.0,            // Sin fotosíntesis el O₂ decae en ~10⁶–10⁷ años (Ozaki & Reinhard 2021); aquí, un estado intermedio
             ch4: 0.05,
             so2: 8.0,
-            solarLuminosity: 1.12, // Sol más caliente y brillante
+            solarLuminosity: 1.10, // Gough 1981: +1 Ga ≈ 1,10 L☉; se acerca al umbral de invernadero desbocado (1,107 S⊕)
             volcanism: 0.8,
             hasLife: true,
             hasCivilization: false,
-            seaLevelOffset: -95,  // Océanos evaporándose hacia el espacio
+            seaLevelOffset: 0,    // la pérdida de agua por invernadero húmedo tarda cientos de Ma
             meanTempTarget: 48.0  // Hipertermia global
         },
         visual: {
@@ -324,7 +337,7 @@ const SCENARIOS = {
         },
         dominantClade: 'MICROORGANISMOS SUBTERRÁNEOS Y EXTREMÓFILOS',
         cladeDescription: 'Plantas y animales extintos por falta de CO2 y calor extremo. Sólo bacterias sobreviven en cuevas profundas.',
-        chronicle: 'A medida que el Sol envejece y se vuelve más brillante, el termostato de silicato terrestre extrajo casi todo el CO2 de la atmósfera, provocando la extinción de las plantas complejas. Los océanos hierven lentamente hacia la estratosfera y el planeta se encamina hacia su fase Venus terminal.',
+        chronicle: 'A medida que el Sol se vuelve más brillante, el termostato carbono-silicato extrae casi todo el CO₂ de la atmósfera y las plantas mueren por falta de carbono (Caldeira & Kasting 1992). Sin fotosíntesis el oxígeno decae en unos millones de años (Ozaki & Reinhard 2021). Cerca del umbral de invernadero húmedo el vapor de agua llega a la estratosfera, se fotodisocia y el hidrógeno escapa al espacio: los océanos se pierden lentamente, sin hervir (Kasting 1988). Es el camino hacia un estado tipo Venus.',
         impactWinter: false
     }
 };

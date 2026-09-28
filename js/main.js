@@ -452,16 +452,16 @@ document.addEventListener('DOMContentLoaded', () => {
         dispSliderSea.textContent = `${sign}${val} m`;
         simulation.setParam('seaLevelOffset', val);
 
-        if (val <= -50) {
-            floodImpactText.textContent = 'Glaciación profunda: emergen plataformas someras (Beringia, Doggerland).';
+        if (val <= -100) {
+            floodImpactText.textContent = 'Nivel glacial (UMG: −125 m, Clark 2009): emergen Beringia, Doggerland y la plataforma de Sunda.';
         } else if (val < 15) {
-            floodImpactText.textContent = 'Nivel costero estándar (costas mundiales actuales).';
-        } else if (val <= 75) {
-            floodImpactText.textContent = 'Fusión polar total (+70m): Florida, Países Bajos y costas bajas sumergidas.';
-        } else if (val <= 300) {
-            floodImpactText.textContent = 'Inundación severa (+300m): Cuenca del Amazonas y Europa central como mares interiores.';
+            floodImpactText.textContent = 'Cerca del nivel actual.';
+        } else if (val <= 70) {
+            floodImpactText.textContent = 'Equivale a fundir todo el hielo (+65,7 m; Fretwell 2013): Florida, Países Bajos y Bangladés sumergidos.';
+        } else if (val <= 250) {
+            floodImpactText.textContent = 'Solo alcanzable por tectónica (dorsales jóvenes, como en el Cretácico: +100–250 m; Müller 2008).';
         } else {
-            floodImpactText.textContent = 'Diluvio planetario: continentes casi 100% sumergidos, solo cordilleras altas.';
+            floodImpactText.textContent = '⚠️ HIPOTÉTICO: ni la fusión del hielo (+66 m) ni la tectónica (±250 m) pueden subir tanto el mar.';
         }
     });
 
@@ -470,7 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sliderVolcanism) {
         sliderVolcanism.addEventListener('input', (e) => {
             const val = parseFloat(e.target.value);
-            dispVolcanism.textContent = `${val.toFixed(1)}x`;
+            dispVolcanism.textContent = `${val.toFixed(1)}× (${Math.round(260 * val)} Mt CO₂/a)`;
             simulation.setParam('volcanism', val);
         });
     }
@@ -1011,7 +1011,7 @@ document.addEventListener('DOMContentLoaded', () => {
         astrophysics.setPerihelion(282.9);
         astrophysics.setDistanceFactor(1.0);
 
-        geology.setThermostat(true);
+        geology.setThermostat(false);
         geology.setOrogeny(1.0);
         geology.setContinentalEpoch('modern');
 
@@ -1071,8 +1071,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (dispSliderSea) dispSliderSea.textContent = '+0 m';
         if (floodImpactText) floodImpactText.textContent = 'Nivel costero estándar.';
         if (sliderVolcanism) sliderVolcanism.value = 1.0;
-        if (dispVolcanism) dispVolcanism.textContent = '1.0x';
-        if (toggleThermostat) toggleThermostat.checked = true;
+        if (dispVolcanism) dispVolcanism.textContent = '1.0× (260 Mt CO₂/a)';
+        if (toggleThermostat) toggleThermostat.checked = false;
         if (sliderErosion) sliderErosion.value = 4;
         if (dispErosion) dispErosion.textContent = '4 %';
         if (selectOceanPalette) selectOceanPalette.value = 'default';
@@ -1324,7 +1324,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (sliderVolcanism) {
             sliderVolcanism.value = scen.params.volcanism.toFixed(1);
-            dispVolcanism.textContent = `${scen.params.volcanism.toFixed(1)}x`;
+            dispVolcanism.textContent = `${scen.params.volcanism.toFixed(1)}× (${Math.round(260 * scen.params.volcanism)} Mt CO₂/a)`;
         }
         if (sliderErosion) {
             const erPct = Math.round((scen.visual.erosionFactor || 0.04) * 100);
@@ -1365,7 +1365,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const seaPct = Math.max(0, Math.min(100, (cur.seaLevelOffset + 150) / 1650 * 100));
         barSea.style.width = `${seaPct}%`;
         const oceanPct = Math.min(99, Math.round((0.71 + (cur.seaLevelOffset / 1400)) * 100));
-        statusSea.textContent = `Cobertura líquida: ${oceanPct}% | Casquetes: ${Math.round(cur.iceCoverage * 100)}%`;
+        statusSea.textContent = `Cobertura líquida: ${oceanPct}% | Hielo: ${Math.round(cur.iceCoverage * 100)}% de la superficie | Aporte del hielo: ${Math.round(Fisica.nivelMarPorHielo_m(cur.meanTemp))} m` +
+            (simulation.nivelMarHipotetico ? ' | ⚠️ HIPOTÉTICO: la eustasia real no supera ±250 m' : '');
 
         if (!simulation.manualSeaLevel) {
             sliderSeaLevel.value = Math.round(cur.seaLevelOffset);
@@ -1376,7 +1377,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const wRate = Math.round(geology.params.weatheringRateMtYear);
         const dRate = Math.round(geology.params.degassingRateMtYear);
         valWeathering.textContent = `${wRate} Mt/a`;
-        statusThermostat.textContent = `Secuestro químico: ${wRate} Mt | Emisión volcánica: ${dRate} Mt CO₂`;
+        statusThermostat.textContent = `Meteorización: ${wRate} Mt CO₂/a | Volcanes: ${dRate} Mt CO₂/a | ` +
+            (geology.params.thermostatActive ? `Tiempo geológico: ${geology.maTranscurridos.toFixed(2)} Ma (1 s = 50.000 años)` : 'Termostato en pausa (actúa en ~400.000 años)');
 
         // Red Trófica
         const pProducers = Math.round(astrobiology.params.trophicProducers);

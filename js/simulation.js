@@ -140,7 +140,7 @@ class EarthSimulation {
         } else if (scenarioKey === 'dinosaurs') {
             this.target.geologicalMa = -66;
         } else if (scenarioKey === 'far_future') {
-            this.target.geologicalMa = 250;
+            this.target.geologicalMa = 250; // configuración continental más lejana disponible (+250 Ma); a +1000 Ma es desconocida
         } else {
             this.target.geologicalMa = 0;
         }
@@ -281,14 +281,10 @@ class EarthSimulation {
         // ==========================================
         // 2. NIVEL DEL MAR Y CASQUETES
         // ==========================================
-        let targetSeaOffset = this.target.seaLevelOffset;
-        if (!this.manualSeaLevel && this.target.seaLevelOffset === 0) {
-            if (this.current.meanTemp > 15.0) {
-                targetSeaOffset = Math.min(75, (this.current.meanTemp - 15.0) * 5.5);
-            } else {
-                targetSeaOffset = Math.max(-130, (this.current.meanTemp - 15.0) * 4.5);
-            }
-        }
+        // Nivel del mar = eustasia tectónica (target.seaLevelOffset, del escenario o del control) + hielo continental (Fisica.nivelMarPorHielo_m).
+        // Los océanos evaporados del invernadero desbocado quedan fuera de esta escala.
+        const targetSeaOffset = this.target.seaLevelOffset + Fisica.nivelMarPorHielo_m(this.current.meanTemp);
+        this.nivelMarHipotetico = !Fisica.nivelMarFisicamentePosible(this.target.seaLevelOffset);
         this.current.seaLevelOffset += (targetSeaOffset - this.current.seaLevelOffset) * lerpFactor;
 
         // ==========================================

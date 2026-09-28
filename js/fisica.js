@@ -299,8 +299,59 @@ function climaEquilibrio(g, orbita, Tinicial = 15, anios = 300) {
     return diagnosticoEBM(T, Q);
 }
 
+// ============================================================
+// FASE 4 — GEOLOGÍA Y GEOQUÍMICA
+// ============================================================
+
+// Termostato carbono-silicato (Walker, Hays & Kasting 1981, JGR 86; Berner 2004, "The Phanerozoic Carbon Cycle"):
+//   W = W₀ · (C/C₀)^β · exp((T − T₀)/Tₑ) · f_orogenia        β = 0,3; Tₑ = 13,7 K   [Gt CO₂/año]
+//   V = V₀ · f_volcanismo;   V₀ = W₀ = 0,26 Gt CO₂/año (desgasificación volcánica actual; Gerlach 2011, Eos 92)
+//   d ln C / dt = (V − W) / R_ef
+// R_ef = 6×10⁴ Gt CO₂ reproduce la relajación e-folding de ~400 ka (Archer 2005, JGR 110; Colbourn et al. 2015)
+//   = W₀ · [β + (ECS/ln2)/Tₑ] · 4×10⁵ a; es del orden del carbono inorgánico océano-atmósfera tamponado por la química de carbonatos.
+// Referencia (equilibrio preindustrial): C₀ = 280 ppm, T₀ = 14 °C.
+// simplificación: sin meteorización de carbonatos ni enterramiento de carbono orgánico ni retroalimentación de la vegetación (GEOCARB sí los incluye).
+const CARBONO = { V0: 0.26, BETA: 0.3, TE: 13.7, C0: 280, T0: 14, R_EF: 6.0e4, TAU_ANIOS: 4e5 };
+function meteorizacion_GtAnio(co2, T, orogenia = 1) {
+    return CARBONO.V0 * Math.pow(Math.max(1, co2) / CARBONO.C0, CARBONO.BETA) * Math.exp((T - CARBONO.T0) / CARBONO.TE) * orogenia;
+}
+function desgasificacion_GtAnio(volcanismo = 1) { return CARBONO.V0 * volcanismo; }
+function pasoCarbono(co2, T, volcanismo, orogenia, anios) {
+    const neto = desgasificacion_GtAnio(volcanismo) - meteorizacion_GtAnio(co2, T, orogenia);
+    // ponytail: Euler explícito; estable mientras anios ≪ 4×10⁵ (se usan ≤ 5×10⁴ por paso)
+    return co2 * Math.exp(neto * anios / CARBONO.R_EF);
+}
+
+// Nivel del mar por el hielo continental (m, respecto a hoy):
+//   Fusión total: +65,7 m (Antártida 58,3 + Groenlandia 7,4; Fretwell et al. 2013; Morlighem et al. 2017; IPCC AR6 cap. 9).
+//   Último Máximo Glacial: −125 m (Clark et al. 2009) con −6 K de temperatura global (Tierney et al. 2020).
+// simplificación: relación de equilibrio lineal por tramos; la respuesta real tarda milenios (Levermann et al. 2013: 2,3 m/K en 2000 años).
+//   La desglaciación completa se sitúa en +8 K (Antártida pierde el hielo con ~2–4×CO₂; DeConto & Pollard 2003).
+//   Por debajo del UMG (bola de nieve) no hay una estimación robusta y se acota a −130 m.
+const HIELO_TOTAL_M = 65.7;
+function nivelMarPorHielo_m(T) {
+    if (T >= 15) return HIELO_TOTAL_M * Math.min(1, (T - 15) / 8);
+    return Math.max(-130, (T - 15) * (125 / 6));
+}
+// Eustasia tectónica (volumen de las dorsales y de las cuencas): ±250 m en el Fanerozoico (Haq et al. 1987; Müller et al. 2008, Science 319).
+const EUSTASIA_MAX_M = 250;
+function nivelMarFisicamentePosible(offsetTectonico_m) { return Math.abs(offsetTectonico_m) <= EUSTASIA_MAX_M; }
+
+// Grandes provincias ígneas (valores de referencia)
+const PROVINCIAS_IGNEAS = {
+    // Burgess & Bowring 2015 (Sci. Adv. 1); Svensen et al. 2009 (EPSL 277); Black et al. 2012 (Geology 40)
+    siberianas: { edadMa: 252, volumen_km3: 4e6, duracionMa: 1, co2_Gt: [3e4, 1e5], azufre_Gt: [6300, 7800] },
+    // Schoene et al. 2019 (Science 363); Sprain et al. 2019
+    deccan:     { edadMa: 66,  volumen_km3: 1.3e6, duracionMa: 0.7, co2_Gt: [1e4, 4e4], azufre_Gt: [3000, 6000] }
+};
+
+// Luminosidad solar en el tiempo (Gough 1981, Solar Physics 74): L(t)/L☉ = 1 / [1 + 0,4 (1 − t/t☉)], t☉ = 4,57 Ga.
+function luminosidadSolar(Ma) { const t = 4.57 + Ma / 1000; return 1 / (1 + 0.4 * (1 - t / 4.57)); }
+
 const Fisica = {
     C, ESTRELLAS, KOPPARAPU, OBLICUIDAD_CAOS, EDAD_MINIMA_VIDA_GA, PREINDUSTRIAL, EBM, T_DESBOCADO_C,
+    CARBONO, HIELO_TOTAL_M, EUSTASIA_MAX_M, PROVINCIAS_IGNEAS,
+    meteorizacion_GtAnio, desgasificacion_GtAnio, pasoCarbono, nivelMarPorHielo_m, nivelMarFisicamentePosible, luminosidadSolar,
     insolacion, distanciaEquivalente, picoWien_um, picoFotones_um, sEff, zonaHabitable,
     insolacionDiaria, insolacionAnual, tiempoAnclajeMarea_anios, estaAnclado, mareaRelativa,
     presionVientoEstelar_Pa, radioMagnetopausa, latitudAuroral_grados, estrellaPermiteVida, colorCielo,

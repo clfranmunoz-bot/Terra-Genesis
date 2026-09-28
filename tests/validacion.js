@@ -64,5 +64,31 @@ verdad('Histéresis Budyko-Sellers: mismos parámetros, arranque cálido templad
 verdad('Tierra actual: invernadero normal', F.estadoInvernadero(1, 5772) === 'normal');
 verdad('1,12 S⊕ → invernadero desbocado (umbral ≈ 1,1 S⊕)', F.estadoInvernadero(1.12, 5772) === 'desbocado');
 
+console.log('\n— Fase 4: geología y geoquímica —');
+prueba('Meteorización = desgasificación en el equilibrio preindustrial', F.meteorizacion_GtAnio(280, 14) / F.desgasificacion_GtAnio(1), 0.99, 1.01);
+// Termostato: duplicar la desgasificación → nuevo equilibrio con W = V, clima acoplado
+function termostato(volc, co2 = 280, Ma = 5) {
+    let T = 14;
+    for (let i = 0; i < Ma * 20; i++) {
+        co2 = F.pasoCarbono(co2, T, volc, 1, 5e4);
+        T = F.climaEquilibrio({ co2, ch4: 0.722, n2o: 0.27, so2: 0, nubes: 0.75 }, orbita, T, 40).Tmedia;
+    }
+    return { co2, T };
+}
+const eq2 = termostato(2);
+prueba('Termostato con 2× volcanismo: meteorización / desgasificación', F.meteorizacion_GtAnio(eq2.co2, eq2.T) / F.desgasificacion_GtAnio(2), 0.97, 1.03);
+prueba('Termostato con 2× volcanismo: calentamiento acotado', eq2.T - 14, 2, 10, 'K');
+{   // e-folding tras un pulso de CO₂
+    let co2 = 1000, T = 14, t = 0;
+    const objetivo = 280 * Math.exp(Math.log(1000 / 280) / Math.E);
+    while (co2 > objetivo && t < 5e6) { co2 = F.pasoCarbono(co2, T, 1, 1, 1e4); T = 14 + 2.72 * Math.log2(co2 / 280); t += 1e4; }
+    prueba('Tiempo de relajación del termostato (e-folding)', t / 1e3, 200, 800, 'ka');
+}
+prueba('Subida del mar por fusión total del hielo', F.nivelMarPorHielo_m(40), 64, 67, 'm');
+prueba('Nivel del mar en el Último Máximo Glacial (−6 K)', F.nivelMarPorHielo_m(9), -130, -120, 'm');
+verdad('+1.200 m no es físicamente posible (máx. ±250 m)', !F.nivelMarFisicamentePosible(1200));
+prueba('Luminosidad solar hace 700 Ma (bola de nieve)', F.luminosidadSolar(-700), 0.93, 0.95);
+prueba('Luminosidad solar en +1 Ga', F.luminosidadSolar(1000), 1.08, 1.12);
+
 console.log(`\n${fallos === 0 ? 'TODAS LAS PRUEBAS PASARON' : fallos + ' PRUEBA(S) FALLARON'}\n`);
 process.exit(fallos ? 1 : 0);
