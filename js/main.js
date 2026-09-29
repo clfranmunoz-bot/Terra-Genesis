@@ -1362,7 +1362,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Termostato de Silicatos (Walker)
         const wRate = Math.round(geology.params.weatheringRateMtYear);
         const dRate = Math.round(geology.params.degassingRateMtYear);
-        valWeathering.textContent = `${wRate} Mt CO₂/a`;
+        valWeathering.textContent = `${wRate} Mt/a`;
         statusThermostat.textContent = `Meteorización: ${wRate} Mt CO₂/a | Volcanes: ${dRate} Mt CO₂/a | ` +
             (geology.params.thermostatActive ? `Tiempo geológico: ${geology.maTranscurridos.toFixed(2)} Ma (1 s = 50.000 años)` : 'Termostato en pausa (actúa en ~400.000 años)');
 

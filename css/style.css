@@ -509,7 +509,7 @@ button {
     font-family: var(--font-mono);
     font-size: 1.15rem;
     font-weight: 700;
-    color: var(--accent-cyan);
+    color: var(--accent-cyan);    white-space: nowrap; /* el número y su unidad no se separan */
 }
 
 .gauge-bar-container {

@@ -246,15 +246,11 @@ class PlanetViewer {
                 if (uGeologicalMa > -2.0) {
                     if (uSeaLevelOffset > 0.0) {
                         float floodThreshold = clamp(uSeaLevelOffset / 2300.0, 0.0, 0.90);
-                        if (isWater < 0.35 && topoElev < floodThreshold) {
-                            isWater = 1.0;
-                        }
+                        isWater = max(isWater, 1.0 - smoothstep(floodThreshold - 0.006, floodThreshold + 0.006, topoElev));
                     } else if (uSeaLevelOffset < 0.0) {
                         float shelfDepth = (1.0 - specTex.g);
                         float dryThreshold = clamp(abs(uSeaLevelOffset) / 320.0, 0.0, 0.85);
-                        if (isWater > 0.35 && shelfDepth < dryThreshold) {
-                            isWater = 0.0;
-                        }
+                        isWater = min(isWater, smoothstep(dryThreshold - 0.02, dryThreshold + 0.02, shelfDepth));
                     }
                 }
 
@@ -289,8 +285,13 @@ class PlanetViewer {
                     }
                 }
 
+                // Máscara tierra/agua suave: la máscara (2048 px) se interpola entre texeles y smoothstep
+                // da una transición de ~1 píxel en lugar del escalón que dejaba el corte binario (costas pixeladas).
+                float waterMask = smoothstep(0.25, 0.45, isWater);
+
                 // Océanos y Tierras Inundadas
-                if (isWater > 0.35) {
+                vec3 waterColor = surfaceColor;
+                {
                     float depth = clamp(1.0 - specTex.g, 0.0, 1.0);
                     if (specTex.r < 0.35) {
                         float floodDepth = clamp((uSeaLevelOffset / 2300.0 - topoElev) * 5.0, 0.0, 1.0);
@@ -298,9 +299,10 @@ class PlanetViewer {
                     }
                     vec3 customWater = mix(uOceanShallowColor, uOceanColor, depth);
                     if (uGeologicalMa > -5.0 && uPangeaFactor < 0.05) {
-                        surfaceColor = mix(surfaceColor, customWater, 0.88);
+                        waterColor = mix(surfaceColor, customWater, 0.88);
                     }
-                } else {
+                }
+                {
                     // Masas Continentales
                     if (uAbioticFactor > 0.01) {
                         vec3 barrenBasalt = vec3(0.52, 0.36, 0.26) * (surfaceColor.r * 1.5 + 0.35);
@@ -323,6 +325,7 @@ class PlanetViewer {
                         surfaceColor = mix(surfaceColor, erodedBedrock, uErosionFactor * 0.85);
                     }
                 }
+                surfaceColor = mix(surfaceColor, waterColor, waterMask);
 
                 // 6. Casquetes Polares y Glaciación
                 float latFraction = abs(vUv.y - 0.5) * 2.0;
@@ -344,7 +347,7 @@ class PlanetViewer {
                 vec3 halfDir = normalize(sunDir + viewDir);
                 float specPower = pow(max(0.0, dot(normal, halfDir)), 48.0);
                 float isIce = step(iceLimit, latFraction);
-                float specIntensity = specPower * isWater * dayFactor * (1.0 - isIce * 0.7);
+                float specIntensity = specPower * waterMask * dayFactor * (1.0 - isIce * 0.7);
                 vec3 oceanGlint = vec3(1.0, 0.95, 0.85) * specIntensity * 2.2;
 
                 // 9. Iluminación diurna difusa
@@ -355,11 +358,11 @@ class PlanetViewer {
                 vec3 litNight = vec3(0.0);
                 if (uGeologicalMa > -2.0) {
                     vec4 nightTex = texture2D(uNightMap, vUv);
-                    vec3 cityGlow = nightTex.rgb * uNightLights * 1.8 * (1.0 - isWater);
+                    vec3 cityGlow = nightTex.rgb * uNightLights * 1.8 * (1.0 - waterMask);
 
                     if (uVolcanism > 1.2) {
                         float relief = texture2D(uNormalMap, vUv).r;
-                        float magmaFissure = smoothstep(0.68, 0.90, relief) * (1.0 - isWater);
+                        float magmaFissure = smoothstep(0.68, 0.90, relief) * (1.0 - waterMask);
                         cityGlow += vec3(1.0, 0.25, 0.03) * magmaFissure * min(2.5, uVolcanism * 0.18);
                     }
 
@@ -396,14 +399,9 @@ class PlanetViewer {
                     finalColor = thermalColor;
                 } else if (uViewMode > 1.5 && uViewMode < 2.5) {
                     // MODO 2: NDVI BIOMASA VEGETAL (Índice de Vegetación)
-                    if (isWater > 0.35) {
-                        finalColor = vec3(0.05, 0.08, 0.12);
-                    } else if (uAbioticFactor > 0.5) {
-                        finalColor = vec3(0.20, 0.20, 0.20);
-                    } else {
-                        float biomass = clamp((dayTex.g - dayTex.r) * 2.5, 0.0, 1.0);
-                        finalColor = mix(vec3(0.22, 0.22, 0.22), vec3(0.0, 1.0, 0.35), biomass);
-                    }
+                    float biomass = clamp((dayTex.g - dayTex.r) * 2.5, 0.0, 1.0);
+                    vec3 ndviTierra = uAbioticFactor > 0.5 ? vec3(0.20) : mix(vec3(0.22), vec3(0.0, 1.0, 0.35), biomass);
+                    finalColor = mix(ndviTierra, vec3(0.05, 0.08, 0.12), waterMask);
                 } else if (uViewMode > 2.5) {
                     // MODO 3: MAGNETOSFERA (Escudo dipolar suave y elegante)
                     float poleProximity = abs(normal.y);
