@@ -1195,7 +1195,6 @@ input[type="range"]::-webkit-slider-thumb:hover {
         width: 90vw;
     }
     #scanner-view-bar {
-        bottom: 104px;
         gap: 4px;
         padding: 4px 10px;
     }
