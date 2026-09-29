@@ -91,7 +91,10 @@ class PlanetViewer {
             return tex;
         };
 
-        this.texDay = load('textures/earth_day.jpg');
+        // Texturas 8K (Blue Marble 2002, NASA, dominio público) solo en escritorio con GPU que admita 8192 px:
+        // una textura 8K ocupa ~170 MB de memoria gráfica con mipmaps y puede cerrar la app en móviles y tabletas.
+        const usar8K = this.renderer.capabilities.maxTextureSize >= 8192 && !window.matchMedia('(max-width: 1024px)').matches;
+        this.texDay = load(usar8K ? 'textures/earth_day_8k.jpg' : 'textures/earth_day.jpg');
         this.texNight = load('textures/earth_night.jpg');
         this.texClouds = load('textures/earth_clouds.png');
         this.texClouds.generateMipmaps = true;
@@ -100,7 +103,8 @@ class PlanetViewer {
         this.texClouds.wrapS = THREE.RepeatWrapping;
         this.texClouds.wrapT = THREE.ClampToEdgeWrapping;
         this.texNormal = load('textures/earth_normal.jpg');
-        this.texSpecular = load('textures/earth_specular.jpg');
+        // Máscara de agua (blanco = agua). La de 8K se generó por color desde la Blue Marble (ver textures/LEEME.md)
+        this.texSpecular = load(usar8K ? 'textures/earth_water_8k.png' : 'textures/earth_specular.jpg');
         this.texTopology = load('textures/earth_topology.png');
         this.texPangea = load('textures/earth_pangea.jpg');
         this.texPaleo240 = load('textures/paleo_240ma_2048.jpg');
