@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.astrobiologyEngine = astrobiology;
     window.surveyEngine = survey;
     window.tectonicsEngine = tectonics;
+    window.planetViewer = viewer;
 
     // 2. Elementos del DOM de Telemetría
     const valTemp = document.getElementById('val-temp');
@@ -91,6 +92,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const sliderMeteorSpeed = document.getElementById('slider-meteor-speed');
     const dispMeteorSpeed = document.getElementById('disp-meteor-speed');
     const selectMeteorComp = document.getElementById('select-meteor-comp');
+    const sliderMeteorAngle = document.getElementById('slider-meteor-angle');
+    const dispMeteorAngle = document.getElementById('disp-meteor-angle');
     const dispMeteorEnergy = document.getElementById('disp-meteor-energy');
     const dispMeteorCrater = document.getElementById('disp-meteor-crater');
     const impactAlertOverlay = document.getElementById('impact-alert-overlay');
@@ -320,6 +323,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const val = parseFloat(e.target.value);
             dispRotationSpeed.textContent = `${val.toFixed(1)} h`;
             viewer.rotationSpeed = 24.0 / val;
+            astrophysics.setRotationPeriod(val);   // cambia el transporte de calor del clima y el tiempo de anclaje
+            actualizarTextoOrbital();
         });
     }
 
@@ -703,76 +708,57 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.fillText(wl < 1 ? `${wl * 1000}nm` : `${wl}µm`, x, padTop + graphH + 14);
         });
 
-        // Eje Y (Transmisión 0% a 100%)
+        // 3. Datos: altura efectiva de la atmósfera (km), eje Y de 0 a zMax
+        const data = astrobiology.generateAtmosphericSpectrum();
+        const points = data.spectrum;
+        const zMax = Math.max(50, Math.ceil(Math.max(...points.map((p) => p.z_km)) / 10) * 10);
+        const getY = (z) => padTop + (1 - Math.min(1, z / zMax)) * graphH;
         ctx.textAlign = 'right';
         ctx.fillStyle = '#64748b';
-        ctx.fillText('100%', padLeft - 6, padTop + 8);
-        ctx.fillText('50%', padLeft - 6, padTop + graphH * 0.5 + 4);
-        ctx.fillText('0%', padLeft - 6, padTop + graphH);
+        [0, zMax / 2, zMax].forEach((z) => ctx.fillText(`${z} km`, padLeft - 6, getY(z) + 4));
 
-        // 3. Resaltado de Bandas Moleculares Activas
-        const molecularBands = [
-            { id: 'red-edge', name: 'Vegetation Edge', wl: 0.70, width: 0.08, color: '#10b981' },
-            { id: 'h2o', name: 'H₂O', wl: 1.4, width: 0.22, color: '#60a5fa' },
-            { id: 'h2o', name: 'H₂O', wl: 1.9, width: 0.25, color: '#60a5fa' },
-            { id: 'ch4', name: 'CH₄', wl: 3.3, width: 0.35, color: '#f59e0b' },
-            { id: 'co2', name: 'CO₂ (4.3µm)', wl: 4.3, width: 0.40, color: '#f43f5e' },
-            { id: 'so2', name: 'SO₂', wl: 7.3, width: 0.35, color: '#fb923c' },
-            { id: 'ch4', name: 'CH₄', wl: 7.7, width: 0.40, color: '#f59e0b' },
-            { id: 'o3', name: 'O₃ (9.6µm)', wl: 9.6, width: 0.60, color: '#38bdf8' },
-            { id: 'co2', name: 'CO₂ (15µm)', wl: 14.8, width: 0.70, color: '#f43f5e' }
-        ];
+        // 4. Bandas moleculares modeladas (Kaltenegger & Traub 2009) y el red edge, que solo se ve en luz reflejada
+        const colores = { o3: '#38bdf8', h2o: '#60a5fa', ch4: '#f59e0b', co2: '#f43f5e' };
+        const nombres = { o3: 'O₃', h2o: 'H₂O', ch4: 'CH₄', co2: 'CO₂' };
+        const molecularBands = Fisica.RASGOS_TRANSITO.map((r) => ({ id: r.mol, name: `${nombres[r.mol]} ${r.um}`, wl: r.um, width: r.ancho, color: colores[r.mol] }))
+            .concat([{ id: 'red-edge', name: 'Red edge (reflejo)', wl: 0.70, width: 0.05, color: '#10b981' }]);
 
-        molecularBands.forEach(band => {
+        molecularBands.sort((a, b) => a.wl - b.wl).forEach((band, i) => {
             if (!activeJwstMolecules.has(band.id)) return;
             const xCenter = getX(band.wl);
-            const xLeft = getX(band.wl - band.width * 0.5);
-            const xRight = getX(band.wl + band.width * 0.5);
-            const bandW = Math.max(6, xRight - xLeft);
-
+            const bandW = Math.max(6, getX(band.wl + band.width * 0.5) - getX(band.wl - band.width * 0.5));
             ctx.fillStyle = `${band.color}18`;
             ctx.fillRect(xCenter - bandW * 0.5, padTop, bandW, graphH);
-
             ctx.strokeStyle = `${band.color}50`;
             ctx.lineWidth = 1;
             ctx.strokeRect(xCenter - bandW * 0.5, padTop, bandW, graphH);
-
             ctx.fillStyle = band.color;
             ctx.font = '9px Share Tech Mono, monospace';
             ctx.textAlign = 'center';
-            ctx.fillText(band.name, xCenter, padTop - 6);
+            ctx.fillText(band.name, xCenter, padTop - 4 - (i % 2) * 11);   // alternar alturas para que no se pisen
         });
 
-        // 4. Datos del Espectro Continuo Sintético
-        const data = astrobiology.generateAtmosphericSpectrum();
-        const points = data.spectrum;
-
-        // Curva espectral suavizada con resplandor
+        // 5. Curva: los rasgos de absorción se ven como picos (la atmósfera es opaca hasta más arriba)
         ctx.beginPath();
         ctx.strokeStyle = '#c084fc';
         ctx.lineWidth = 2.2;
         ctx.shadowColor = 'rgba(192, 132, 252, 0.6)';
         ctx.shadowBlur = 8;
-
-        for (let i = 0; i < points.length; i++) {
-            const pt = points[i];
-            const x = getX(pt.wavelength);
-            const y = padTop + (1.0 - Math.min(1.15, pt.flux)) * graphH;
-
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        }
+        points.forEach((pt, i) => (i === 0 ? ctx.moveTo(getX(pt.um), getY(pt.z_km)) : ctx.lineTo(getX(pt.um), getY(pt.z_km))));
         ctx.stroke();
-        ctx.shadowBlur = 0; // Reset sombra
+        ctx.shadowBlur = 0;
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#64748b';
+        ctx.fillText(`H = ${data.H_km.toFixed(1)} km`, padLeft + 4, padTop + 10);
 
-        // 5. Diagnóstico Exobiológico
+        // 6. Diagnóstico Exobiológico
         const diagStatus = document.getElementById('jwst-diagnosis-status');
         const diagDesc = document.getElementById('jwst-diagnosis-desc');
 
         if (simulation.current.hasLife && simulation.current.o2 > 6 && simulation.current.ch4 > 0.4) {
             diagStatus.textContent = 'DESEQUILIBRIO REDOX DETECTADO (VIDA ACTIVA)';
             diagStatus.className = 'status-confirmed';
-            diagDesc.textContent = `Coexistencia termodinámicamente anómala de oxidante O₂/O₃ (${simulation.current.o2.toFixed(1)}%) y reductor CH₄ (${simulation.current.ch4.toFixed(1)} ppm). Salto reflectivo "Red Edge" a 700 nm confirma biosfera fotosintética activa.`;
+            diagDesc.textContent = `Coexistencia termodinámicamente anómala de oxidante O₂/O₃ (${simulation.current.o2.toFixed(1)}%) y reductor CH₄ (${simulation.current.ch4.toFixed(1)} ppm). El "red edge" de la vegetación (700 nm) confirmaría la fotosíntesis, pero se mide en luz reflejada, no en tránsito.`;
         } else if (simulation.current.hasLife) {
             diagStatus.textContent = 'BIOSIGNATURA DÉBIL / PROTO-BIÓTICA';
             diagStatus.className = '';
@@ -843,20 +829,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Estimación previa del impacto (Collins, Melosh & Marcus 2005; ángulo de 45°)
+    // Estimación previa del impacto en tierra firme (Collins, Melosh & Marcus 2005); en el océano se recalcula con la profundidad real
+    const textoImpacto = (r) => r.rafagaAerea
+        ? `explosión aérea a ${r.zExplosion_km.toFixed(0)} km de altura (sin cráter)`
+        : `~${r.crater_km.toFixed(r.crater_km < 10 ? 1 : 0)} km (transitorio ${r.crater_transitorio_km.toFixed(0)} km), sismo M${r.magnitud.toFixed(1)}` +
+          (r.agua_m > 0 ? ` · en el fondo, bajo ${Math.round(r.agua_m)} m de agua (llega a ${r.vSuelo_kms.toFixed(1)} km/s)` : '') +
+          (r.tau > 1 ? ' · invierno de impacto global' : '');
     function actualizarEstimacionImpacto() {
-        const d = parseFloat(sliderMeteorSize.value), v = parseFloat(sliderMeteorSpeed.value);
+        const d = parseFloat(sliderMeteorSize.value), v = parseFloat(sliderMeteorSpeed.value), ang = parseFloat(sliderMeteorAngle.value);
         dispMeteorSize.textContent = `${d} km`;
         dispMeteorSpeed.textContent = `${v} km/s`;
-        const r = Fisica.impacto({ L_m: d * 1000, v_kms: v, rho_i: Fisica.DENSIDADES_IMPACTOR[selectMeteorComp.value] });
+        dispMeteorAngle.textContent = `${ang}°`;
+        const r = Fisica.impacto({ L_m: d * 1000, v_kms: v, rho_i: Fisica.DENSIDADES_IMPACTOR[selectMeteorComp.value], theta_deg: ang });
         const [m, e] = r.energia_Mt.toExponential(1).split('e');
         dispMeteorEnergy.textContent = `${m} × 10^${Number(e)} Mt TNT`;
-        dispMeteorCrater.textContent = r.rafagaAerea
-            ? `explosión aérea a ${r.zExplosion_km.toFixed(0)} km de altura (sin cráter)`
-            : `~${r.crater_km.toFixed(r.crater_km < 10 ? 1 : 0)} km (transitorio ${r.crater_transitorio_km.toFixed(0)} km), sismo M${r.magnitud.toFixed(1)}` +
-              (r.tau > 1 ? ' · invierno de impacto global' : '');
+        dispMeteorCrater.textContent = textoImpacto(r);
     }
-    [sliderMeteorSize, sliderMeteorSpeed, selectMeteorComp].forEach((el) => el && el.addEventListener('input', actualizarEstimacionImpacto));
+    [sliderMeteorSize, sliderMeteorSpeed, sliderMeteorAngle, selectMeteorComp].forEach((el) => el && el.addEventListener('input', actualizarEstimacionImpacto));
     actualizarEstimacionImpacto();
 
     canvasViewport.addEventListener('click', (e) => {
@@ -868,7 +857,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const v = parseFloat(sliderMeteorSpeed.value);
             const comp = selectMeteorComp.value;
 
-            viewer.launchMeteorToCoordinates(coords.hitPointWorld, d, v, comp);
+            const r = viewer.launchMeteorToCoordinates(coords, d, v, comp, parseFloat(sliderMeteorAngle.value));
+            dispMeteorCrater.textContent = textoImpacto(r);
             impactAlertOverlay.classList.add('active');
             setTimeout(() => impactAlertOverlay.classList.remove('active'), 4000);
 
@@ -878,13 +868,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (isProbeActive) {
             // Disparar sonda in situ
             viewer.launchProbeVisual(coords.hitPointWorld);
-            const isWater = Math.abs(coords.lat) < 55 && coords.lon > -40 && coords.lon < 15; // Estimación preliminar
-            const report = survey.analyzePoint(coords.lat, coords.lon, isWater, 0.15);
+            const report = survey.analyzePoint(coords, viewer.muestrearSuperficie(coords.uv));
 
             document.getElementById('probe-latlon').textContent = `Coordenadas: Lat ${coords.lat}° / Lon ${coords.lon}°`;
             document.getElementById('probe-biome').textContent = report.biomeName;
             document.getElementById('probe-temp').textContent = `${report.localTemp} °C`;
-            document.getElementById('probe-elevation').textContent = `${report.elevationM} m`;
+            document.getElementById('probe-elevation').textContent = report.elevationM === null ? 'sin datos (paleogeografía)' : `${report.elevationM} m`;
             document.getElementById('probe-pressure').textContent = `${report.pressureAtm} bar`;
             document.getElementById('probe-uv').textContent = `Índice ${report.uvIndex} (Escala OMS)`;
             document.getElementById('probe-soil-text').textContent = report.soilAnalysis;
@@ -997,6 +986,7 @@ document.addEventListener('DOMContentLoaded', () => {
         astrophysics.setEccentricity(0.0167);
         astrophysics.setPerihelion(282.9);
         astrophysics.setDistanceFactor(1.0);
+        astrophysics.setRotationPeriod(24);
 
         geology.setThermostat(false);
         geology.setOrogeny(1.0);
@@ -1341,7 +1331,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const estadoTxt = { desbocado: '🔥 INVERNADERO DESBOCADO: océanos evaporados (fuera del modelo lineal)',
                             humedo: '⚠️ Invernadero húmedo: el agua llega a la estratosfera y escapa al espacio (Kasting 1993)' }[cl.estado]
             || (cur.iceCoverage > 0.9 ? '❄️ Tierra bola de nieve (estado estable por el albedo del hielo)' : '');
-        statusTemp.textContent = `S = ${Math.round(cl.S_Wm2)} W/m² · albedo ${cl.albedo.toFixed(2)} · T_eq ${Math.round(cl.Teq)} K · ` +
+        const anclado = cl.anclado ? ` · anclado: día ${Math.round(cl.Tdia)} °C, noche ${Math.round(cl.Tnoche)} °C` : '';
+        statusTemp.textContent = `S = ${Math.round(cl.S_Wm2)} W/m²${anclado} · albedo ${cl.albedo.toFixed(2)} · T_eq ${Math.round(cl.Teq)} K · ` +
             `efecto invernadero ${(g => (g >= 0 ? '+' : '') + g)(Math.round(cur.meanTemp + 273.15 - cl.Teq))} K · ΔF = ${cl.forzamiento >= 0 ? '+' : ''}${cl.forzamiento.toFixed(2)} W/m² (vs. 1750)` +
             (estadoTxt ? ` · ${estadoTxt}` : '');
 
@@ -1351,7 +1342,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const seaPct = Math.max(0, Math.min(100, (cur.seaLevelOffset + 150) / 1650 * 100));
         barSea.style.width = `${seaPct}%`;
         const oceanPct = Math.min(99, Math.round((0.71 + (cur.seaLevelOffset / 1400)) * 100));
-        statusSea.textContent = `Cobertura líquida: ${oceanPct}% | Hielo: ${Math.round(cur.iceCoverage * 100)}% de la superficie | Aporte del hielo: ${Math.round(Fisica.nivelMarPorHielo_m(cur.meanTemp))} m` +
+        const hieloEq = Math.round(Fisica.nivelMarPorHielo_m(cur.meanTemp)), hieloHoy = Math.round(simulation.nivelHielo);
+        statusSea.textContent = `Cobertura líquida: ${oceanPct}% | Hielo y nieve: ${Math.round(cur.iceCoverage * 100)}% de la superficie (media anual) | ` +
+            `Aporte del hielo: ${hieloHoy} m` + (hieloHoy !== hieloEq ? ` → ${hieloEq} m en equilibrio (τ ≈ 2000 años)` : '') +
             (simulation.nivelMarHipotetico ? ' | ⚠️ HIPOTÉTICO: la eustasia real no supera ±250 m' : '');
 
         if (!simulation.manualSeaLevel) {

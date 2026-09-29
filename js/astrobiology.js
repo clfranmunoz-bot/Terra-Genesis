@@ -31,63 +31,12 @@ class AstrobiologyEngine {
     }
 
     /**
-     * Genera datos espectroscópicos para el telescopio espacial JWST
+     * Espectro de tránsito (altura efectiva en km) de la atmósfera actual: ver Fisica.espectroTransito.
+     * El "red edge" de la vegetación es un rasgo de luz reflejada (Seager et al. 2005) y no aparece en tránsito.
      */
     generateAtmosphericSpectrum() {
         const cur = this.simulation.current;
-        const wavelengthPoints = [];
-
-        // Generar espectro de transmisión de 0.4 a 15 micrómetros
-        for (let wl = 0.4; wl <= 15.0; wl += 0.15) {
-            let transmission = 0.95; // Transmisión base
-
-            // Dispersión de Rayleigh: τ_R ∝ λ⁻⁴·P (Bodhaine 1999); ×5 por la trayectoria oblicua del tránsito
-            // simplificación: factor geométrico fijo en lugar de integrar la geometría del limbo.
-            transmission *= Math.exp(-5 * Fisica.espesorRayleigh(wl, cur.surfacePressure, cur.co2));
-
-            // Banda de absorción de Ozono O3 (0.6 um y 9.6 um)
-            if (cur.o2 > 5.0) {
-                if (Math.abs(wl - 0.6) < 0.08) transmission -= (cur.o2 / 21.0) * 0.18;
-                if (Math.abs(wl - 9.6) < 0.4) transmission -= (cur.o2 / 21.0) * 0.65;
-            }
-
-            // "Red edge" de la vegetación a 0,7 µm: es un rasgo de REFLEXIÓN de la superficie (Seager et al. 2005, Astrobiology 5),
-            // no de transmisión; se superpone aquí de forma ilustrativa.
-            if (cur.hasLife && Math.abs(wl - 0.7) < 0.05) {
-                transmission += (this.params.pigmentType === 'green' ? 0.25 : 0.12);
-            }
-
-            // Bandas de Vapor de Agua H2O (0.94, 1.13, 1.4, 1.9, 6.3 um)
-            const waterPeaks = [0.94, 1.13, 1.4, 1.9, 6.3];
-            for (const wp of waterPeaks) {
-                if (Math.abs(wl - wp) < 0.15) {
-                    transmission -= 0.45;
-                }
-            }
-
-            // Bandas de Dióxido de Carbono CO2 (2.0, 2.7, 4.3, 15.0 um)
-            const co2Peaks = [2.0, 2.7, 4.3, 14.8];
-            for (const cp of co2Peaks) {
-                if (Math.abs(wl - cp) < 0.25) {
-                    transmission -= Math.min(0.85, (cur.co2 / 400.0) * 0.5);
-                }
-            }
-
-            // Bandas de Metano CH4 (1.66, 2.3, 3.3, 7.7 um)
-            if (cur.ch4 > 0.5) {
-                const ch4Peaks = [1.66, 2.3, 3.3, 7.7];
-                for (const mp of ch4Peaks) {
-                    if (Math.abs(wl - mp) < 0.2) {
-                        transmission -= Math.min(0.7, (cur.ch4 / 2.0) * 0.35);
-                    }
-                }
-            }
-
-            wavelengthPoints.push({
-                wavelength: Math.round(wl * 100) / 100,
-                flux: Math.max(0.05, Math.min(1.2, transmission))
-            });
-        }
+        const { puntos, H_km } = Fisica.espectroTransito({ T_C: Math.min(100, cur.meanTemp), P_bar: cur.surfacePressure, co2: cur.co2, o2: cur.o2, ch4: cur.ch4 });
 
         // Puntuación de biosignatura (desequilibrio redox O2 + CH4)
         let bioScore = 0;
@@ -98,7 +47,7 @@ class AstrobiologyEngine {
         }
 
         this.params.biosignatureScore = bioScore;
-        return { spectrum: wavelengthPoints, score: bioScore };
+        return { spectrum: puntos, score: bioScore, H_km };
     }
 
     update(dt) {

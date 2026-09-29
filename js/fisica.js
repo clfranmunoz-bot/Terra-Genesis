@@ -174,21 +174,40 @@ function colorCielo(Teff) {
 // Concentraciones preindustriales (1750), IPCC AR6 WG1 cap. 2: CO₂ 278 ppm, CH₄ 722 ppb, N₂O 270 ppb.
 const PREINDUSTRIAL = { co2: 278, ch4: 0.722, n2o: 0.270 };
 
-// Forzamiento radiativo de gases de efecto invernadero (Myhre et al. 1998, GRL 25; IPCC TAR tabla 6.2) [W/m²]
-//   CO₂:  ΔF = 5,35 · ln(C/C₀)                                    C en ppm
-//   CH₄:  ΔF = 0,036 · (√M − √M₀) − [f(M,N₀) − f(M₀,N₀)]           M, N en ppb
-//   N₂O:  ΔF = 0,12  · (√N − √N₀) − [f(M₀,N) − f(M₀,N₀)]
-//   f(M,N) = 0,47 · ln[1 + 2,01×10⁻⁵ (MN)^0,75 + 5,31×10⁻¹⁵ M (MN)^1,52]   (solapamiento de bandas CH₄–N₂O)
-// simplificación: por encima de ~2000 ppm de CO₂ la fórmula logarítmica subestima el forzamiento (Byrne & Goldblatt 2014).
-function solape(M, N) { return 0.47 * Math.log(1 + 2.01e-5 * Math.pow(M * N, 0.75) + 5.31e-15 * M * Math.pow(M * N, 1.52)); }
-function forzamientoCO2(co2_ppm) { return 5.35 * Math.log(Math.max(1, co2_ppm) / PREINDUSTRIAL.co2); }
-function forzamientoCH4(ch4_ppm, n2o_ppm = PREINDUSTRIAL.n2o) {
-    const M = ch4_ppm * 1000, M0 = PREINDUSTRIAL.ch4 * 1000, N0 = n2o_ppm * 1000;
-    return 0.036 * (Math.sqrt(M) - Math.sqrt(M0)) - (solape(M, N0) - solape(M0, N0));
+// Forzamiento radiativo de CO₂, CH₄ y N₂O: expresiones de Meinshausen et al. 2020 (GMD 13, tabla 3), ajustadas al modelo
+// línea a línea de Oslo y adoptadas por el IPCC AR6 (WG1, tabla 7.SM.1). C en ppm, M y N en ppb. [W/m²]
+//   CO₂: RF = (α′ + c₁√N)·ln(C/C₀),  α′ = d₁ + a₁(C−C₀)² + b₁(C−C₀) entre C₀ y C_αmax = C₀ − b₁/2a₁ ≈ 1808 ppm; constante fuera de ese rango
+//   N₂O: RF = (a₂√C + b₂√N + c₂√M + d₂)(√N − √N₀)
+//   CH₄: RF = (a₃√M + b₃√N + d₃)(√M − √M₀)       (incluye la absorción de onda corta del CH₄; Etminan et al. 2016)
+// Forzamiento efectivo (ERF) = RF × ajustes troposféricos del AR6 (sección 7.3.2; Smith et al. 2018): CO₂ +5 %, CH₄ −14 %, N₂O +7 %.
+// Por encima de C_αmax la fórmula vuelve a ser logarítmica y subestima el forzamiento: Byrne & Goldblatt 2014 (GRL 41) obtienen
+//   38,1 W/m² a 50.000 ppm. Se añade k·ln²(C/C_αmax), con k ajustado a ese único valor.
+// ponytail: corrección de un solo punto; con los coeficientes de Byrne & Goldblatt se podría seguir la curva completa.
+// Las concentraciones son fracciones molares a 1 bar; con otra presión se usa la columna equivalente (C·P).
+const MEINSHAUSEN = { a1: -2.4785e-7, b1: 7.5906e-4, c1: -2.1492e-3, d1: 5.2488, C0: 277.15,
+                      a2: -3.4197e-4, b2: 2.5455e-4, c2: -2.4357e-4, d2: 0.12173, N0: 273.87,
+                      a3: -8.9603e-5, b3: -1.2462e-4, d3: 0.045194, M0: 731.41, K_ALTO: 0.727 };
+function rfCO2(C, N) {
+    const m = MEINSHAUSEN, Cmax = m.C0 - m.b1 / (2 * m.a1);
+    const Cc = Math.max(1, C);
+    const alfa = Cc < m.C0 ? m.d1 : Cc < Cmax ? m.d1 + m.a1 * (Cc - m.C0) ** 2 + m.b1 * (Cc - m.C0) : m.d1 - m.b1 * m.b1 / (4 * m.a1);
+    const extra = Cc > Cmax ? m.K_ALTO * Math.log(Cc / Cmax) ** 2 : 0;
+    return (alfa + m.c1 * Math.sqrt(N)) * Math.log(Cc / m.C0) + extra;
 }
-function forzamientoN2O(n2o_ppm, ch4_ppm = PREINDUSTRIAL.ch4) {
-    const N = n2o_ppm * 1000, N0 = PREINDUSTRIAL.n2o * 1000, M0 = ch4_ppm * 1000;
-    return 0.12 * (Math.sqrt(N) - Math.sqrt(N0)) - (solape(M0, N) - solape(M0, N0));
+function rfN2O(C, M, N) { const m = MEINSHAUSEN; return (m.a2 * Math.sqrt(C) + m.b2 * Math.sqrt(N) + m.c2 * Math.sqrt(M) + m.d2) * (Math.sqrt(N) - Math.sqrt(m.N0)); }
+function rfCH4(M, N) { const m = MEINSHAUSEN; return (m.a3 * Math.sqrt(M) + m.b3 * Math.sqrt(N) + m.d3) * (Math.sqrt(M) - Math.sqrt(m.M0)); }
+const P0 = PREINDUSTRIAL;
+function forzamientoCO2(co2_ppm, n2o_ppm = P0.n2o) {
+    const N = n2o_ppm * 1000;
+    return 1.05 * (rfCO2(co2_ppm, N) - rfCO2(P0.co2, N));
+}
+function forzamientoCH4(ch4_ppm, n2o_ppm = P0.n2o) {
+    const N = n2o_ppm * 1000;
+    return 0.86 * (rfCH4(Math.max(0, ch4_ppm) * 1000, N) - rfCH4(P0.ch4 * 1000, N));
+}
+function forzamientoN2O(n2o_ppm, ch4_ppm = P0.ch4, co2_ppm = P0.co2) {
+    const M = ch4_ppm * 1000, C = co2_ppm;
+    return 1.07 * (rfN2O(C, M, Math.max(0, n2o_ppm) * 1000) - rfN2O(C, M, P0.n2o * 1000));
 }
 
 // Aerosoles de sulfato estratosférico a partir de la carga de SO₂ (Mt):
@@ -225,72 +244,159 @@ function espesorRayleigh(lambda_um, P_bar, co2_ppm = 420) {
 // Temperatura de equilibrio radiativo: T_eq = [S(1−A) / 4σ]^¼  [K]. Tierra: S=1361, A=0,30 → 255 K.
 function temperaturaEquilibrio(S_Wm2, albedo) { return Math.pow(S_Wm2 * (1 - albedo) / (4 * C.SIGMA), 0.25); }
 
-// ---- Modelo de balance energético latitudinal (Budyko 1969; Sellers 1969; North, Cahalan & Coakley 1981, Rev. Geophys. 19)
-//   C ∂T/∂t = Q(x)(1 − α(T,x)) − (A + B·T) + F + ∂/∂x[ D (1−x²) ∂T/∂x ],   x = sen(latitud)
+// ---- Modelo de balance energético latitudinal ESTACIONAL con columnas de tierra y de océano
+//   (Budyko 1969; Sellers 1969; North & Coakley 1979, J. Atmos. Sci. 36; North, Cahalan & Coakley 1981, Rev. Geophys. 19)
+//   Por banda de latitud (x = sen φ), dos columnas con su propia temperatura:
+//     C_L ∂T_L/∂t = Q(x,t)(1 − α_L) − (A + B·T_L) + F + ∇·(D∇T̄) − ν(1 − f)(T_L − T_O)
+//     C_O ∂T_O/∂t = Q(x,t)(1 − α_O) − (A + B·T_O) + F + ∇·(D∇T̄) + ν·f·(T_L − T_O) − γ(T_O − T_d)
+//   T̄ = f·T_L + (1−f)·T_O es la media de la banda (f = fracción de tierra); ∇·(D∇T̄) = ∂/∂x[D(1−x²)∂T̄/∂x] es el transporte atmosférico.
+//   El intercambio ν entre las columnas conserva la energía de la banda.
 // B = 1,40 W m⁻² K⁻¹: Planck (3,22) − vapor de agua + gradiente vertical (1,30) − nubes (0,42) = 1,50 (IPCC AR6 WG1 tabla 7.10),
-//   menos 0,10 por la nieve continental que el modelo no resuelve (el AR6 da 0,35 para todo el albedo superficial).
-//   El vapor de agua crece ~7 %/K (Clausius-Clapeyron) y su absorción es ∝ ln(q), por eso su retroalimentación es ~constante en W/m²/K.
-// α: hielo (T < −10 °C, criterio de Budyko) = 0,62; sin hielo, 0,26 + 0,10·x² (ángulo cenital y nubes subpolares).
-// C = 2,1×10⁸ J m⁻² K⁻¹ (capa de mezcla oceánica de ~70 m × 70 % de océano; Hartmann 2016).
-// Océano profundo por banda (modelo de dos capas; Held et al. 2010, J. Climate 23; Geoffroy et al. 2013):
-//   C_d dT_d/dt = γ (T − T_d),  C_d = 3,2×10⁹ J m⁻² K⁻¹ (~100 W·año m⁻² K⁻¹), γ = 0,7 W m⁻² K⁻¹.
-//   Si la superficie queda más fría que el fondo, la columna es inestable y se mezcla por convección: γ = 3 (calibrado para reproducir −26 K tras Chicxulub)
-//   (simplificación del papel de la convección oceánica en el invierno de impacto; Brugger et al. 2017).
-//   El océano profundo no altera el equilibrio (cada banda intercambia con su propio fondo), solo la respuesta transitoria.
+//   menos 0,10 por el resto de las retroalimentaciones que el modelo no resuelve.
+// C_O = 2,9×10⁸ J m⁻² K⁻¹: capa de mezcla de 70 m (Hartmann 2016). C_L = 1,0×10⁷: columna de aire (~10⁴ kg/m² × 1004 J/kg/K) más el suelo activo.
+// ν = 6 W m⁻² K⁻¹: intercambio de aire entre tierra y mar de la misma banda (calibrado con la amplitud estacional zonal observada: ~25–30 K a 60 °N).
+// α: hielo o nieve cuando la columna baja de −10 °C (criterio de Budyko, transición suave de ±2 K): 0,62. Sin hielo, 0,26 + 0,10·x²
+//   (ángulo cenital y nubes subpolares). Es el albedo planetario (con nubes), no el de la superficie.
+// Océano profundo (modelo de dos capas; Held et al. 2010, J. Climate 23; Geoffroy et al. 2013), por unidad de área oceánica:
+//   C_d dT_d/dt = γ (T_O − T_d),  C_d = 4,6×10⁹ J m⁻² K⁻¹, γ = 1,0 W m⁻² K⁻¹ (los 3,2×10⁹ y 0,7 del modelo global repartidos en el 70 % de océano).
+//   Si la superficie queda más fría que el fondo la columna es inestable y se mezcla por convección: γ = 10
+//   (calibrado para reproducir el enfriamiento de Chicxulub; Brugger et al. 2017). No altera el equilibrio, solo la respuesta transitoria.
+// D = 0,55 W m⁻² K⁻¹ para la Tierra; escala con la presión y con el cuadrado del período de rotación (Williams & Kasting 1997, Icarus 129):
+//   una atmósfera más densa transporta más calor y una rotación rápida lo frena (el efecto Coriolis confina los remolinos).
+// Fracción de tierra por banda: de la máscara de agua actual (textures/earth_specular.jpg), ponderada por el área.
+// Calendario: 73 intervalos de 5 días desde el equinoccio de marzo; la longitud solar sale de la ecuación de Kepler.
 // A se calibra para que la Tierra actual dé 15 °C (ver tests/validacion.js).
-// simplificación: sin estaciones (insolación media anual), sin océano profundo, sin tierra/mar ni dinámica;
-//   las nubes y el vapor de agua van como retroalimentaciones globales. La histéresis de bola de nieve sí emerge del modelo.
-const EBM = { N: 18, A: 218.85, B: 1.40, D: 0.55, CALOR: 2.1e8, CALOR_PROFUNDO: 3.2e9, GAMMA: 0.7, GAMMA_CONV: 3, T_HIELO: -10, ALB_HIELO: 0.62 };
+// simplificación: sin circulación oceánica ni océano profundo en el equilibrio; las nubes y el vapor de agua son retroalimentaciones globales.
+//   La fracción de tierra es la actual también en otras épocas. La histéresis de bola de nieve y las estaciones emergen del modelo.
+const EBM = { N: 18, NS: 73, A: 219.91, B: 1.40, D: 0.55, C_OCEANO: 2.94e8, C_TIERRA: 1.0e7, NU: 6.0,
+              C_PROFUNDO: 4.6e9, GAMMA: 1.0, GAMMA_CONV: 10, T_HIELO_MAR: -10, T_NIEVE: -10, ALB_HIELO: 0.62 };
 const EBM_X = Array.from({ length: EBM.N }, (_, i) => -1 + (i + 0.5) * 2 / EBM.N);
+const FRACCION_TIERRA = [0.438, 0.006, 0.028, 0.066, 0.195, 0.240, 0.228, 0.211, 0.236,
+                         0.215, 0.236, 0.273, 0.351, 0.418, 0.429, 0.518, 0.578, 0.460];
+const DIAS_ANIO = 365.25;
 
-function albedoBanda(T, x) {
+const fraccionHielo = (T, Tumbral) => 0.5 * (1 - Math.tanh((T - Tumbral) / 2));
+function albedoColumna(T, x, esTierra) {
     const libre = 0.26 + 0.10 * x * x;
-    const hielo = 0.5 * (1 - Math.tanh((T - EBM.T_HIELO) / 2)); // transición suave de ±2 K para estabilidad numérica
-    return libre + (EBM.ALB_HIELO - libre) * hielo;
+    return libre + (EBM.ALB_HIELO - libre) * fraccionHielo(T, esTierra ? EBM.T_NIEVE : EBM.T_HIELO_MAR);
 }
-function insolacionBandas(S_Wm2, oblicuidadDeg, e, varpiDeg) {
+
+// Longitud solar verdadera λ a los `dias` del equinoccio de marzo (ecuación de Kepler; ϖ en rad, desde el equinoccio).
+function longitudSolar(dias, e, varpiRad) {
+    const nu0 = -varpiRad;                                           // anomalía verdadera en el equinoccio (λ = 0)
+    const E0 = 2 * Math.atan(Math.sqrt((1 - e) / (1 + e)) * Math.tan(nu0 / 2));
+    const M = E0 - e * Math.sin(E0) + 2 * Math.PI * dias / DIAS_ANIO;
+    let E = M;
+    for (let k = 0; k < 6; k++) E -= (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+    const nu = 2 * Math.atan2(Math.sqrt(1 + e) * Math.sin(E / 2), Math.sqrt(1 - e) * Math.cos(E / 2));
+    return nu + varpiRad;
+}
+// Tabla de insolación media diaria [intervalo][banda] a lo largo del año (Berger 1978).
+function insolacionEstacional(S_Wm2, oblicuidadDeg, e, varpiDeg) {
     const r = Math.PI / 180;
-    return EBM_X.map((x) => insolacionAnual(S_Wm2, Math.asin(x), oblicuidadDeg * r, e, varpiDeg * r, 48));
+    return Array.from({ length: EBM.NS }, (_, k) => {
+        const lam = longitudSolar((k + 0.5) * DIAS_ANIO / EBM.NS, e, varpiDeg * r);
+        return EBM_X.map((x) => insolacionDiaria(S_Wm2, Math.asin(x), lam, oblicuidadDeg * r, e, varpiDeg * r));
+    });
 }
 function perfilInicial(Tmedia) { return EBM_X.map((x) => Tmedia - 45 * (x * x - 1 / 3)); }
 
-// Avanza el modelo `anios` años con pasos explícitos de 5 días. Q: insolación por banda; F: forzamiento total;
-// Td: temperatura del océano profundo por banda (opcional).
-function pasoEBM(T, Q, F, anios, Td) {
-    const dx = 2 / EBM.N, dt = 5 * 86400;
-    const pasos = Math.max(1, Math.round(anios * C.ANIO / dt));
-    const flujo = new Array(EBM.N + 1).fill(0);
-    for (let p = 0; p < pasos; p++) {
-        for (let i = 1; i < EBM.N; i++) {
-            const xb = -1 + i * dx;
-            flujo[i] = EBM.D * (1 - xb * xb) * (T[i] - T[i - 1]) / dx;
-        }
-        for (let i = 0; i < EBM.N; i++) {
-            let haciaFondo = 0;
-            if (Td) {
-                haciaFondo = (T[i] < Td[i] ? EBM.GAMMA_CONV : EBM.GAMMA) * (T[i] - Td[i]);
-                Td[i] += dt * haciaFondo / EBM.CALOR_PROFUNDO;
-            }
-            const neto = Q[i] * (1 - albedoBanda(T[i], EBM_X[i])) - (EBM.A + EBM.B * T[i]) + F + (flujo[i + 1] - flujo[i]) / dx - haciaFondo;
-            T[i] += dt * neto / EBM.CALOR;
-        }
-    }
-    return T;
-}
-function diagnosticoEBM(T, Q) {
-    let t = 0, q = 0, qa = 0, hielo = 0;
-    for (let i = 0; i < EBM.N; i++) {
-        const a = albedoBanda(T[i], EBM_X[i]);
-        t += T[i]; q += Q[i]; qa += Q[i] * a;
-        hielo += 0.5 * (1 - Math.tanh((T[i] - EBM.T_HIELO) / 2));
-    }
-    return { Tmedia: t / EBM.N, albedo: qa / q, hielo: hielo / EBM.N, Qmedia: q / EBM.N,
-             Tecuador: (T[EBM.N / 2 - 1] + T[EBM.N / 2]) / 2, Tpolo: (T[0] + T[EBM.N - 1]) / 2 };
+// Estado del modelo: temperaturas de las columnas, océano profundo opcional, día del año y climatología del último año
+// (clim[intervalo] = {L, O} con las temperaturas al cerrar cada intervalo de 5 días).
+function crearEstadoEBM(Tinicial = 15, conProfundo = false) {
+    const p = perfilInicial(Tinicial);
+    return { TL: [...p], TO: [...p], Td: conProfundo ? [...p] : null, dia: 0,
+             clim: Array.from({ length: EBM.NS }, () => ({ L: [...p], O: [...p] })) };
 }
 
-// Forzamiento total respecto al preindustrial (W/m²)
+// Avanza `anios` años. Q: tabla de insolacionEstacional; F: forzamiento total (W/m²);
+// factorD: multiplicador del transporte (presión, rotación). Paso de 1 día, subdividido si el transporte es muy intenso.
+function pasoEBM(s, Q, F, anios, factorD = 1) {
+    const N = EBM.N, dx = 2 / N, D = EBM.D * factorD;
+    const sub = Math.max(1, Math.ceil(D * 86400 / (EBM.C_TIERRA * dx * dx) / 0.4)); // estabilidad del esquema explícito
+    const dt = 86400 / sub, dtDias = 1 / sub, diasSlot = DIAS_ANIO / EBM.NS;
+    const pasos = Math.max(1, Math.round(anios * DIAS_ANIO * sub));
+    const Tm = new Array(N), flujo = new Array(N + 1).fill(0);
+    const { TL, TO, Td } = s;
+    for (let p = 0; p < pasos; p++) {
+        const slot = Math.floor(s.dia / diasSlot) % EBM.NS, Qs = Q[slot];
+        for (let i = 0; i < N; i++) Tm[i] = FRACCION_TIERRA[i] * TL[i] + (1 - FRACCION_TIERRA[i]) * TO[i];
+        for (let i = 1; i < N; i++) {
+            const xb = -1 + i * dx;
+            flujo[i] = D * (1 - xb * xb) * (Tm[i] - Tm[i - 1]) / dx;
+        }
+        for (let i = 0; i < N; i++) {
+            const f = FRACCION_TIERRA[i], x = EBM_X[i];
+            const comun = F - EBM.A + (flujo[i + 1] - flujo[i]) / dx;
+            const cambio = EBM.NU * (TL[i] - TO[i]);
+            let haciaFondo = 0;
+            if (Td) {
+                haciaFondo = (TO[i] < Td[i] ? EBM.GAMMA_CONV : EBM.GAMMA) * (TO[i] - Td[i]);
+                Td[i] += dt * haciaFondo / EBM.C_PROFUNDO;
+            }
+            const netoL = Qs[i] * (1 - albedoColumna(TL[i], x, true)) - EBM.B * TL[i] + comun - (1 - f) * cambio;
+            const netoO = Qs[i] * (1 - albedoColumna(TO[i], x, false)) - EBM.B * TO[i] + comun + f * cambio - haciaFondo;
+            TL[i] += dt * netoL / EBM.C_TIERRA;
+            TO[i] += dt * netoO / EBM.C_OCEANO;
+        }
+        s.dia += dtDias;
+        if (s.dia >= DIAS_ANIO) s.dia -= DIAS_ANIO;
+        if (Math.floor(s.dia / diasSlot) % EBM.NS !== slot) { s.clim[slot].L = [...TL]; s.clim[slot].O = [...TO]; }
+    }
+    return s;
+}
+
+// Medias anuales sobre la climatología del último año
+function diagnosticoEBM(s, Q) {
+    const N = EBM.N, NS = EBM.NS;
+    let t = 0, q = 0, qa = 0, hielo = 0, tEc = 0, tPolo = 0, tTierra = 0, tOceano = 0;
+    const banda = new Array(N).fill(0), maxB = new Array(N).fill(-1e9), minB = new Array(N).fill(1e9);
+    for (let k = 0; k < NS; k++) {
+        const { L, O } = s.clim[k];
+        for (let i = 0; i < N; i++) {
+            const f = FRACCION_TIERRA[i], x = EBM_X[i];
+            const Tb = f * L[i] + (1 - f) * O[i];
+            const a = f * albedoColumna(L[i], x, true) + (1 - f) * albedoColumna(O[i], x, false);
+            t += Tb; q += Q[k][i]; qa += Q[k][i] * a; banda[i] += Tb / NS;
+            hielo += f * fraccionHielo(L[i], EBM.T_NIEVE) + (1 - f) * fraccionHielo(O[i], EBM.T_HIELO_MAR);
+            maxB[i] = Math.max(maxB[i], Tb); minB[i] = Math.min(minB[i], Tb);
+            tTierra += f * L[i]; tOceano += (1 - f) * O[i];
+        }
+    }
+    const n = N * NS;
+    tEc = (banda[N / 2 - 1] + banda[N / 2]) / 2; tPolo = (banda[0] + banda[N - 1]) / 2;
+    return { Tmedia: t / n, albedo: qa / q, hielo: hielo / n, Qmedia: q / n, Tecuador: tEc, Tpolo: tPolo,
+             Tbanda: banda, amplitud: maxB.map((m, i) => m - minB[i]) };
+}
+
+// Transporte de calor relativo a la Tierra: D ∝ P · (P_rot / 24 h)⁻² (Williams & Kasting 1997).
+function factorTransporte(P_bar = 1.013, rotacion_h = 24) { return (P_bar / 1.013) * Math.pow(24 / rotacion_h, 2); }
+
+// ---- Planeta anclado por marea: dos cajas, día y noche (cada una la mitad del área).
+//   C dT_d/dt = (S/2)(1 − α_d) − (A + B·T_d) + F − k(T_d − T_n)
+//   C dT_n/dt =              − (A + B·T_n) + F + k(T_d − T_n)
+// El hemisferio diurno recibe de media S/2. k = 3 W m⁻² K⁻¹·(P/1 bar) da un contraste día–noche de ~60 K con 1 bar,
+// como los modelos de circulación general para planetas anclados de tipo terrestre (Yang, Cowan & Abbot 2013, ApJL 771; Leconte et al. 2013).
+// La media global coincide con la de un planeta que rota con el mismo albedo; la diferencia es dónde se forma el hielo.
+// simplificación: sin la cubierta de nubes subestelar que eleva el albedo del lado diurno (Yang et al. 2013).
+const ANCLADO = { K: 3.0, C: 2.1e8 };
+const albedoAnclado = (T) => 0.30 + (EBM.ALB_HIELO - 0.30) * fraccionHielo(T, EBM.T_HIELO_MAR);
+function pasoAnclado(s, S_Wm2, F, anios, P_bar = 1.013) {
+    const dt = 5 * 86400, pasos = Math.max(1, Math.round(anios * C.ANIO / dt)), k = ANCLADO.K * P_bar / 1.013;
+    for (let p = 0; p < pasos; p++) {
+        const inter = k * (s.Tdia - s.Tnoche);
+        const netoDia = S_Wm2 / 2 * (1 - albedoAnclado(s.Tdia)) - (EBM.A + EBM.B * s.Tdia) + F - inter;
+        const netoNoche = -(EBM.A + EBM.B * s.Tnoche) + F + inter;
+        s.Tdia += dt * netoDia / ANCLADO.C;
+        s.Tnoche += dt * netoNoche / ANCLADO.C;
+    }
+    return s;
+}
+
+// Forzamiento total respecto al preindustrial (W/m²). P_bar escala la columna de los gases (por defecto, 1 atm).
 function forzamientoTotal(g) {
-    return forzamientoCO2(g.co2) + forzamientoCH4(g.ch4, g.n2o) + forzamientoN2O(g.n2o, g.ch4) +
+    const col = (g.P_bar || 1.013) / 1.013, co2 = g.co2 * col, ch4 = g.ch4 * col, n2o = g.n2o * col;
+    return forzamientoCO2(co2, n2o) + forzamientoCH4(ch4, n2o) + forzamientoN2O(n2o, ch4, co2) +
         forzamientoAerosol(profundidadOpticaSulfato(g.so2) + (g.tauImpacto || 0)) + forzamientoNubes(g.nubes);
 }
 
@@ -302,12 +408,17 @@ function estadoInvernadero(S_rel, Teff) {
 }
 // Tras un invernadero desbocado los océanos pasan a la atmósfera y la superficie supera ~1400 K (Goldblatt et al. 2013, Nat. Geosci. 6).
 const T_DESBOCADO_C = 1127;
+// Temperatura local de un planeta anclado según el coseno del ángulo al punto subestelar: noche uniforme y, de día,
+// T_n + 1,5·(T_d − T_n)·√cos ψ, cuya media en el hemisferio es T_d. simplificación: perfil de forma fija.
+function temperaturaAnclado({ Tdia, Tnoche }, cosPsi) {
+    return cosPsi > 0 ? Tnoche + 1.5 * (Tdia - Tnoche) * Math.sqrt(cosPsi) : Tnoche;
+}
 
 // Equilibrio completo (para pruebas y para el Estudio de escenarios)
-function climaEquilibrio(g, orbita, Tinicial = 15, anios = 300) {
-    const Q = insolacionBandas(C.S0 * orbita.S_rel, orbita.oblicuidad, orbita.e, orbita.varpi);
-    const T = pasoEBM(perfilInicial(Tinicial), Q, forzamientoTotal(g), anios); // sin océano profundo: solo interesa el equilibrio
-    return diagnosticoEBM(T, Q);
+function climaEquilibrio(g, orbita, Tinicial = 15, anios = 150, factorD = 1) {
+    const Q = insolacionEstacional(C.S0 * orbita.S_rel, orbita.oblicuidad, orbita.e, orbita.varpi);
+    const s = pasoEBM(crearEstadoEBM(Tinicial), Q, forzamientoTotal(g), anios, factorD); // sin océano profundo: solo interesa el equilibrio
+    return diagnosticoEBM(s, Q);
 }
 
 // ============================================================
@@ -369,7 +480,7 @@ const ATM = { rho0: 1.0, H: 8000, CD: 2, FP: 7 };                  // Collins 20
 // 10 km a 20 km/s y 45° da ~120 km; 180 km requieren ~14 km y ~60°, dentro de las estimaciones del impactor (10–15 km).
 const CHICXULUB = { L_m: 14000, v_kms: 20, rho: 3000, theta: 60 }; // ángulo empinado (Collins et al. 2020, Nat. Commun. 11)
 
-function impacto({ L_m, v_kms, rho_i = 3000, theta_deg = 45, rho_t = 2500 }) {
+function impacto({ L_m, v_kms, rho_i = 3000, theta_deg = 45, rho_t = 2500, agua_m = 0 }) {
     const { rho0, H, CD, FP } = ATM;
     const g = C.G_TIERRA, sinT = Math.sin(theta_deg * Math.PI / 180), v0 = v_kms * 1000;
 
@@ -409,6 +520,15 @@ function impacto({ L_m, v_kms, rho_i = 3000, theta_deg = 45, rho_t = 2500 }) {
         }
     }
 
+    // Impacto en el océano: la capa de agua frena al cuerpo con la misma ecuación de arrastre que la atmósfera (ec. 8),
+    // integrada a densidad constante: v_fondo = v · exp(−3 ρ_w C_D d / (4 ρ_i L sin θ)), ρ_w = 1000 kg/m³, d = profundidad.
+    // simplificación: sin fragmentación dentro del agua ni tsunami; el cráter se calcula en el fondo con v_fondo.
+    let vAgua = null;
+    if (agua_m > 0 && !rafaga) {
+        vAgua = vSuelo;
+        vSuelo *= Math.exp(-3 * 1000 * CD * agua_m / (4 * rho_i * L_m * sinT));
+    }
+
     // Cráter transitorio (ec. 21): D_tc = 1,161 (ρ_i/ρ_t)^⅓ L^0,78 v^0,44 g^−0,22 sin^⅓θ   [m, SI]
     // Cráter final (ec. 22 y 27): simple D = 1,25 D_tc; complejo D = 1,17 D_tc^1,13 / D_c^0,13, con D_c = 3,2 km en la Tierra.
     // Profundidad del cráter complejo (ec. 28): d = 0,294 D^0,301 [km].
@@ -432,7 +552,8 @@ function impacto({ L_m, v_kms, rho_i = 3000, theta_deg = 45, rho_t = 2500 }) {
     return {
         masa_kg: masa, energia_J: E, energia_Mt: E / C.MT_TNT, If, zRotura_km: zRotura && zRotura / 1000,
         zExplosion_km: zExplosion && zExplosion / 1000, rafagaAerea: rafaga, vSuelo_kms: vSuelo / 1000,
-        crater_transitorio_km: Dtc / 1000, crater_km: Dfinal / 1000, profundidad_km: profundidad, magnitud, tau
+        crater_transitorio_km: Dtc / 1000, crater_km: Dfinal / 1000, profundidad_km: profundidad, magnitud, tau,
+        vSuperficieAgua_kms: vAgua && vAgua / 1000, agua_m
     };
 }
 // El aerosol del impacto decae con τ ≈ 1,5 años (sedimentación del polvo fino y del sulfato; Brugger 2017).
@@ -471,9 +592,11 @@ const OXIGENO = {
 // Índice de habitabilidad para vida compleja (0–100) = 100 × producto de factores en [0,1].
 // Cada factor tiene su fuente. simplificación: pesos multiplicativos e interpolación lineal entre umbrales;
 // los microorganismos toleran rangos mucho más amplios (−20 a 122 °C; Clarke 2014, Takai et al. 2008).
+// El O₂ entra como % en volumen; la respiración y la capa de ozono dependen de la presión parcial (pO₂ = %·P/1 atm),
+// los incendios de la fracción (Belcher & McElwain 2008).
 function indiceHabitabilidad({ T, P_bar, o2, B_rel, estrella, estadoInvernadero }) {
     const rampa = (x, a, b) => Math.max(0, Math.min(1, (x - a) / (b - a)));
-    const Tebull = puntoEbullicion_C(P_bar);
+    const Tebull = puntoEbullicion_C(P_bar), pO2 = o2 * P_bar / 1.013;
     const f = {
         // Agua líquida en superficie: entre el punto de congelación del agua de mar (−1,9 °C) y la ebullición a esa presión (Clausius-Clapeyron)
         agua: estadoInvernadero === 'desbocado' || T >= Tebull || P_bar < 0.0061 ? 0 : rampa(T, -30, -1.9),
@@ -481,9 +604,9 @@ function indiceHabitabilidad({ T, P_bar, o2, B_rel, estrella, estadoInvernadero 
         // (Sherwood & Huber 2010, PNAS 107) y límite de eucariotas ~50 °C (Clarke 2014)
         temperatura: Math.min(rampa(T, -20, 0), 1 - rampa(T, 30, 50)),
         // Escudo de ozono: O₂ ≥ ~10 % del actual (≈ 2 %) ya da una columna de O₃ protectora (Segura et al. 2003, Astrobiology 3)
-        uv: rampa(o2, 0, 2.1),
+        uv: rampa(pO2, 0, 2.1),
         // Respiración de animales grandes (Catling 2005) e incendios generalizados por encima de ~30 % (Watson 1978)
-        oxigeno: rampa(o2, 0, OXIGENO.ANIMALES_GRANDES) * (o2 > OXIGENO.INCENDIO_MAX ? 0.5 : 1),
+        oxigeno: rampa(pO2, 0, OXIGENO.ANIMALES_GRANDES) * (o2 > OXIGENO.INCENDIO_MAX ? 0.5 : 1),
         // Presión: por debajo del límite de Armstrong (0,0627 bar) los fluidos corporales hierven a 37 °C;
         // por encima de ~5 bar hay narcosis por N₂ (Bennett & Rostain 2003)
         presion: Math.min(rampa(P_bar, 0.0627, 0.5), 1 - rampa(P_bar, 5, 50)),
@@ -497,8 +620,98 @@ function indiceHabitabilidad({ T, P_bar, o2, B_rel, estrella, estadoInvernadero 
     return { indice, factores: f };
 }
 
+// Índice UV al mediodía con cielo despejado (Madronich 2007, Photochem. Photobiol. 83): UVI ≈ 12,5 · μ₀^2,42 · (Ω/300 DU)^−1,23,
+// μ₀ = cos(φ − δ) es el coseno del ángulo cenital a mediodía. Ω: columna de ozono, 300 DU hoy; con O₂ < 10 % del actual (pO₂ < 2,1 %)
+// el escudo se debilita (Segura et al. 2003). Nubes: × (1 − 0,5·cobertura).
+// simplificación: la fórmula se ajustó para 200–500 DU; por debajo se acota el aumento a ×10.
+function indiceUV(latDeg, declinacionDeg, pO2, nubes = 0) {
+    const mu = Math.cos((latDeg - declinacionDeg) * Math.PI / 180);
+    if (mu <= 0) return 0;
+    const ozono = Math.max(0.01, Math.min(1, pO2 / 2.1));
+    return 12.5 * Math.pow(mu, 2.42) * Math.min(10, Math.pow(ozono, -1.23)) * (1 - 0.5 * nubes);
+}
+
+// Espectro de transmisión en tránsito: altura efectiva z(λ) de la atmósfera (Lecavelier des Etangs et al. 2008, A&A 481):
+//   z = H · ln(τ_s / τ_eq),  τ_eq ≈ 0,56,  H = R·T/(μ·g)   [km]
+// τ_s es el espesor óptico oblicuo en la superficie. Rayleigh: τ_s = τ_vertical · √(2πR_p/H).
+// Rasgos moleculares calibrados con la Tierra (Kaltenegger & Traub 2009, ApJ 698, tabla 2: altura del rasgo sobre el continuo)
+// y escalados con la columna de cada gas: al multiplicar la abundancia por k el rasgo sube H·ln k.
+// El continuo es el Rayleigh o, si es mayor, el suelo opaco: por debajo de ~6 km la Tierra es opaca en todas las longitudes de onda (nubes y refracción; Kaltenegger & Traub 2009).
+// simplificación: perfiles gaussianos y H única; el O₃ sigue el escudo de ozono y el H₂O la presión de vapor (Clausius-Clapeyron).
+const RASGOS_TRANSITO = [
+    { mol: 'o3', um: 0.6, ancho: 0.15, dz: 10 }, { mol: 'h2o', um: 1.9, ancho: 0.2, dz: 5 },
+    { mol: 'co2', um: 2.8, ancho: 0.1, dz: 20 }, { mol: 'h2o', um: 3.3, ancho: 0.25, dz: 20 },
+    { mol: 'ch4', um: 7.7, ancho: 0.7, dz: 7 },  { mol: 'o3', um: 9.8, ancho: 0.7, dz: 30 },
+    { mol: 'co2', um: 15.2, ancho: 3.0, dz: 25 }
+];
+const Z_OPACO_KM = 6;
+function espectroTransito({ T_C, P_bar, co2, o2, ch4 }) {
+    const x_o2 = o2 / 100, x_co2 = co2 * 1e-6;
+    const mu = 32 * x_o2 + 44 * x_co2 + 28.01 * Math.max(0, 1 - x_o2 - x_co2);        // g/mol
+    const H = 8.314 * (T_C + 273.15) / (mu * 1e-3 * C.G_TIERRA) / 1000;               // km
+    const H_E = 8.314 * 288.15 / (28.97e-3 * C.G_TIERRA) / 1000;
+    const col = P_bar / 1.013, pO2 = o2 * col;
+    const relativo = {
+        o3: Math.max(1e-6, Math.min(1, pO2 / 2.1)),
+        h2o: Math.max(1e-6, presionVaporSaturacion_hPa(Math.min(100, T_C)) / presionVaporSaturacion_hPa(15)),
+        co2: Math.max(1e-6, co2 / 420 * col),
+        ch4: Math.max(1e-6, ch4 / 1.9 * col)
+    };
+    const geom = Math.sqrt(2 * Math.PI * C.R_TIERRA / 1000 / H), geomE = Math.sqrt(2 * Math.PI * C.R_TIERRA / 1000 / H_E);
+    // Calibración con la Tierra: en el centro de cada rasgo, z = z_continuo + dz  →  τ_rasgo = τ_continuo·(e^(dz/H) − 1)
+    const tauRasgo = RASGOS_TRANSITO.map((r) => {
+        const tauC = 0.56 * Math.exp(Z_OPACO_KM / H_E) + espesorRayleigh(r.um, 1.013, 420) * geomE;
+        return tauC * (Math.exp(r.dz / H_E) - 1);
+    });
+    const puntos = [];
+    for (let k = 0; k <= 240; k++) {
+        const um = 0.4 * Math.pow(15 / 0.4, k / 240);
+        let tau = espesorRayleigh(um, P_bar, co2) * geom + 0.56 * Math.exp(Z_OPACO_KM / H); // Rayleigh + suelo opaco (nubes)
+        const porMol = {};
+        for (const [j, r] of RASGOS_TRANSITO.entries()) {
+            const sigma = r.ancho / 2.355;
+            const t = tauRasgo[j] * relativo[r.mol] * Math.exp(-0.5 * ((um - r.um) / sigma) ** 2);
+            tau += t; porMol[r.mol] = (porMol[r.mol] || 0) + t;
+        }
+        puntos.push({ um, z_km: H * Math.log(tau / 0.56), porMol });
+    }
+    return { puntos, H_km: H, mu };
+}
+
+// Nivel del mar por el hielo: responde con retardo. Levermann et al. 2013 (PNAS 110): el compromiso de 2,3 m/K se alcanza en ~2000 años.
+// simplificación: relajación de primer orden con τ = 2000 años hacia nivelMarPorHielo_m(T).
+const TAU_HIELO_ANIOS = 2000;
+function pasoNivelHielo(actual_m, T, anios) {
+    return actual_m + (nivelMarPorHielo_m(T) - actual_m) * (1 - Math.exp(-anios / TAU_HIELO_ANIOS));
+}
+
+// Color de la luz de una estrella de cuerpo negro en RGB lineal (sRGB), con los ojos adaptados al Sol (el Sol se ve blanco).
+// Funciones de igualación de color CIE 1931 aproximadas con gaussianas por tramos (Wyman, Sloan & Shirley 2013, JCGT 2).
+function colorCuerpoNegro(Teff) {
+    const g = (x, mu, s1, s2) => { const t = (x - mu) / (x < mu ? s1 : s2); return Math.exp(-0.5 * t * t); };
+    const xyz = (T) => {
+        let X = 0, Y = 0, Z = 0;
+        for (let nm = 380; nm <= 780; nm += 5) {
+            const l = nm * 1e-9, B = 1 / (Math.pow(l, 5) * (Math.exp(1.4388e-2 / (l * T)) - 1));
+            X += B * (1.056 * g(nm, 599.8, 37.9, 31.0) + 0.362 * g(nm, 442.0, 16.0, 26.7) - 0.065 * g(nm, 501.1, 20.4, 26.2));
+            Y += B * (0.821 * g(nm, 568.8, 46.9, 40.5) + 0.286 * g(nm, 530.9, 16.3, 31.1));
+            Z += B * (1.217 * g(nm, 437.0, 11.8, 36.0) + 0.681 * g(nm, 459.0, 26.0, 13.8));
+        }
+        return [3.2406 * X - 1.5372 * Y - 0.4986 * Z, -0.9689 * X + 1.8758 * Y + 0.0415 * Z, 0.0557 * X - 0.2040 * Y + 1.0570 * Z];
+    };
+    const c = xyz(Teff), sol = xyz(5772);
+    const rgb = c.map((v, i) => Math.max(0, v / sol[i]));
+    const m = Math.max(...rgb);
+    return rgb.map((v) => v / m);
+}
+// Radio estelar por Stefan-Boltzmann: R/R☉ = √(L/L☉) · (5772 K / Teff)²; diámetro angular visto desde d: 2R/d [rad].
+function diametroAngular_rad(estrella, d_UA) {
+    const R_UA = 0.00465047 * Math.sqrt(estrella.L) * (5772 / estrella.Teff) ** 2;
+    return 2 * R_UA / d_UA;
+}
+
 const Fisica = {
-    C, ESTRELLAS, KOPPARAPU, OBLICUIDAD_CAOS, EDAD_MINIMA_VIDA_GA, PREINDUSTRIAL, EBM, T_DESBOCADO_C,
+    C, ESTRELLAS, KOPPARAPU, MEINSHAUSEN, OBLICUIDAD_CAOS, EDAD_MINIMA_VIDA_GA, PREINDUSTRIAL, EBM, T_DESBOCADO_C,
     OXIGENO, pigmentoPorEstrella, indiceHabitabilidad,
     DENSIDADES_IMPACTOR, CHICXULUB, TAU_DECAIMIENTO_IMPACTO_ANIOS, impacto,
     CARBONO, HIELO_TOTAL_M, EUSTASIA_MAX_M, PROVINCIAS_IGNEAS,
@@ -508,7 +721,9 @@ const Fisica = {
     presionVientoEstelar_Pa, radioMagnetopausa, latitudAuroral_grados, estrellaPermiteVida, colorCielo,
     forzamientoCO2, forzamientoCH4, forzamientoN2O, profundidadOpticaSulfato, forzamientoAerosol, forzamientoNubes,
     forzamientoTotal, presionVaporSaturacion_hPa, puntoEbullicion_C, espesorRayleigh, temperaturaEquilibrio,
-    insolacionBandas, perfilInicial, pasoEBM, diagnosticoEBM, estadoInvernadero, climaEquilibrio
+    indiceUV, RASGOS_TRANSITO, espectroTransito, TAU_HIELO_ANIOS, pasoNivelHielo, colorCuerpoNegro, diametroAngular_rad,
+    insolacionEstacional, longitudSolar, perfilInicial, crearEstadoEBM, pasoEBM, diagnosticoEBM, estadoInvernadero, climaEquilibrio,
+    FRACCION_TIERRA, fraccionHielo, factorTransporte, ANCLADO, pasoAnclado, albedoAnclado, temperaturaAnclado, DIAS_ANIO
 };
 
 if (typeof module !== 'undefined' && module.exports) module.exports = Fisica;

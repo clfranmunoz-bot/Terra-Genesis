@@ -51,32 +51,28 @@ class SurveyEngine {
     }
 
     /**
-     * Realiza un escaneo científico in situ en las coordenadas indicadas
+     * Escaneo in situ. coords: punto del raycast (lat, lon, normal); sup: agua o tierra y elevación leídas de las texturas (viewer.muestrearSuperficie).
      */
-    analyzePoint(latDeg, lonDeg, isWater, topoElev) {
-        const cur = this.simulation.current;
-        const absLat = Math.abs(latDeg);
+    analyzePoint(coords, sup) {
+        const cur = this.simulation.current, astro = window.astrophysicsEngine;
+        const latDeg = coords.lat, lonDeg = coords.lon, absLat = Math.abs(latDeg);
+        const isWater = sup ? sup.agua : false;
+        const elevationM = sup ? sup.elevacion_m : null;   // null: sin paleotopografía
 
-        // 1. Elevación topográfica aproximada en metros
-        const elevationM = isWater ? -Math.round((1.0 - topoElev) * 4500) : Math.round(topoElev * 6000);
-
-        // 2. Temperatura local: banda de latitud del modelo de balance energético + gradiente de −6,5 °C/km (atmósfera estándar ISA)
-        const T = this.simulation.T;
-        const banda = Math.min(T.length - 1, Math.floor((Math.sin(latDeg * Math.PI / 180) + 1) / 2 * T.length));
+        // 1. Temperatura del día: columna de tierra u océano del modelo estacional (o perfil día/noche si está anclado)
+        //    y −6,5 °C/km sobre tierra (atmósfera estándar ISA)
+        const cosSol = coords.normalWorld.dot(this.viewer.sunDir);
         const altCooling = (!isWater && elevationM > 0) ? (elevationM / 1000) * 6.5 : 0;
-        const localTemp = Math.round((T[banda] - altCooling) * 10) / 10;
+        const localTemp = Math.round((this.simulation.temperaturaEn(latDeg, isWater, cosSol) - altCooling) * 10) / 10;
 
-        // 3. Presión local: P = P₀ exp(−z/H), escala de altura H = R T / (M g) = 287·T/9,81 ≈ 8,4 km a 15 °C (atmósfera isoterma)
+        // 2. Presión local: P = P₀ exp(−z/H), escala de altura H = R T / (M g) = 287·T/9,81 ≈ 8,4 km a 15 °C (atmósfera isoterma)
         const H = 287 * (localTemp + altCooling + 273.15) / 9.81;
-        const pressureAtm = !isWater ?
-            Math.round(cur.surfacePressure * Math.exp(-Math.max(0, elevationM) / H) * 100) / 100 :
-            cur.surfacePressure;
+        const pressureAtm = Math.round(cur.surfacePressure * Math.exp(-Math.max(0, elevationM || 0) / H) * 100) / 100;
 
-        // 4. Índice UV al mediodía: ∝ cos(cenit) y atenuado por nubes; sin ozono el UV-B crece un orden de magnitud
-        //    (Segura et al. 2003). El campo magnético NO filtra UV (desvía partículas cargadas), por eso no interviene.
-        // simplificación: cielo despejado con índice 12 en el ecuador en equinoccio (OMS 2002).
-        const escudoO3 = Math.min(1, cur.o2 / 2.1);
-        let uvIndex = Math.max(0, Math.round(12 * Math.cos(latDeg * Math.PI / 180) * (1.0 - cur.cloudDensity * 0.5) * (1 + 9 * (1 - escudoO3))));
+        // 3. Índice UV al mediodía de hoy con la declinación del Sol y el escudo de ozono (Fisica.indiceUV; Madronich 2007).
+        //    El campo magnético NO filtra UV (desvía partículas cargadas), por eso no interviene.
+        const declinacion = astro.geometriaSolar().declinacion * 180 / Math.PI;
+        const uvIndex = Math.round(Fisica.indiceUV(latDeg, declinacion, cur.o2 * cur.surfacePressure / 1.013, cur.cloudDensity));
 
         // 5. Análisis Geo-Biológico
         let biomeName = '';
@@ -84,15 +80,15 @@ class SurveyEngine {
         let waterAnalysis = 'N/A (Tierra firme emergida)';
 
         if (isWater) {
-            biomeName = localTemp < -2 ? 'Banquisa Glaciar Marina' : (absLat < 25 ? 'Océano Tropical Pelágico' : 'Océano Abisal Templado');
+            biomeName = localTemp < Fisica.EBM.T_HIELO_MAR ? 'Banquisa Glaciar Marina' : (absLat < 25 ? 'Océano Tropical Pelágico' : 'Océano Abisal Templado');
             soilAnalysis = 'Sedimentos marinos pelágicos y lodos silíceos/calcáreos';
             
             // pH superficial con alcalinidad constante: [H⁺] ∝ pCO₂^0,77 → pH = 8,17 − 0,77·log₁₀(CO₂/280)
             // (preindustrial 8,17, hoy 8,05; Zeebe & Wolf-Gladrow 2001; IPCC AR6 cap. 5).
             // simplificación: en escalas geológicas la meteorización sube la alcalinidad y amortigua la acidificación.
             const ph = (8.17 - 0.77 * Math.log10(Math.max(1, cur.co2) / 280)).toFixed(2);
-            const salinity = (35 + (cur.meanTemp > 25 ? 4 : 0)).toFixed(1);
-            waterAnalysis = `pH: ${ph} | Salinidad: ${salinity} PSU | Profundidad: ${Math.abs(elevationM)} m`;
+            // Salinidad: media oceánica de 35 PSU (no se modela)
+            waterAnalysis = `pH: ${ph} | Salinidad: ~35 PSU (media) | Profundidad: ${elevationM === null ? 'sin datos' : Math.abs(elevationM) + ' m'}`;
         } else {
             if (localTemp < -10) {
                 biomeName = 'Desierto Polar / Casquete Glaciar';

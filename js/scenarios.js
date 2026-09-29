@@ -296,8 +296,7 @@ const SCENARIOS = {
             abioticFactor: 0.25,
             dinosaurFactor: 0.4,
             volcanicGlow: 0.1,
-            erosionFactor: 0.55,
-            pangeaFactor: 1.0
+            erosionFactor: 0.55
         },
         dominantClade: 'REPTILES TERRESTRES ADAPTADOS A LA ARIDEZ',
         cladeDescription: 'Megadesierto interior en el supercontinente con vegetación confinada a las costas monzónicas.',

@@ -47,9 +47,11 @@ prueba('Efecto invernadero (T − T_eq)', clima.Tmedia + 273.15 - F.temperaturaE
 prueba('Temperatura ecuatorial media anual', clima.Tecuador, 24, 32, '°C');
 prueba('Temperatura polar media anual', clima.Tpolo, -30, -10, '°C');
 prueba('Cobertura de hielo', clima.hielo, 0.05, 0.15);
-prueba('Forzamiento 2×CO₂', F.forzamientoCO2(2 * F.PREINDUSTRIAL.co2), 3.6, 3.8, 'W/m²');
+prueba('Forzamiento efectivo 2×CO₂ (AR6: 3,93 ± 0,47)', F.forzamientoCO2(2 * F.PREINDUSTRIAL.co2), 3.8, 4.1, 'W/m²');
+prueba('CO₂ a 50.000 ppm (Byrne & Goldblatt 2014: 38,1 W/m² × 1,05)', F.forzamientoCO2(50000), 39, 41, 'W/m²');
+verdad('El forzamiento del CO₂ crece más rápido que ln(C) por encima de 2000 ppm', F.forzamientoCO2(20000) - F.forzamientoCO2(10000) > F.forzamientoCO2(2000) - F.forzamientoCO2(1000));
 prueba('Forzamiento CH₄ actual (AR6: 0,54)', F.forzamientoCH4(1.9, 0.335), 0.45, 0.6, 'W/m²');
-prueba('Forzamiento N₂O actual (AR6: 0,21)', F.forzamientoN2O(0.335, 1.9), 0.17, 0.25, 'W/m²');
+prueba('Forzamiento N₂O actual (AR6: 0,21)', F.forzamientoN2O(0.335, 1.9, 420), 0.17, 0.25, 'W/m²');
 prueba('Forzamiento Pinatubo (20 Mt SO₂)', F.forzamientoAerosol(F.profundidadOpticaSulfato(20)), -4.5, -2.5, 'W/m²');
 const t280 = F.climaEquilibrio({ ...hoy, co2: 280 }, orbita).Tmedia;
 const t560 = F.climaEquilibrio({ ...hoy, co2: 560 }, orbita).Tmedia;
@@ -60,6 +62,27 @@ prueba('Ebullición a 1 atm', F.puntoEbullicion_C(1.01325), 99.5, 100.5, '°C');
 prueba('Espesor Rayleigh a 550 nm', F.espesorRayleigh(0.55, 1.01325), 0.09, 0.105);
 const caliente = F.climaEquilibrio({ ...hoy, co2: 280 }, orbita, 15).Tmedia;
 const fria = F.climaEquilibrio({ ...hoy, co2: 280 }, orbita, -45).Tmedia;
+prueba('Amplitud estacional a 60–70 °N (zona continental)', clima.amplitud[15], 20, 45, 'K');
+prueba('Amplitud estacional a 60 °S (zona oceánica)', clima.amplitud[2], 3, 12, 'K');
+prueba('Amplitud estacional en el ecuador', clima.amplitud[9], 0, 5, 'K');
+{   // La nieve continental avanza en invierno: más hielo en el hemisferio norte en enero que en julio
+    const Q = F.insolacionEstacional(1361, 23.44, 0.0167, 282.9);
+    const s = F.pasoEBM(F.crearEstadoEBM(15), Q, F.forzamientoTotal(hoy), 60);
+    const hieloNorte = (k) => [13, 14, 15, 16, 17].reduce((a, i) => a + F.fraccionHielo(s.clim[k].L[i], F.EBM.T_NIEVE), 0);
+    verdad('Nieve en el hemisferio norte: enero > julio', hieloNorte(60) > hieloNorte(24) + 0.5);
+}
+prueba('Perihelio: longitud solar el 3 de enero (día 288 desde el equinoccio)', F.longitudSolar(288, 0.0167, 282.9 * r) / r % 360, 280, 286, '°');
+verdad('Más presión o rotación más lenta → más transporte de calor', F.factorTransporte(2.026, 24) === 2 && F.factorTransporte(1.013, 48) === 0.25);
+{
+    const orb = { ...orbita }, a = F.climaEquilibrio(hoy, orb, 15, 150, 0.5), b = F.climaEquilibrio(hoy, orb, 15, 150, 2);
+    verdad('Con más transporte el contraste ecuador–polo disminuye', (b.Tecuador - b.Tpolo) < (a.Tecuador - a.Tpolo) - 5);
+}
+{   // Planeta anclado por marea con la insolación terrestre
+    const s = F.pasoAnclado({ Tdia: 15, Tnoche: 15 }, 1361, F.forzamientoTotal(hoy), 200);
+    prueba('Anclado: contraste día–noche (GCM: ~40–80 K)', s.Tdia - s.Tnoche, 40, 80, 'K');
+    const s3 = F.pasoAnclado({ Tdia: 15, Tnoche: 15 }, 1361, F.forzamientoTotal(hoy), 200, 3.04);
+    verdad('Anclado: 3 bar reduce el contraste día–noche', s3.Tdia - s3.Tnoche < (s.Tdia - s.Tnoche) / 2);
+}
 verdad('Histéresis Budyko-Sellers: mismos parámetros, arranque cálido templado y frío congelado', caliente > 5 && fria < -30);
 verdad('Tierra actual: invernadero normal', F.estadoInvernadero(1, 5772) === 'normal');
 verdad('1,12 S⊕ → invernadero desbocado (umbral ≈ 1,1 S⊕)', F.estadoInvernadero(1.12, 5772) === 'desbocado');
@@ -86,6 +109,7 @@ prueba('Termostato con 2× volcanismo: calentamiento acotado', eq2.T - 14, 2, 10
 }
 prueba('Subida del mar por fusión total del hielo', F.nivelMarPorHielo_m(40), 64, 67, 'm');
 prueba('Nivel del mar en el Último Máximo Glacial (−6 K)', F.nivelMarPorHielo_m(9), -130, -120, 'm');
+prueba('Retardo del hielo: fracción del cambio alcanzada en 2000 años', F.pasoNivelHielo(0, 40, 2000) / F.nivelMarPorHielo_m(40), 0.6, 0.66);
 verdad('+1.200 m no es físicamente posible (máx. ±250 m)', !F.nivelMarFisicamentePosible(1200));
 prueba('Luminosidad solar hace 700 Ma (bola de nieve)', F.luminosidadSolar(-700), 0.93, 0.95);
 prueba('Luminosidad solar en +1 Ga', F.luminosidadSolar(1000), 1.08, 1.12);
@@ -102,18 +126,23 @@ verdad('Tunguska (~50 m, roca porosa) explota en el aire', tunguska.rafagaAerea)
 prueba('Tunguska: altitud de explosión (obs. 5–10 km)', tunguska.zExplosion_km, 4, 15, 'km');
 verdad('Cheliábinsk (~20 m) explota en el aire (obs. ~30 km)', F.impacto({ L_m: 20, v_kms: 19, rho_i: 3300, theta_deg: 18 }).rafagaAerea);
 {   // Invierno de impacto de Chicxulub con el océano de dos capas
-    const Q = F.insolacionBandas(1361, 23.44, 0.0167, 282.9);
-    const T = F.perfilInicial(15), Td = F.perfilInicial(15);
-    F.pasoEBM(T, Q, F.forzamientoTotal(hoy), 50, Td);
-    const T0 = F.diagnosticoEBM(T, Q).Tmedia;
+    const Q = F.insolacionEstacional(1361, 23.44, 0.0167, 282.9);
+    const s = F.pasoEBM(F.crearEstadoEBM(15, true), Q, F.forzamientoTotal(hoy), 50);
+    const T0 = F.diagnosticoEBM(s, Q).Tmedia;
     let tau = chix.tau, Tmin = 99;
     for (let y = 0; y < 60; y += 0.1) {
-        F.pasoEBM(T, Q, F.forzamientoTotal({ ...hoy, tauImpacto: tau }), 0.1, Td);
+        F.pasoEBM(s, Q, F.forzamientoTotal({ ...hoy, tauImpacto: tau }), 0.1);
         tau *= Math.exp(-0.1 / F.TAU_DECAIMIENTO_IMPACTO_ANIOS);
-        Tmin = Math.min(Tmin, F.diagnosticoEBM(T, Q).Tmedia);
+        const Tahora = s.TL.reduce((a, t, i) => a + F.FRACCION_TIERRA[i] * t + (1 - F.FRACCION_TIERRA[i]) * s.TO[i], 0) / F.EBM.N;
+        Tmin = Math.min(Tmin, Tahora);
     }
     prueba('Invierno de impacto Chicxulub: enfriamiento máximo (Brugger 2017: ~26 K)', T0 - Tmin, 18, 35, 'K');
-    prueba('Recuperación a los 60 años', F.diagnosticoEBM(T, Q).Tmedia, 12, 16, '°C');
+    prueba('Recuperación a los 60 años', F.diagnosticoEBM(s, Q).Tmedia, 12, 16, '°C');
+}
+{
+    const tierra = F.impacto({ L_m: 1000, v_kms: 20, rho_i: 3000 }), mar = F.impacto({ L_m: 1000, v_kms: 20, rho_i: 3000, agua_m: 4000 });
+    verdad('Impacto en el océano (4 km de agua): el cráter del fondo es menor que en tierra', mar.crater_km < tierra.crater_km / 2);
+    verdad('Un océano somero (50 m) casi no frena a un cuerpo de 10 km', F.impacto({ L_m: 10000, v_kms: 20, agua_m: 50 }).vSuelo_kms > 19.5);
 }
 
 console.log('\n— Fase 6: océanos y biosfera —');
@@ -125,6 +154,20 @@ prueba('Habitabilidad en torno a Rigel', hab({ estrella: F.ESTRELLAS.blue_giant 
 prueba('Habitabilidad con invernadero desbocado', hab({ estadoInvernadero: 'desbocado' }), 0, 0);
 prueba('Habitabilidad con O₂ = 35 % (incendios)', hab({ o2: 35 }), 40, 60);
 prueba('Habitabilidad a 0,05 bar (bajo el límite de Armstrong)', hab({ P_bar: 0.05 }), 0, 0);
+prueba('Habitabilidad a 0,3 bar con 21 % de O₂ (pO₂ = 6 %, como a 9 km de altura)', hab({ P_bar: 0.3 }), 0, 70);
+prueba('Índice UV en el ecuador, equinoccio (OMS: ~12)', F.indiceUV(0, 0, 20.95), 11, 13.5);
+verdad('Sin capa de ozono el índice UV se multiplica', F.indiceUV(0, 0, 0.1) > 5 * F.indiceUV(0, 0, 20.95));
+{
+    const e = F.espectroTransito({ T_C: 15, P_bar: 1.013, co2: 420, o2: 20.95, ch4: 1.9 });
+    const z = (um) => e.puntos.reduce((a, b) => (Math.abs(b.um - um) < Math.abs(a.um - um) ? b : a)).z_km;
+    prueba('Escala de altura de la atmósfera terrestre', e.H_km, 8, 9, 'km');
+    prueba('Tránsito: rasgo del O₃ a 9,8 µm (Kaltenegger & Traub 2009: ~30 km sobre el continuo)', z(9.8) - 6, 27, 33, 'km');
+    prueba('Tránsito: Rayleigh a 0,4 µm (~30–50 km)', z(0.4), 25, 50, 'km');
+    const sinO2 = F.espectroTransito({ T_C: 15, P_bar: 1.013, co2: 420, o2: 0, ch4: 1.9 });
+    verdad('Sin O₂ desaparece el rasgo del O₃', sinO2.puntos.reduce((a, b) => (Math.abs(b.um - 9.8) < Math.abs(a.um - 9.8) ? b : a)).z_km < 8);
+}
+verdad('Luz del Sol blanca y de una enana M anaranjada', F.colorCuerpoNegro(5772).every((v) => v > 0.99) && F.colorCuerpoNegro(3042)[2] < 0.4);
+prueba('Diámetro angular del Sol desde 1 UA', F.diametroAngular_rad(sol, 1) * 180 / Math.PI, 0.52, 0.54, '°');
 verdad('Pigmento para el Sol: verde', F.pigmentoPorEstrella(5772) === 'green');
 verdad('Pigmento para una enana M: negro (Kiang 2007)', F.pigmentoPorEstrella(3042) === 'black');
 prueba('Pico de fotones de una enana M5.5', F.picoFotones_um(3042), 1.1, 1.3, 'µm');

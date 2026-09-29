@@ -731,6 +731,10 @@
                     <input type="range" id="slider-meteor-speed" min="11" max="72" value="20">
                 </div>
                 <div class="config-col">
+                    <label>Ángulo: <span id="disp-meteor-angle" class="gold-num">45°</span></label>
+                    <input type="range" id="slider-meteor-angle" min="10" max="90" step="5" value="45">
+                </div>
+                <div class="config-col">
                     <label>Composición:</label>
                     <select id="select-meteor-comp" class="custom-select">
                         <option value="iron">Hierro/Níquel</option>
@@ -804,12 +808,13 @@
                     <p>La animación está acelerada; cada proceso usa su propio reloj:</p>
                     <ul>
                         <li><b>Clima</b> (balance energético): 1 s = 5 años. En la realidad el océano de mezcla responde en ~5 años y el profundo en siglos.</li>
-                        <li><b>Estaciones</b>: 1 s = 15 días de órbita.</li>
+                        <li><b>Estaciones</b>: 1 s = 15 días de órbita. El modelo de clima corre a 5 años/s y guarda el ciclo anual de su último año; el planeta muestra ese ciclo en el día que marca el reloj de las estaciones.</li>
+                        <li><b>Nivel del mar por el hielo</b>: sigue a la temperatura con τ = 2000 años (≈ 7 min en pantalla); en el tiempo geológico está en equilibrio.</li>
                         <li><b>Termostato carbono-silicato</b> (si está activo): 1 s = 50.000 años. En la realidad equilibra el CO₂ en ~400.000 años.</li>
                         <li><b>Oblicuidad sin Luna</b>: 1 s = 1 millón de años.</li>
                         <li><b>Escala geológica lateral</b> (reproducción): 1 s = 25 millones de años.</li>
                         <li><b>Invierno de impacto</b>: el aerosol decae en ~1,5 años reales (≈ 0,3 s en pantalla).</li>
-                        <li><b>Rotación del planeta</b>: puramente visual.</li>
+                        <li><b>Rotación del planeta</b>: la velocidad del giro es visual, pero el período elegido cambia el transporte de calor del clima y el tiempo de anclaje por marea.</li>
                     </ul>
                     <h3>🔭 Modelos y fuentes</h3>
                     <ul>
@@ -819,22 +824,26 @@
                         <li><b>Anclaje por marea</b>: Gladman et al. 1996; erosión de la oblicuidad (Heller et al. 2011).</li>
                         <li><b>Oblicuidad y Luna</b>: Laskar et al. 1993; Lissauer et al. 2012.</li>
                         <li><b>Magnetosfera</b>: equilibrio de Chapman-Ferraro (1931), Shue et al. 1998; viento solar OMNI.</li>
-                        <li><b>Clima</b>: modelo de balance energético de Budyko (1969) y Sellers (1969), según North et al. 1981; retroalimentaciones del IPCC AR6 (tabla 7.10); océano de dos capas (Held et al. 2010).</li>
-                        <li><b>Forzamientos</b>: CO₂, CH₄ y N₂O de Myhre et al. 1998; sulfatos de Hansen et al. 2005 y Pinto et al. 1989; nubes de CERES (Loeb 2018).</li>
+                        <li><b>Clima</b>: modelo de balance energético estacional de Budyko (1969) y Sellers (1969) con columnas de tierra y océano (North &amp; Coakley 1979; North et al. 1981); retroalimentaciones del IPCC AR6 (tabla 7.10); océano de dos capas (Held et al. 2010); transporte según la presión y la rotación (Williams &amp; Kasting 1997). Órbita con la ecuación de Kepler.</li>
+                        <li><b>Planetas anclados por marea</b>: dos cajas día/noche con un contraste calibrado con modelos de circulación general (Yang, Cowan &amp; Abbot 2013; Leconte et al. 2013).</li>
+                        <li><b>Forzamientos</b>: CO₂, CH₄ y N₂O de Meinshausen et al. 2020 (IPCC AR6, tabla 7.SM.1) con los ajustes troposféricos del AR6; CO₂ muy alto corregido con Byrne &amp; Goldblatt 2014; sulfatos de Hansen et al. 2005 y Pinto et al. 1989; nubes de CERES (Loeb 2018).</li>
+                        <li><b>Índice UV</b>: Madronich 2007. <b>Espectro de tránsito</b>: Lecavelier des Etangs et al. 2008; rasgos de Kaltenegger &amp; Traub 2009.</li>
+                        <li><b>Imagen</b>: color de cuerpo negro con las funciones CIE 1931 (Wyman, Sloan &amp; Shirley 2013); masa de aire de Kasten &amp; Young 1989; dispersión simple de Rayleigh y Mie (Hillaire 2015); ciclo diurno de la vista térmica de Dai, Trenberth &amp; Karl 1999. Topografía calibrada a 0–6400 m.</li>
                         <li><b>Invernadero húmedo y desbocado</b>: Kasting 1988; Kopparapu 2013/2014; Leconte 2013; Goldblatt 2013.</li>
                         <li><b>Rayleigh</b>: Bodhaine et al. 1999; Sneep &amp; Ubachs 2005. <b>Vapor de agua</b>: Clausius-Clapeyron (Alduchov &amp; Eskridge 1996).</li>
                         <li><b>Termostato carbono-silicato</b>: Walker, Hays &amp; Kasting 1981; Berner 2004; desgasificación de Gerlach 2011; relajación de Archer 2005.</li>
                         <li><b>Nivel del mar</b>: Fretwell et al. 2013; Clark et al. 2009; Haq et al. 1987; Müller et al. 2008. <b>Batimetría</b>: GEBCO (vía NASA Earth Observatory); al bajar el mar quedan expuestos solo los fondos menos profundos que el descenso.</li>
                         <li><b>Paleoclima</b>: CO₂ de Foster, Royer &amp; Lunt 2017; O₂ de Berner 2009; luminosidad solar de Gough 1981; placas de DeMets et al. 2010 (MORVEL).</li>
                         <li><b>Grandes provincias ígneas</b>: Burgess &amp; Bowring 2015; Svensen et al. 2009; Black et al. 2012; Schoene et al. 2019.</li>
-                        <li><b>Impactos</b>: Collins, Melosh &amp; Marcus 2005; invierno de impacto de Brugger et al. 2017; Toon et al. 1997.</li>
+                        <li><b>Impactos</b>: Collins, Melosh &amp; Marcus 2005 (en el océano, la capa de agua frena al cuerpo con la misma ecuación de arrastre); invierno de impacto de Brugger et al. 2017; Toon et al. 1997.</li>
                         <li><b>Biosfera</b>: pigmentos de Kiang et al. 2007; O₂ de Catling et al. 2005, Belcher &amp; McElwain 2008 y Lyons et al. 2014; ozono de Segura et al. 2003; límites térmicos de Sherwood &amp; Huber 2010 y Clarke 2014.</li>
                         <li><b>Océano</b>: absorción de Pope &amp; Fry 1997; color de Morel &amp; Maritorena 2001; química del carbonato de Zeebe &amp; Wolf-Gladrow 2001.</li>
                     </ul>
                     <h3>⚠️ Simplificaciones principales</h3>
                     <ul>
-                        <li>El clima es zonal (18 bandas), sin estaciones, continentes ni dinámica atmosférica; las nubes y el vapor de agua van como retroalimentaciones globales.</li>
-                        <li>La geografía del pasado usa texturas paleogeográficas de 240, 150 y 65 Ma (atribuidas a PALEOMAP de Scotese) interpoladas entre sí; las posiciones intermedias no son reconstrucciones, y +250 Ma es una proyección.</li>
+                        <li>El clima es zonal (18 bandas con tierra y océano), sin circulación oceánica ni dinámica atmosférica; las nubes y el vapor de agua van como retroalimentaciones globales. La fracción de tierra por banda es la actual en todas las épocas.</li>
+                        <li>La geografía del pasado usa texturas paleogeográficas de 240, 150 y 65 Ma (atribuidas a PALEOMAP de Scotese) interpoladas entre sí; las posiciones intermedias no son reconstrucciones. El futuro (+250 Ma) no tiene mapa: se muestra la geografía actual.</li>
+                        <li>La atmósfera se dibuja 5 veces más gruesa para que se vea a esta escala; sus espesores ópticos son los reales. El relieve se exagera ×15.</li>
                         <li>Los colores del océano, del cielo y de la vegetación son aproximaciones visuales de procesos reales. Texturas: Blue Marble 2002 de la NASA (8K en escritorio) y batimetría GEBCO.</li>
                         <li>El Mundo Océano (+1.200 m) es un escenario <b>hipotético</b>: excede los límites físicos (±250 m tectónicos, +66 m por el hielo).</li>
                         <li>El índice de habitabilidad se refiere a vida compleja; los microorganismos toleran rangos mucho mayores.</li>
@@ -852,18 +861,17 @@
                 </div>
                 <div class="modal-body">
                     <div class="spectrum-description">
-                        Espectro de transmisión simulado de la atmósfera terrestre en tránsito estelar (longitud de onda: 0.4 µm a 15 µm).
+                        Espectro de tránsito simulado (0,4–15 µm): altura efectiva de la atmósfera en km. Cada rasgo sube H·ln k si la columna del gas se multiplica por k; calibrado con la Tierra (Kaltenegger &amp; Traub 2009).
                     </div>
                     <!-- Canvas interactivo del espectro -->
                     <canvas id="jwst-canvas" width="660" height="220"></canvas>
                     
                     <div class="spectrum-legend" id="jwst-filter-chips">
-                        <button class="legend-tag o3 active" data-molecule="o3" title="Filtrar firma de Ozono (Banda 9.6 µm)">O₃ (Ozono 9.6µm)</button>
-                        <button class="legend-tag h2o active" data-molecule="h2o" title="Filtrar bandas de vapor de agua (1.4 y 1.9 µm)">H₂O (Vapor 1.4/1.9µm)</button>
-                        <button class="legend-tag ch4 active" data-molecule="ch4" title="Filtrar metano biosférico (3.3 y 7.7 µm)">CH₄ (Metano 3.3µm)</button>
-                        <button class="legend-tag co2 active" data-molecule="co2" title="Filtrar dióxido de carbono (4.3 y 15 µm)">CO₂ (4.3 / 15µm)</button>
-                        <button class="legend-tag so2 active" data-molecule="so2" title="Filtrar dióxido de azufre volcánico (7.3 µm)">SO₂ (Volcánico 7.3µm)</button>
-                        <button class="legend-tag red-edge active" data-molecule="red-edge" title="Salto de reflectancia vegetal o pigmentaria a 700 nm">Red Edge (700nm)</button>
+                        <button class="legend-tag o3 active" data-molecule="o3" title="Ozono: bandas de Chappuis (0,6 µm) y 9,8 µm">O₃ (0,6 / 9,8 µm)</button>
+                        <button class="legend-tag h2o active" data-molecule="h2o" title="Vapor de agua (1,9 y 3,3 µm)">H₂O (1,9 / 3,3 µm)</button>
+                        <button class="legend-tag ch4 active" data-molecule="ch4" title="Metano (7,7 µm)">CH₄ (7,7 µm)</button>
+                        <button class="legend-tag co2 active" data-molecule="co2" title="Dióxido de carbono (2,8 y 15 µm)">CO₂ (2,8 / 15 µm)</button>
+                        <button class="legend-tag red-edge active" data-molecule="red-edge" title="Salto de reflectancia de la vegetación a 700 nm: se ve en luz reflejada, no en tránsito">Red Edge (700 nm, solo reflejo)</button>
                     </div>
 
                     <div class="jwst-diagnosis-box">

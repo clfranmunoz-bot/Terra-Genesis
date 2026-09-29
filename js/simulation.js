@@ -35,7 +35,6 @@ class EarthSimulation {
             abioticFactor: 0.0,
             dinosaurFactor: 0.0,
             volcanicGlow: 0.0,
-            pangeaFactor: 0.0,
             geologicalMa: 0.0
         };
 
@@ -44,7 +43,7 @@ class EarthSimulation {
         this.skyColor = [0.15, 0.55, 1.0]; // lo cambia AstrophysicsEngine según la estrella
         
         // Historial de cráteres de impacto persistentes en la corteza terrestre
-        this.craters = []; // { center: THREE.Vector3, radius: float, depth: float, crustUplift: float }
+        this.craters = []; // { center: THREE.Vector3 (unitario, coordenadas del planeta), radius: radio angular }
 
         // Evento temporal del meteorito en curso
         this.meteorEvent = {
@@ -59,9 +58,35 @@ class EarthSimulation {
         };
 
         this.currentScenarioId = 'real';
-        this.T = Fisica.perfilInicial(15);   // °C por banda de latitud (modelo EBM)
-        this.Td = Fisica.perfilInicial(15);  // °C del océano profundo por banda
-        this.clima = { estado: 'normal', albedo: 0.30, forzamiento: 0, Teq: 255, S_Wm2: 1361 };
+        this.ebm = Fisica.crearEstadoEBM(15, true);           // modelo estacional por bandas (columnas de tierra y océano + fondo)
+        this.anclado = { Tdia: 15, Tnoche: 15 };              // modelo día/noche para planetas anclados por marea
+        this.nivelHielo = 0;                                  // aporte del hielo al nivel del mar (m), con retardo
+        this.clima = { estado: 'normal', albedo: 0.30, forzamiento: 0, Teq: 255, S_Wm2: 1361, anclado: false };
+    }
+
+    // Reinicia el clima en un estado inicial dado (escenarios, épocas): el nivel del mar arranca en equilibrio.
+    reiniciarClima(Tinicial) {
+        this.ebm = Fisica.crearEstadoEBM(Tinicial, true);
+        this.anclado = { Tdia: Tinicial + 30, Tnoche: Tinicial - 30 };
+        this.nivelHielo = Fisica.nivelMarPorHielo_m(Tinicial);
+    }
+
+    // Temperaturas de tierra y océano por banda en el día del año que se muestra (climatología del último año, interpolada)
+    bandasHoy() {
+        const astro = window.astrophysicsEngine, NS = Fisica.EBM.NS;
+        const f = (astro ? astro.diasDesdeEquinoccio : 0) / (Fisica.DIAS_ANIO / NS) - 0.5;
+        const k0 = ((Math.floor(f) % NS) + NS) % NS, k1 = (k0 + 1) % NS, w = f - Math.floor(f);
+        const a = this.ebm.clim[k0], b = this.ebm.clim[k1];
+        return { L: a.L.map((v, i) => v + (b.L[i] - v) * w), O: a.O.map((v, i) => v + (b.O[i] - v) * w) };
+    }
+
+    // Temperatura de superficie a nivel del mar (°C) en la latitud dada; cosSol = coseno del ángulo al punto subestelar (anclaje).
+    temperaturaEn(latDeg, esAgua, cosSol) {
+        if (this.clima.anclado) return Fisica.temperaturaAnclado(this.anclado, cosSol);
+        const x = Math.sin(latDeg * Math.PI / 180), N = Fisica.EBM.N;
+        const t = Math.max(0, Math.min(N - 1, (x + 1) / 2 * N - 0.5)), i0 = Math.floor(t), i1 = Math.min(N - 1, i0 + 1);
+        const col = this.bandasHoy()[esAgua ? 'O' : 'L'];
+        return col[i0] + (col[i1] - col[i0]) * (t - i0);
     }
 
     // Integra el clima `anios` años de modelo. La insolación por banda sale de la órbita actual (Milankovitch).
@@ -71,29 +96,42 @@ class EarthSimulation {
         const p = astro ? astro.params : { eccentricity: 0.0167, perihelionDeg: 282.9 };
         const obl = astro ? astro.oblicuidadEfectiva() : 23.44;
         const clave = [S_rel.toFixed(4), obl.toFixed(2), p.eccentricity, p.perihelionDeg].join();
-        if (clave !== this._claveQ) { this._claveQ = clave; this._Q = Fisica.insolacionBandas(Fisica.C.S0 * S_rel, obl, p.eccentricity, p.perihelionDeg); }
+        if (clave !== this._claveQ) { this._claveQ = clave; this._Q = Fisica.insolacionEstacional(Fisica.C.S0 * S_rel, obl, p.eccentricity, p.perihelionDeg); }
 
         const c = this.current;
-        const F = Fisica.forzamientoTotal({ co2: c.co2, ch4: c.ch4, n2o: c.n2o, so2: c.so2, nubes: c.cloudDensity,
+        const F = Fisica.forzamientoTotal({ co2: c.co2, ch4: c.ch4, n2o: c.n2o, so2: c.so2, nubes: c.cloudDensity, P_bar: c.surfacePressure,
                                             tauImpacto: this.meteorEvent.active ? this.meteorEvent.tau : 0 });
         const Teff = astro ? astro.estrella.Teff : 5772;
         const estado = Fisica.estadoInvernadero(S_rel, Teff);
+        const anclado = !!(astro && astro.params.isTidallyLocked);
 
         if (estado === 'desbocado') {
             // Fuera del dominio del modelo lineal: océanos evaporados (Goldblatt et al. 2013)
             c.meanTemp += (Fisica.T_DESBOCADO_C - c.meanTemp) * Math.min(1, anios * 0.05);
-            this.T.fill(c.meanTemp);
+            this.ebm = Fisica.crearEstadoEBM(c.meanTemp);
+            this.anclado = { Tdia: c.meanTemp, Tnoche: c.meanTemp };
             c.iceCoverage = 0;
+        } else if (anclado) {
+            if (this.clima.estado === 'desbocado') this.anclado = { Tdia: 60, Tnoche: 60 };
+            Fisica.pasoAnclado(this.anclado, Fisica.C.S0 * S_rel, F, anios, c.surfacePressure);
+            const { Tdia, Tnoche } = this.anclado;
+            c.meanTemp = (Tdia + Tnoche) / 2;
+            c.iceCoverage = (Fisica.fraccionHielo(Tdia, Fisica.EBM.T_HIELO_MAR) + Fisica.fraccionHielo(Tnoche, Fisica.EBM.T_HIELO_MAR)) / 2;
+            this.clima.albedo = Fisica.albedoAnclado(Tdia); // solo el lado diurno refleja luz
+            this.clima.Tdia = Tdia; this.clima.Tnoche = Tnoche;
         } else {
-            if (this.clima.estado === 'desbocado') { this.T = Fisica.perfilInicial(60); this.Td = Fisica.perfilInicial(60); }
-            Fisica.pasoEBM(this.T, this._Q, F, anios, this.Td);
-            const d = Fisica.diagnosticoEBM(this.T, this._Q);
+            if (this.clima.estado === 'desbocado') this.ebm = Fisica.crearEstadoEBM(60, true);
+            const rot = astro ? astro.params.periodoRotacion_h : 24;
+            Fisica.pasoEBM(this.ebm, this._Q, F, anios, Fisica.factorTransporte(c.surfacePressure, rot));
+            const d = Fisica.diagnosticoEBM(this.ebm, this._Q);
             c.meanTemp = d.Tmedia;
             c.iceCoverage = d.hielo;
             this.clima.albedo = d.albedo;
             this.clima.Tecuador = d.Tecuador;
             this.clima.Tpolo = d.Tpolo;
         }
+        this.nivelHielo = this.hieloEnEquilibrio ? Fisica.nivelMarPorHielo_m(c.meanTemp) : Fisica.pasoNivelHielo(this.nivelHielo, c.meanTemp, anios);
+        this.clima.anclado = anclado && estado !== 'desbocado';   // en el desbocado no hay contraste día/noche que mostrar
         this.clima.estado = estado;
         this.clima.forzamiento = F;
         this.clima.S_Wm2 = Fisica.C.S0 * S_rel;
@@ -106,6 +144,7 @@ class EarthSimulation {
 
         this.currentScenarioId = scenarioKey;
         this.manualSeaLevel = false;
+        this.hieloEnEquilibrio = false;
         const p = scenario.params;
         const v = scenario.visual;
 
@@ -121,8 +160,7 @@ class EarthSimulation {
         this.target.n2o = p.n2o !== undefined ? p.n2o : 0.335;
         // La temperatura del escenario solo fija la condición inicial: el equilibrio lo calcula el modelo.
         // Importa por la histéresis: un arranque frío puede quedar atrapado en la bola de nieve (Budyko-Sellers).
-        this.T = Fisica.perfilInicial(p.meanTempTarget !== undefined ? p.meanTempTarget : 15);
-        this.Td = [...this.T];
+        this.reiniciarClima(p.meanTempTarget !== undefined ? p.meanTempTarget : 15);
 
         this.target.atmosphereColor = [...v.atmosphereColor];
         this.target.atmosphereOpacity = v.atmosphereOpacity;
@@ -135,7 +173,6 @@ class EarthSimulation {
         this.target.dinosaurFactor = v.dinosaurFactor;
         this.target.volcanicGlow = v.volcanicGlow;
         this.target.erosionFactor = v.erosionFactor || (p.hasLife ? 0.04 : 0.92);
-        this.target.pangeaFactor = v.pangeaFactor || 0.0;
         
         if (scenarioKey === 'pangea') {
             this.target.geologicalMa = -250;
@@ -181,34 +218,27 @@ class EarthSimulation {
     /**
      * Registra un impacto en coordenadas 3D de la corteza y desencadena cataclismo
      */
-    triggerCustomImpact(hitPoint3D, diameterKm, speedKms, composition) {
-        // Ángulo de 45°: el más probable (Shoemaker 1962)
-        const physics = Fisica.impacto({ L_m: diameterKm * 1000, v_kms: speedKms, rho_i: Fisica.DENSIDADES_IMPACTOR[composition] || 3000 });
+    triggerCustomImpact(puntoLocal, diameterKm, speedKms, composition, anguloDeg = 45, agua_m = 0) {
+        // 45° es el ángulo más probable (Shoemaker 1962); agua_m: profundidad del océano en el punto de impacto
+        const physics = Fisica.impacto({ L_m: diameterKm * 1000, v_kms: speedKms, rho_i: Fisica.DENSIDADES_IMPACTOR[composition] || 3000,
+                                         theta_deg: anguloDeg, agua_m });
         this.ultimoImpacto = physics;
         if (physics.rafagaAerea) return physics; // se desintegra en el aire: sin cráter ni invierno global
 
         this.meteorEvent.active = true;
-        this.meteorEvent.tau = Math.max(this.meteorEvent.active ? this.meteorEvent.tau || 0 : 0, physics.tau);
+        this.meteorEvent.tau = Math.max(this.meteorEvent.tau || 0, physics.tau);
         this.meteorEvent.sizeKm = diameterKm;
         this.meteorEvent.speedKms = speedKms;
         this.meteorEvent.energyMegatons = physics.energia_Mt;
         this.meteorEvent.craterKm = physics.crater_km;
 
-        // Los grandes impactos excavan cuencas multianillo (Melosh 1989), no levantan mesetas: siempre hundimiento.
-        const crustUplift = -0.3;
-        
-        const craterNormPos = hitPoint3D.clone().normalize();
+        // Los grandes impactos excavan cuencas multianillo (Melosh 1989): el cráter se dibuja como una depresión inundada.
         this.craters.push({
-            center: craterNormPos,
-            radius: Math.min(0.35, (physics.crater_km / 12742) * 2.5), // radio angular en la esfera (exagerado ×2,5 para verse)
-            depth: Math.min(0.2, physics.profundidad_km / 10),
-            crustUplift: crustUplift
+            center: puntoLocal.clone().normalize(),                                 // coordenadas del planeta: gira con él
+            radius: Math.min(0.35, (physics.crater_km / 12742) * 2.5)               // radio angular (exagerado ×2,5 para verse)
         });
 
-        // Limitar a los últimos 6 impactos para estabilidad de shaders
-        if (this.craters.length > 6) {
-            this.craters.shift();
-        }
+        if (this.craters.length > 4) this.craters.shift();   // el shader dibuja cuatro
 
         // Alteración visual inmediata (el efecto climático va por meteorEvent.tau)
         if (physics.tau < 0.05) return physics;
@@ -233,7 +263,6 @@ class EarthSimulation {
         if (this.target.vegetationColor) this.current.vegetationColor = this.target.vegetationColor;
         this.current.hasCivilization = this.target.hasCivilization;
         this.current.erosionFactor += (this.target.erosionFactor - this.current.erosionFactor) * lerpFactor;
-        this.current.pangeaFactor += ((this.target.pangeaFactor || 0.0) - this.current.pangeaFactor) * lerpFactor;
         this.current.geologicalMa += ((this.target.geologicalMa !== undefined ? this.target.geologicalMa : 0.0) - this.current.geologicalMa) * lerpFactor;
 
         // Disipación del invierno de impacto: e-folding de 1,5 años de clima (Brugger 2017)
@@ -251,9 +280,10 @@ class EarthSimulation {
         // ==========================================
         // 2. NIVEL DEL MAR Y CASQUETES
         // ==========================================
-        // Nivel del mar = eustasia tectónica (target.seaLevelOffset, del escenario o del control) + hielo continental (Fisica.nivelMarPorHielo_m).
+        // Nivel del mar = eustasia tectónica (target.seaLevelOffset, del escenario o del control) + hielo continental (Fisica.pasoNivelHielo, con retardo).
         // Los océanos evaporados del invernadero desbocado quedan fuera de esta escala.
-        const targetSeaOffset = this.target.seaLevelOffset + Fisica.nivelMarPorHielo_m(this.current.meanTemp);
+        // El hielo responde con retardo (τ ≈ 2000 años; ver Fisica.pasoNivelHielo): se integra en actualizarClima.
+        const targetSeaOffset = this.target.seaLevelOffset + this.nivelHielo;
         this.nivelMarHipotetico = !Fisica.nivelMarFisicamentePosible(this.target.seaLevelOffset);
         this.current.seaLevelOffset += (targetSeaOffset - this.current.seaLevelOffset) * lerpFactor;
 
