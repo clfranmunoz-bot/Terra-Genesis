@@ -1450,6 +1450,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // En tableta y móvil la escala temporal abierta no cabe junto a los paneles: se pliegan
+    document.getElementById('btn-toggle-time-drawer')?.addEventListener('click', () => {
+        if (window.matchMedia('(max-width: 1024px)').matches) { btnCollapseLeft?.click(); btnCollapseRight?.click(); }
+    });
+
     // En móvil no caben los dos paneles a la vez: abrir uno pliega el otro
     const esMovil = () => window.matchMedia('(max-width: 600px)').matches;
     btnTabLeft?.addEventListener('click', () => { if (esMovil()) btnCollapseRight?.click(); });
