@@ -106,6 +106,7 @@ class PlanetViewer {
         // Máscara de agua (blanco = agua). La de 8K se generó por color desde la Blue Marble (ver textures/LEEME.md)
         this.texSpecular = load(usar8K ? 'textures/earth_water_8k.png' : 'textures/earth_specular.jpg');
         this.texTopology = load('textures/earth_topology.png');
+        this.texBathymetry = load('textures/earth_bathymetry.png'); // GEBCO vía NASA (ver textures/LEEME.md)
         this.texPangea = load('textures/earth_pangea.jpg');
         this.texPaleo240 = load('textures/paleo_240ma_2048.jpg');
         this.texPaleo150 = load('textures/paleo_150ma_2048.jpg');
@@ -155,6 +156,7 @@ class PlanetViewer {
             uniform sampler2D uSpecularMap;
             uniform sampler2D uNormalMap;
             uniform sampler2D uTopologyMap;
+            uniform sampler2D uBathymetryMap; // GEBCO: v = √(profundidad/8000 m)
             uniform sampler2D uPangeaMap;
             uniform sampler2D uPaleo240Map;
             uniform sampler2D uPaleo150Map;
@@ -193,6 +195,8 @@ class PlanetViewer {
                 vec4 dayTex = texture2D(uDayMap, vUv);
                 vec4 specTex = texture2D(uSpecularMap, vUv);
                 vec4 topoTex = texture2D(uTopologyMap, vUv);
+                float bat = texture2D(uBathymetryMap, vUv).r;
+                float profundidadM = 8000.0 * bat * bat; // metros bajo el nivel del mar actual (GEBCO)
                 float isWater = specTex.r;
                 float topoElev = topoTex.r;
                 vec3 surfaceColor = dayTex.rgb;
@@ -252,9 +256,8 @@ class PlanetViewer {
                         float floodThreshold = clamp(uSeaLevelOffset / 2300.0, 0.0, 0.90);
                         isWater = max(isWater, 1.0 - smoothstep(floodThreshold - 0.006, floodThreshold + 0.006, topoElev));
                     } else if (uSeaLevelOffset < 0.0) {
-                        float shelfDepth = (1.0 - specTex.g);
-                        float dryThreshold = clamp(abs(uSeaLevelOffset) / 320.0, 0.0, 0.85);
-                        isWater = min(isWater, smoothstep(dryThreshold - 0.02, dryThreshold + 0.02, shelfDepth));
+                        // Al bajar el mar quedan expuestos los fondos menos profundos que el descenso (plataformas continentales)
+                        isWater = min(isWater, smoothstep(abs(uSeaLevelOffset) - 4.0, abs(uSeaLevelOffset) + 4.0, profundidadM));
                     }
                 }
 
@@ -296,7 +299,8 @@ class PlanetViewer {
                 // Océanos y Tierras Inundadas
                 vec3 waterColor = surfaceColor;
                 {
-                    float depth = clamp(1.0 - specTex.g, 0.0, 1.0);
+                    // Color según la profundidad real: aguas someras claras en las plataformas, azul profundo en alta mar
+                    float depth = clamp(sqrt(profundidadM / 4000.0), 0.0, 1.0);
                     if (specTex.r < 0.35) {
                         float floodDepth = clamp((uSeaLevelOffset / 2300.0 - topoElev) * 5.0, 0.0, 1.0);
                         depth = mix(0.12, 0.70, floodDepth);
@@ -329,6 +333,9 @@ class PlanetViewer {
                         surfaceColor = mix(surfaceColor, erodedBedrock, uErosionFactor * 0.85);
                     }
                 }
+                // Plataforma continental expuesta al bajar el mar: la foto muestra agua ahí, se pinta como sedimento (arena y limo)
+                float lechoExpuesto = smoothstep(0.25, 0.45, specTex.r) * (1.0 - waterMask);
+                surfaceColor = mix(surfaceColor, vec3(0.58, 0.52, 0.40), lechoExpuesto);
                 surfaceColor = mix(surfaceColor, waterColor, waterMask);
 
                 // 6. Casquetes Polares y Glaciación
@@ -427,6 +434,7 @@ class PlanetViewer {
             uSpecularMap: { value: this.texSpecular },
             uNormalMap: { value: this.texNormal },
             uTopologyMap: { value: this.texTopology },
+            uBathymetryMap: { value: this.texBathymetry },
             uPangeaMap: { value: this.texPangea },
             uPaleo240Map: { value: this.texPaleo240 },
             uPaleo150Map: { value: this.texPaleo150 },
