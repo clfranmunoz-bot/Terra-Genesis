@@ -2234,3 +2234,43 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 
+
+/* ========================================================
+   MÓVIL (≤ 600 px): encabezado en dos filas y botones solo con icono
+   ======================================================== */
+@media (max-width: 600px) {
+    #hud-header {
+        left: 8px;
+        right: 8px;
+        top: 8px;
+        height: auto;
+        padding: 6px 10px;
+        flex-wrap: wrap;
+        row-gap: 6px;
+    }
+    #hud-header h1 { font-size: 0.95rem; }
+    #hud-header .badge { display: none; }
+    .simulation-time { font-size: 0.6rem; max-width: 55%; text-align: right; }
+    #header-quick-actions {
+        width: 100%;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        gap: 6px;
+        scrollbar-width: none;
+    }
+    #header-quick-actions .btn-text { display: none; }
+    #header-quick-actions .obs-btn { flex: 0 0 auto; padding: 6px 10px; }
+    #scenarios-bar { top: 112px; left: 8px; right: 8px; transform: none; max-width: none; }
+    #scanner-view-bar,
+    #scanner-view-bar.scanner-floating-pill { top: 166px; max-width: calc(100vw - 16px); }
+    .scanner-label { display: none; }
+    .hud-panel { top: 212px; width: calc(100vw - 16px); max-width: 340px; }
+    /* El cajón se abre a la izquierda del panel de parámetros; en móvil no hay sitio: ocupa el ancho */
+    .geo-side-drawer:not(.collapsed) { right: 8px; left: 8px; max-width: none; }
+    .geo-side-drawer .geo-drawer-content { width: auto; max-width: none; }
+}
+
+/* Pantallas medianas: los 7 botones del encabezado no caben con texto; queda el icono (el título sale en el tooltip) */
+@media (max-width: 1200px) {
+    #header-quick-actions .btn-text { display: none; }
+}

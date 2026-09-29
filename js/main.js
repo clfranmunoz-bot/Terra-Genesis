@@ -1450,6 +1450,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // En móvil no caben los dos paneles a la vez: abrir uno pliega el otro
+    const esMovil = () => window.matchMedia('(max-width: 600px)').matches;
+    btnTabLeft?.addEventListener('click', () => { if (esMovil()) btnCollapseRight?.click(); });
+    btnTabRight?.addEventListener('click', () => { if (esMovil()) btnCollapseLeft?.click(); });
+
     // En pantallas estrechas (tableta, móvil) los paneles empiecen plegados para dejar ver el globo
     if (window.matchMedia('(max-width: 1024px)').matches) {
         btnCollapseLeft?.click();

@@ -50,6 +50,9 @@ class PlanetViewer {
         
         this.camera = new THREE.PerspectiveCamera(45, this.width / this.height, 0.1, 1000);
         this.camera.position.set(0, 3, 20);
+        // En pantallas verticales el campo de visión horizontal es menor: alejar la cámara para que el globo quepa a lo ancho
+        const aspecto = this.width / this.height;
+        if (aspecto < 1) this.camera.position.multiplyScalar(Math.min(2.4, 1 / aspecto));
 
         this.renderer = new THREE.WebGLRenderer({
             antialias: true,
