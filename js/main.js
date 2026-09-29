@@ -1450,6 +1450,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // En pantallas estrechas (tableta, móvil) los paneles empiecen plegados para dejar ver el globo
+    if (window.matchMedia('(max-width: 1024px)').matches) {
+        btnCollapseLeft?.click();
+        btnCollapseRight?.click();
+    }
+
 
     // ========================================================
     // REGISTRO DE TENDENCIA TÉRMICA EN TIEMPO REAL (SPARKLINE)
